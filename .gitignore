@@ -114,6 +114,7 @@ cache_forge/
 # LLM collaboration files (keep these local)
 llm/
 CLAUDE.md
+docs/
 
 # Build outputs
 build/
