@@ -3,8 +3,8 @@ pragma solidity ^0.8.20;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
-import "@openzeppelin/contracts/security/Pausable.sol";
+import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import "@openzeppelin/contracts/utils/Pausable.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "./NGORegistry.sol";
 import "./MockYieldVault.sol";
@@ -36,7 +36,7 @@ contract MorphImpactStaking is ReentrancyGuard, Pausable, Ownable {
     NGORegistry public ngoRegistry;
     MockYieldVault public yieldVault;
     
-    mapping(address => UserStake) public userStakes;
+    mapping(address => UserStake) internal userStakes;
     mapping(address => uint256) public totalStaked; // token => total staked
     mapping(address => mapping(address => uint256)) public totalStakedForNGO; // token => NGO => amount
     mapping(address => mapping(address => uint256)) public totalYieldToNGO; // token => NGO => yield
@@ -91,7 +91,7 @@ contract MorphImpactStaking is ReentrancyGuard, Pausable, Ownable {
     error InsufficientBalance();
     error InvalidAddress();
     
-    constructor(address _ngoRegistry, address _yieldVault) {
+    constructor(address _ngoRegistry, address _yieldVault) Ownable(msg.sender) {
         if (_ngoRegistry == address(0) || _yieldVault == address(0)) revert InvalidAddress();
         
         ngoRegistry = NGORegistry(_ngoRegistry);
@@ -185,7 +185,7 @@ contract MorphImpactStaking is ReentrancyGuard, Pausable, Ownable {
         
         // Transfer tokens to this contract then to yield vault
         IERC20(_token).safeTransferFrom(msg.sender, address(this), _amount);
-        IERC20(_token).safeApprove(address(yieldVault), _amount);
+        IERC20(_token).forceApprove(address(yieldVault), _amount);
         yieldVault.deposit(_token, _amount);
         
         emit Staked(msg.sender, _ngo, _token, _amount, _lockPeriod, _yieldContributionRate);
@@ -253,7 +253,10 @@ contract MorphImpactStaking is ReentrancyGuard, Pausable, Ownable {
         
         (uint256 yieldToUser, uint256 yieldToNGO) = _calculateAndDistributeYield(msg.sender, _ngo, _token);
         
-        if (yieldToUser + yieldToNGO == 0) revert NoActiveStake();
+        if (yieldToUser + yieldToNGO == 0) {
+            // No yield to claim, just return without reverting
+            return;
+        }
         
         yieldVault.withdraw(_token, yieldToUser);
         
