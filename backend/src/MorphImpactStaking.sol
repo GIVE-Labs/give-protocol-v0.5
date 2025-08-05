@@ -25,6 +25,7 @@ contract MorphImpactStaking is ReentrancyGuard, Pausable, Ownable {
         uint256 totalYieldToNGO;
         bool isActive;
         uint256 stakeTime;
+        uint256 lastYieldUpdate;
     }
 
     struct UserStake {
@@ -40,6 +41,7 @@ contract MorphImpactStaking is ReentrancyGuard, Pausable, Ownable {
     mapping(address => uint256) public totalStaked; // token => total staked
     mapping(address => mapping(address => uint256)) public totalStakedForNGO; // token => NGO => amount
     mapping(address => mapping(address => uint256)) public totalYieldToNGO; // token => NGO => yield
+    mapping(address => uint256) public vaultDepositTime; // token => when staking contract first deposited
     
     uint256 public constant MIN_YIELD_CONTRIBUTION = 5000; // 50%
     uint256 public constant MAX_YIELD_CONTRIBUTION = 10000; // 100%
@@ -172,6 +174,7 @@ contract MorphImpactStaking is ReentrancyGuard, Pausable, Ownable {
             stakeInfo.totalYieldToNGO = 0;
             stakeInfo.isActive = true;
             stakeInfo.stakeTime = block.timestamp;
+            stakeInfo.lastYieldUpdate = block.timestamp;
             
             userStake.stakedNGOs[_token].push(_ngo);
             userStake.hasStake[_token][_ngo] = true;
@@ -225,8 +228,11 @@ contract MorphImpactStaking is ReentrancyGuard, Pausable, Ownable {
         totalStaked[_token] -= unstakeAmount;
         totalStakedForNGO[_token][_ngo] -= unstakeAmount;
         
-        // Withdraw from yield vault and transfer to user
-        yieldVault.withdraw(_token, unstakeAmount + yieldToUser);
+        // Claim yield first (transfers yield to this contract)
+        yieldVault.claimYield(_token);
+        
+        // Withdraw only the principal from the vault
+        yieldVault.withdraw(_token, unstakeAmount);
         
         if (yieldToNGO > 0) {
             // Transfer yield to NGO
@@ -258,7 +264,8 @@ contract MorphImpactStaking is ReentrancyGuard, Pausable, Ownable {
             return;
         }
         
-        yieldVault.withdraw(_token, yieldToUser);
+        // Claim the yield from vault (transfers yield to this contract)
+        yieldVault.claimYield(_token);
         
         if (yieldToNGO > 0) {
             IERC20(_token).safeTransfer(_ngo, yieldToNGO);
@@ -288,14 +295,32 @@ contract MorphImpactStaking is ReentrancyGuard, Pausable, Ownable {
     ) internal returns (uint256 yieldToUser, uint256 yieldToNGO) {
         StakeInfo storage stakeInfo = userStakes[_user].stakes[_token][_ngo];
         
-        uint256 totalYield = yieldVault.calculateYield(address(this), _token);
-        uint256 userShare = (totalYield * stakeInfo.amount) / totalStaked[_token];
+        if (stakeInfo.amount == 0 || stakeInfo.lastYieldUpdate == 0) {
+            return (0, 0);
+        }
         
-        yieldToNGO = (userShare * stakeInfo.yieldContributionRate) / BASIS_POINTS;
-        yieldToUser = userShare - yieldToNGO;
+        // Calculate yield based on individual stake duration
+        uint256 timeElapsed = block.timestamp - stakeInfo.lastYieldUpdate;
+        if (timeElapsed == 0) {
+            return (0, 0);
+        }
         
-        stakeInfo.totalYieldGenerated += userShare;
+        // Get vault's APY for this token
+        uint256 apy = yieldVault.getAPY(_token);
+        if (apy == 0) {
+            return (0, 0);
+        }
+        
+        // Calculate yield: amount * APY * timeElapsed / (BASIS_POINTS * SECONDS_PER_YEAR)
+        uint256 yearlyYield = (stakeInfo.amount * apy) / BASIS_POINTS;
+        uint256 yield = (yearlyYield * timeElapsed) / 365 days;
+        
+        yieldToNGO = (yield * stakeInfo.yieldContributionRate) / BASIS_POINTS;
+        yieldToUser = yield - yieldToNGO;
+        
+        stakeInfo.totalYieldGenerated += yield;
         stakeInfo.totalYieldToNGO += yieldToNGO;
+        stakeInfo.lastYieldUpdate = block.timestamp;
     }
     
     /**
@@ -381,14 +406,28 @@ contract MorphImpactStaking is ReentrancyGuard, Pausable, Ownable {
         address _token
     ) external view returns (uint256 pendingYield, uint256 yieldToUser, uint256 yieldToNGO) {
         StakeInfo memory stakeInfo = userStakes[_user].stakes[_token][_ngo];
-        if (!stakeInfo.isActive) return (0, 0, 0);
+        if (!stakeInfo.isActive || stakeInfo.lastYieldUpdate == 0) {
+            return (0, 0, 0);
+        }
         
-        uint256 totalYield = yieldVault.calculateYield(address(this), _token);
-        uint256 userShare = (totalYield * stakeInfo.amount) / totalStaked[_token];
+        uint256 timeElapsed = block.timestamp - stakeInfo.lastYieldUpdate;
+        if (timeElapsed == 0) {
+            return (0, 0, 0);
+        }
         
-        yieldToNGO = (userShare * stakeInfo.yieldContributionRate) / BASIS_POINTS;
-        yieldToUser = userShare - yieldToNGO;
-        pendingYield = userShare;
+        // Get vault's APY for this token
+        uint256 apy = yieldVault.getAPY(_token);
+        if (apy == 0) {
+            return (0, 0, 0);
+        }
+        
+        // Calculate yield: amount * APY * timeElapsed / (BASIS_POINTS * SECONDS_PER_YEAR)
+        uint256 yearlyYield = (stakeInfo.amount * apy) / BASIS_POINTS;
+        uint256 yield = (yearlyYield * timeElapsed) / 365 days;
+        
+        yieldToNGO = (yield * stakeInfo.yieldContributionRate) / BASIS_POINTS;
+        yieldToUser = yield - yieldToNGO;
+        pendingYield = yield;
     }
     
     /**
