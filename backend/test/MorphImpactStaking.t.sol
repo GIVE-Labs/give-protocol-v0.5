@@ -62,7 +62,9 @@ contract MorphImpactStakingTest is Test {
         token.transfer(user2, INITIAL_BALANCE);
         
         // Ensure vault has enough tokens for yield simulation
-        token.transfer(address(vault), 100000 * 10**18);
+        // Transfer the remaining balance to vault after user transfers
+        uint256 vaultAmount = 1000000 * 10**18 - (INITIAL_BALANCE * 2);
+        token.transfer(address(vault), vaultAmount);
         vm.stopPrank();
         
         // Setup registry
