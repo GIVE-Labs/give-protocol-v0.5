@@ -1,4 +1,4 @@
-export const MORPH_IMPACT_STAKING_ABI = [
+export const morphImpactStakingAbi = [
   {
     "type": "constructor",
     "inputs": [

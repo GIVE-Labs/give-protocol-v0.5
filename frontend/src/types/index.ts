@@ -11,6 +11,13 @@ export interface NGO {
   reputationScore: bigint;
   totalStakers: bigint;
   totalYieldReceived: bigint;
+  // Extended fields for UI
+  id: string;
+  location: string;
+  category: string;
+  totalStaked: string;
+  activeStakers: number;
+  impactScore: number;
 }
 
 export interface StakeInfo {

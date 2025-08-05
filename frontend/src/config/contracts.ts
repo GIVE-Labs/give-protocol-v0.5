@@ -14,6 +14,13 @@ export const CONTRACT_ADDRESSES = {
   }
 } as const;
 
+// Export individual token addresses for convenience
+export const MOCK_WETH = CONTRACT_ADDRESSES.TOKENS.WETH;
+export const MOCK_USDC = CONTRACT_ADDRESSES.TOKENS.USDC;
+export const MORPH_IMPACT_STAKING = CONTRACT_ADDRESSES.MORPH_IMPACT_STAKING;
+export const NGO_REGISTRY = CONTRACT_ADDRESSES.NGO_REGISTRY;
+export const YIELD_DISTRIBUTOR = CONTRACT_ADDRESSES.YIELD_DISTRIBUTOR;
+
 // Chain configuration
 export const MORPH_HOLESKY = {
   id: 2810,

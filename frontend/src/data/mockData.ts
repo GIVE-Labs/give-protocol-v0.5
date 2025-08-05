@@ -13,7 +13,13 @@ export const mockNGOs: NGO[] = [
     isVerified: true,
     reputationScore: 85n,
     totalStakers: 124n,
-    totalYieldReceived: 2500n
+    totalYieldReceived: 2500n,
+    id: '0x1234567890123456789012345678901234567890',
+    location: 'Global',
+    category: 'Education & Technology',
+    totalStaked: '$45,200',
+    activeStakers: 124,
+    impactScore: 85
   },
   {
     ngoAddress: '0x2345678901234567890123456789012345678901',
@@ -27,7 +33,13 @@ export const mockNGOs: NGO[] = [
     isVerified: true,
     reputationScore: 92n,
     totalStakers: 89n,
-    totalYieldReceived: 1800n
+    totalYieldReceived: 1800n,
+    id: '0x2345678901234567890123456789012345678901',
+    location: 'Africa & Asia',
+    category: 'Environment & Health',
+    totalStaked: '$32,800',
+    activeStakers: 89,
+    impactScore: 92
   },
   {
     ngoAddress: '0x3456789012345678901234567890123456789012',
@@ -41,7 +53,13 @@ export const mockNGOs: NGO[] = [
     isVerified: true,
     reputationScore: 78n,
     totalStakers: 156n,
-    totalYieldReceived: 3200n
+    totalYieldReceived: 3200n,
+    id: '0x3456789012345678901234567890123456789012',
+    location: 'Global',
+    category: 'Health & Technology',
+    totalStaked: '$58,400',
+    activeStakers: 156,
+    impactScore: 78
   },
   {
     ngoAddress: '0x4567890123456789012345678901234567890123',
@@ -55,7 +73,13 @@ export const mockNGOs: NGO[] = [
     isVerified: false,
     reputationScore: 65n,
     totalStakers: 45n,
-    totalYieldReceived: 800n
+    totalYieldReceived: 800n,
+    id: '0x4567890123456789012345678901234567890123',
+    location: 'Global',
+    category: 'Environment & Climate',
+    totalStaked: '$12,600',
+    activeStakers: 45,
+    impactScore: 65
   }
 ]
 
