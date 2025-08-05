@@ -1,0 +1,82 @@
+import { NGO } from '../types'
+
+export const mockNGOs: NGO[] = [
+  {
+    ngoAddress: '0x1234567890123456789012345678901234567890',
+    name: 'Education For All',
+    description: 'Providing quality education to underprivileged children worldwide through innovative digital learning platforms and community-based programs.',
+    website: 'https://educationforall.org',
+    logoURI: 'https://via.placeholder.com/150/667eea/ffffff?text=EFA',
+    walletAddress: '0x1234567890123456789012345678901234567890',
+    causes: ['Education', 'Technology', 'Children'],
+    metadataURI: 'ipfs://educationforall',
+    isVerified: true,
+    reputationScore: 85n,
+    totalStakers: 124n,
+    totalYieldReceived: 2500n
+  },
+  {
+    ngoAddress: '0x2345678901234567890123456789012345678901',
+    name: 'Clean Water Initiative',
+    description: 'Bringing clean and safe drinking water to communities in need through sustainable water purification systems and infrastructure development.',
+    website: 'https://cleanwaterinitiative.org',
+    logoURI: 'https://via.placeholder.com/150/764ba2/ffffff?text=CWI',
+    walletAddress: '0x2345678901234567890123456789012345678901',
+    causes: ['Environment', 'Health', 'Water'],
+    metadataURI: 'ipfs://cleanwater',
+    isVerified: true,
+    reputationScore: 92n,
+    totalStakers: 89n,
+    totalYieldReceived: 1800n
+  },
+  {
+    ngoAddress: '0x3456789012345678901234567890123456789012',
+    name: 'HealthCare Access',
+    description: 'Ensuring equitable access to healthcare services in underserved communities through mobile clinics and telemedicine solutions.',
+    website: 'https://healthcareaccess.org',
+    logoURI: 'https://via.placeholder.com/150/f093fb/ffffff?text=HCA',
+    walletAddress: '0x3456789012345678901234567890123456789012',
+    causes: ['Health', 'Technology', 'Community'],
+    metadataURI: 'ipfs://healthcareaccess',
+    isVerified: true,
+    reputationScore: 78n,
+    totalStakers: 156n,
+    totalYieldReceived: 3200n
+  },
+  {
+    ngoAddress: '0x4567890123456789012345678901234567890123',
+    name: 'Climate Action Network',
+    description: 'Fighting climate change through innovative renewable energy projects and community-based sustainability initiatives.',
+    website: 'https://climateactionnetwork.org',
+    logoURI: 'https://via.placeholder.com/150/4facfe/ffffff?text=CAN',
+    walletAddress: '0x4567890123456789012345678901234567890123',
+    causes: ['Environment', 'Climate', 'Energy'],
+    metadataURI: 'ipfs://climateaction',
+    isVerified: false,
+    reputationScore: 65n,
+    totalStakers: 45n,
+    totalYieldReceived: 800n
+  }
+]
+
+export const causes = [
+  'Education',
+  'Healthcare',
+  'Environment',
+  'Technology',
+  'Children',
+  'Women',
+  'Water',
+  'Food',
+  'Climate',
+  'Energy',
+  'Community',
+  'Disaster Relief'
+]
+
+export const mockStats = {
+  totalNGOs: 4,
+  totalStakers: 414,
+  totalYieldDistributed: 8300,
+  totalValueStaked: 50000
+}
