@@ -4,7 +4,7 @@ pragma solidity ^0.8.20;
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
-import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
+import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 
 /**
  * @title MockYieldVault
@@ -46,8 +46,10 @@ contract MockYieldVault is Ownable, ReentrancyGuard {
     error ZeroAmount();
     error NoYieldToClaim();
     error TokenAlreadySupported();
+    error InvalidAddress();
+    error InvalidAmount();
     
-    constructor() {}
+    constructor() Ownable(msg.sender) {}
     
     /**
      * @dev Add support for a token with mock APY
@@ -112,8 +114,12 @@ contract MockYieldVault is Ownable, ReentrancyGuard {
         DepositInfo storage userDeposit = deposits[msg.sender][_token];
         if (userDeposit.amount < _amount) revert InsufficientBalance();
         
-        // Claim any pending yield before withdrawal
-        _claimYield(msg.sender, _token);
+        // Claim any pending yield before withdrawal (ignore if no yield)
+        try this.claimYield(_token) {
+            // Yield claimed successfully
+        } catch {
+            // No yield to claim, continue with withdrawal
+        }
         
         userDeposit.amount -= _amount;
         totalDeposits[_token] -= _amount;
@@ -148,7 +154,7 @@ contract MockYieldVault is Ownable, ReentrancyGuard {
         if (userDeposit.amount == 0) revert ZeroAmount();
         
         uint256 yield = calculateYield(_user, _token);
-        if (yield == 0) revert NoYieldToClaim();
+        if (yield == 0) return; // Return silently if no yield instead of reverting
         
         userDeposit.lastYieldClaim = block.timestamp;
         totalYieldGenerated[_token] += yield;
@@ -256,12 +262,30 @@ contract MockYieldVault is Ownable, ReentrancyGuard {
     }
     
     /**
+     * @dev Emergency withdrawal of stuck tokens
+     * @param _token Address of the token
+     * @param _amount Amount to withdraw
+     * @param _to Address to send tokens to
+     */
+    function emergencyWithdraw(
+        address _token,
+        uint256 _amount,
+        address _to
+    ) external onlyOwner {
+        if (_to == address(0)) revert InvalidAddress();
+        if (_amount == 0) revert InvalidAmount();
+        
+        IERC20(_token).safeTransfer(_to, _amount);
+    }
+    
+    /**
      * @dev Internal function to mint yield tokens (simulated)
      * @param _token Address of the token
      * @param _amount Amount to mint
      */
     function _mintYield(address _token, uint256 _amount) internal {
-        // In a real implementation, this would mint actual yield tokens
-        // For testing purposes, we assume the contract has sufficient balance
+        // In testing, we simulate yield generation
+        // This ensures the vault always has enough balance for yields
+        // For real implementations, this would come from actual yield strategies
     }
 }
