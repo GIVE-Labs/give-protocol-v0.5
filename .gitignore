@@ -115,6 +115,14 @@ cache_forge/
 llm/
 CLAUDE.md
 docs/
+references/
+
+# Frontend development files
+frontend/.next/
+frontend/node_modules/
+frontend/.env*
+frontend/dist/
+frontend/build/
 
 # Build outputs
 build/
