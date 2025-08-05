@@ -3,8 +3,8 @@ pragma solidity ^0.8.20;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
-import "@openzeppelin/contracts/security/Pausable.sol";
+import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import "@openzeppelin/contracts/utils/Pausable.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "./NGORegistry.sol";
 import "./MorphImpactStaking.sol";
@@ -16,6 +16,8 @@ import "./MorphImpactStaking.sol";
  */
 contract YieldDistributor is ReentrancyGuard, Pausable, Ownable {
     using SafeERC20 for IERC20;
+    
+    uint256 public constant BASIS_POINTS = 10000;
 
     struct DistributionRound {
         uint256 roundNumber;
@@ -83,7 +85,7 @@ contract YieldDistributor is ReentrancyGuard, Pausable, Ownable {
     error RoundNotCompleted();
     error NoUnclaimedYield();
     
-    constructor(address _ngoRegistry, address _stakingContract) {
+    constructor(address _ngoRegistry, address _stakingContract) Ownable(msg.sender) {
         if (_ngoRegistry == address(0) || _stakingContract == address(0)) revert InvalidAddress();
         
         ngoRegistry = NGORegistry(_ngoRegistry);
