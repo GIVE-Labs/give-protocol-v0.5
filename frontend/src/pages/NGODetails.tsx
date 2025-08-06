@@ -3,16 +3,16 @@ import { useParams } from 'react-router-dom'
 import { Heart, MapPin, Globe, Users, Calendar } from 'lucide-react'
 import StakeModal from '../components/staking/StakeModal'
 import Button from '../components/ui/Button'
-import { useNGORegistry } from '../hooks/useNGORegistry'
-import { useActiveChain } from '@thirdweb-dev/react'
+import { useNGORegistry } from '../hooks/useNGORegistryWagmi'
+import { useChainId } from 'wagmi'
 import { NGO } from '../types'
 
 export default function NGODetails() {
   const { id } = useParams()
   const [isStakeModalOpen, setIsStakeModalOpen] = useState(false)
-  const activeChain = useActiveChain()
+  const chainId = useChainId()
   
-  const contractAddress = activeChain?.chainId === 2810 
+  const contractAddress = chainId === 2810 
     ? '0x1234567890123456789012345678901234567890' // Morph mainnet
     : '0x1234567890123456789012345678901234567890' // Morph testnet
   
