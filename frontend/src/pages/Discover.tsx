@@ -1,14 +1,14 @@
 import { useState, useEffect } from 'react'
 import { NGOCard } from '../components/ngo/NGOCard'
-import { useNGORegistry } from '../hooks/useNGORegistry'
-import { useActiveChain } from '@thirdweb-dev/react'
+import { useNGORegistry } from '../hooks/useNGORegistryWagmi'
+import { useChainId } from 'wagmi'
 
 export default function Discover() {
   const [selectedCause, setSelectedCause] = useState<string>('All')
   const [searchQuery, setSearchQuery] = useState('')
-  const activeChain = useActiveChain()
+  const chainId = useChainId()
   
-  const contractAddress = activeChain?.chainId === 2810 
+  const contractAddress = chainId === 2810 
     ? '0x1234567890123456789012345678901234567890' // Morph mainnet
     : '0x1234567890123456789012345678901234567890' // Morph testnet
   
@@ -28,10 +28,10 @@ export default function Discover() {
 
   // Calculate stats from real data
   const verifiedNGOs = contractNGOs.filter(ngo => ngo.isVerified)
-  const totalYieldDistributed = verifiedNGOs.reduce(
+  const totalYieldDistributed = contractNGOs.reduce(
     (sum, ngo) => sum + Number(ngo.totalYieldReceived), 0
-  )
-  const totalStakers = verifiedNGOs.reduce(
+  ) // Already in USD units
+  const totalStakers = contractNGOs.reduce(
     (sum, ngo) => sum + Number(ngo.totalStakers), 0
   )
 
@@ -101,8 +101,8 @@ export default function Discover() {
               <p className="text-gray-600">Verified NGOs</p>
             </div>
             <div className="bg-white p-6 rounded-lg shadow-md text-center">
-              <p className="text-3xl font-bold text-green-600">{totalYieldDistributed.toFixed(2)} ETH</p>
-              <p className="text-gray-600">Yield Distributed</p>
+              <p className="text-3xl font-bold text-green-600">${totalYieldDistributed.toLocaleString()}</p>
+              <p className="text-gray-600">Yield Distributed (USD)</p>
             </div>
             <div className="bg-white p-6 rounded-lg shadow-md text-center">
               <p className="text-3xl font-bold text-blue-600">{totalStakers}</p>
@@ -122,18 +122,6 @@ export default function Discover() {
             </div>
           )}
         </>
-      )}
-
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-        {filteredNGOs.map((ngo) => (
-          <NGOCard key={ngo.ngoAddress} ngo={ngo} />
-        ))}
-      </div>
-
-      {filteredNGOs.length === 0 && (
-        <div className="text-center py-12">
-          <p className="text-gray-500 text-lg">No NGOs found matching your criteria.</p>
-        </div>
       )}
     </div>
   )
