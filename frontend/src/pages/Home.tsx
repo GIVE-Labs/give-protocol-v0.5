@@ -13,7 +13,7 @@ export default function Home() {
           <div className="text-center">
             <h1 className="text-5xl font-bold text-white mb-6">
               Reimagining Donations
-              <span className="block text-3xl mt-2">Fueling Impact</span>
+              <span className="block text-5xl mt-2 bg-gradient-to-r from-yellow-400 via-orange-400 to-red-400 bg-clip-text text-transparent animate-pulse">Fueling Impact</span>
             </h1>
             <p className="text-xl text-purple-100 mb-8 max-w-2xl mx-auto">
               Revolutionary DeFi NGO fundraising. Stake your ETH/USDC on Morph Chain 
