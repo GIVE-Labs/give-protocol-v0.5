@@ -12,13 +12,20 @@ export default function Home() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-24">
           <div className="text-center">
             <h1 className="text-5xl font-bold text-white mb-6">
-              Stake Crypto, Support NGOs
-              <span className="block text-3xl mt-2">Keep Your Principal</span>
+              Reimagining Donations
+              <span className="block text-3xl mt-2">Fueling Impact</span>
             </h1>
             <p className="text-xl text-purple-100 mb-8 max-w-2xl mx-auto">
               Revolutionary DeFi NGO fundraising. Stake your ETH/USDC on Morph Chain 
               to generate yield for verified NGOs while keeping your full principal.
             </p>
+            <div className="mb-8">
+              <img 
+                src="/src/assets/morph-logo.png" 
+                alt="Powered by Morph" 
+                className="h-8 mx-auto filter brightness-0 invert"
+              />
+            </div>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <Link
                 to="/discover"
