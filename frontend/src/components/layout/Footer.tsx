@@ -9,7 +9,7 @@ export default function Footer() {
             <div className="flex items-center space-x-2">
               <Heart className="h-5 w-5 text-morph-600" />
               <span className="text-sm text-gray-600">
-                © 2024 MorphImpact. Built on Morph Chain.
+                © 2024 MorphImpact. Powered by Morph Chain.
               </span>
             </div>
             <div className="flex space-x-6">
