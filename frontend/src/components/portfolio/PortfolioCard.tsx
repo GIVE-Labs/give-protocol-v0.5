@@ -1,5 +1,5 @@
 import { formatEther } from 'viem'
-import { Clock, DollarSign, Heart } from 'lucide-react'
+import { Clock, Heart } from 'lucide-react'
 import { StakeData } from '../../types'
 
 interface PortfolioCardProps {
