@@ -93,7 +93,7 @@ export default function Home() {
                 title: 'Claim Principal',
                 description: 'Once lock-in period ends, donors received back their full principal'
               }
-            ].map((item, index) => (
+            ].map((item) => (
               <div key={item.step} className="text-center">
                 <div className="bg-purple-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
                   <span className="text-purple-600 font-bold text-xl">{item.step}</span>
