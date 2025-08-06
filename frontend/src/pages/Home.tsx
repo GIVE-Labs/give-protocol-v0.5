@@ -62,11 +62,11 @@ export default function Home() {
           <div className="text-center mb-16">
             <h2 className="text-4xl font-bold text-gray-900 mb-4">How It Works</h2>
             <p className="text-xl text-gray-600 max-w-2xl mx-auto">
-              Simple 4-step process to support NGOs while keeping your investment
+              Simple 5-step process to support NGOs while keeping your investment
             </p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
+          <div className="grid grid-cols-1 md:grid-cols-5 gap-8">
             {[
               {
                 step: 1,
@@ -80,13 +80,18 @@ export default function Home() {
               },
               {
                 step: 3,
-                title: 'Stake Crypto',
-                description: 'Stake ETH/USDC with your chosen yield contribution'
+                title: 'Stake with Config',
+                description: 'Stake ETH/USDC with your chosen yield contribution and lock-in period'
               },
               {
                 step: 4,
-                title: 'Generate Impact',
-                description: 'NGOs receive yield while you keep your principal'
+                title: 'NGO Receives Yield',
+                description: 'NGOs receive yield throughout the lock-in period and obliged to provide quarterly report'
+              },
+              {
+                step: 5,
+                title: 'Claim Principal',
+                description: 'Once lock-in period ends, donors received back their full principal'
               }
             ].map((item, index) => (
               <div key={item.step} className="text-center">
