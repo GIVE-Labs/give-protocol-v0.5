@@ -8,4 +8,12 @@ export default defineConfig({
       '@': '/src',
     },
   },
+  optimizeDeps: {
+    include: ['@rainbow-me/rainbowkit', 'wagmi'],
+    exclude: [],
+  },
+  server: {
+    port: 5173,
+    strictPort: false,
+  },
 })
