@@ -19,13 +19,15 @@ export default function Home() {
               Revolutionary DeFi NGO fundraising. Stake your ETH/USDC on Morph Chain 
               to generate yield for verified NGOs while keeping your full principal.
             </p>
-            <div className="mb-8 flex items-center justify-center space-x-2">
-              <span className="text-white/80 text-sm">Powered by</span>
-              <img 
-                src="/src/assets/morph-logo.png" 
-                alt="Morph" 
-                className="h-6"
-              />
+            <div className="mb-8">
+              <div className="inline-flex items-center space-x-3 bg-white/10 backdrop-blur-sm rounded-lg px-4 py-2">
+                <span className="text-white/90 text-sm font-medium">Powered by</span>
+                <img 
+                  src="/src/assets/morph-logo.png" 
+                  alt="Morph" 
+                  className="h-8"
+                />
+              </div>
             </div>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <Link
