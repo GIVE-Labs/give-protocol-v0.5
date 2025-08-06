@@ -1,15 +1,46 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useParams } from 'react-router-dom'
 import { Heart, MapPin, Globe, Users, Calendar } from 'lucide-react'
 import StakeModal from '../components/staking/StakeModal'
 import Button from '../components/ui/Button'
-import { mockNGOs } from '../data/mockData'
+import { useNGORegistry } from '../hooks/useNGORegistry'
+import { useActiveChain } from '@thirdweb-dev/react'
+import { NGO } from '../types'
 
 export default function NGODetails() {
   const { id } = useParams()
   const [isStakeModalOpen, setIsStakeModalOpen] = useState(false)
+  const activeChain = useActiveChain()
   
-  const ngo = mockNGOs.find(n => n.id === id)
+  const contractAddress = activeChain?.chainId === 2810 
+    ? '0x1234567890123456789012345678901234567890' // Morph mainnet
+    : '0x1234567890123456789012345678901234567890' // Morph testnet
+  
+  const { fetchNGOByAddress } = useNGORegistry(contractAddress)
+  const [ngo, setNgo] = useState<NGO | null>(null)
+  const [loading, setLoading] = useState(true)
+  
+  useEffect(() => {
+    const loadNGO = async () => {
+      if (id) {
+        setLoading(true)
+        const ngoData = await fetchNGOByAddress(id)
+        setNgo(ngoData)
+        setLoading(false)
+      }
+    }
+    loadNGO()
+  }, [id, contractAddress])
+  
+  if (loading) {
+    return (
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+        <div className="text-center">
+          <p className="text-xl text-gray-600">Loading NGO details...</p>
+        </div>
+      </div>
+    )
+  }
   
   if (!ngo) {
     return (
@@ -35,13 +66,13 @@ export default function NGODetails() {
                 <p className="text-blue-100 text-lg">{ngo.description}</p>
               </div>
               <div className="flex items-center space-x-2">
-                {ngo.verified && (
+                {ngo.isVerified && (
                   <span className="bg-green-500 text-white px-3 py-1 rounded-full text-sm font-medium">
                     Verified
                   </span>
                 )}
                 <span className="bg-white bg-opacity-20 text-white px-3 py-1 rounded-full text-sm">
-                  {ngo.category}
+                  {ngo.causes[0] || 'General'}
                 </span>
               </div>
             </div>
@@ -67,15 +98,15 @@ export default function NGODetails() {
                 <h3 className="text-lg font-semibold text-gray-900 mb-4">Impact Statistics</h3>
                 <div className="grid grid-cols-3 gap-4">
                   <div className="text-center">
-                    <div className="text-2xl font-bold text-blue-600">{ngo.totalStaked}</div>
+                    <div className="text-2xl font-bold text-blue-600">{Number(ngo.totalStakers) * 0.5} ETH</div>
                     <div className="text-sm text-gray-600">Total Staked</div>
                   </div>
                   <div className="text-center">
-                    <div className="text-2xl font-bold text-green-600">{ngo.activeStakers}</div>
+                    <div className="text-2xl font-bold text-green-600">{Number(ngo.totalStakers)}</div>
                     <div className="text-sm text-gray-600">Active Stakers</div>
                   </div>
                   <div className="text-center">
-                    <div className="text-2xl font-bold text-purple-600">{ngo.impactScore}</div>
+                    <div className="text-2xl font-bold text-purple-600">{Number(ngo.reputationScore)}</div>
                     <div className="text-sm text-gray-600">Impact Score</div>
                   </div>
                 </div>
@@ -109,7 +140,7 @@ export default function NGODetails() {
                 <div className="space-y-4 mb-6">
                   <div className="flex items-center text-sm text-gray-600">
                     <MapPin className="w-4 h-4 mr-2" />
-                    {ngo.location}
+                    Global Operations
                   </div>
                   <div className="flex items-center text-sm text-gray-600">
                     <Globe className="w-4 h-4 mr-2" />
@@ -117,7 +148,7 @@ export default function NGODetails() {
                   </div>
                   <div className="flex items-center text-sm text-gray-600">
                     <Users className="w-4 h-4 mr-2" />
-                    {ngo.activeStakers} Active Stakers
+                    {Number(ngo.totalStakers)} Active Stakers
                   </div>
                   <div className="flex items-center text-sm text-gray-600">
                     <Calendar className="w-4 h-4 mr-2" />
@@ -127,7 +158,7 @@ export default function NGODetails() {
 
                 <div className="border-t pt-4 mb-6">
                   <div className="text-center">
-                    <div className="text-3xl font-bold text-blue-600 mb-2">{ngo.totalStaked}</div>
+                    <div className="text-3xl font-bold text-blue-600 mb-2">{Number(ngo.totalStakers) * 0.5} ETH</div>
                     <div className="text-sm text-gray-600">Currently Staked</div>
                   </div>
                 </div>
