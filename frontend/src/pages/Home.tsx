@@ -13,12 +13,21 @@ export default function Home() {
           <div className="text-center">
             <h1 className="text-5xl font-bold text-white mb-6">
               Reimagining Donations
-              <span className="block text-5xl mt-2 bg-gradient-to-r from-yellow-400 via-orange-400 to-red-400 bg-clip-text text-transparent animate-pulse">Fueling Impact</span>
+              <span className="block text-6xl mt-2 bg-gradient-to-r from-yellow-400 via-orange-400 to-red-400 bg-clip-text text-transparent animate-pulse">Fueling Impact</span>
             </h1>
-            <p className="text-xl text-purple-100 mb-8 max-w-2xl mx-auto">
-              Revolutionary DeFi NGO fundraising. Stake your ETH/USDC on Morph Chain 
-              to generate yield for verified NGOs while keeping your full principal.
-            </p>
+            <div className="text-xl text-purple-100 mb-8 max-w-3xl mx-auto space-y-4">
+              <p className="text-2xl font-medium text-white/95">
+                MorphImpact is changing how donations work.
+              </p>
+              <p className="text-lg text-white/90 leading-relaxed">
+                You can donate and contribute for good cause <br />
+                without the need to losing your money.
+              </p>
+              <p className="text-lg text-white/90 leading-relaxed">
+                Stake your ETH/USDC on Morph Chain to generate yield for verified NGOs <br />
+                and claim your full amount after the lock-in period finished.
+              </p>
+            </div>
             <div className="mb-8">
               <div className="inline-flex items-center space-x-4 bg-white/15 backdrop-blur-sm rounded-xl px-8 py-4 border border-white/20">
                 <span className="text-white/90 text-xl font-semibold">Powered by</span>
