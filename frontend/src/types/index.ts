@@ -8,6 +8,7 @@ export interface NGO {
   causes: string[];
   metadataURI: string;
   isVerified: boolean;
+  isActive: boolean;
   reputationScore: bigint;
   totalStakers: bigint;
   totalYieldReceived: bigint;
