@@ -12,23 +12,23 @@ export const NGOCard: React.FC<NGOCardProps> = ({ ngo }) => {
 
   return (
     <div className="bg-white rounded-xl shadow-lg overflow-hidden hover:shadow-xl transition-shadow duration-300">
-      <div className="h-48 bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center">
+      <div className="h-48 relative">
         <img 
           src={ngo.logoURI} 
           alt={ngo.name}
-          className="w-24 h-24 rounded-full object-cover border-4 border-white"
+          className="w-full h-full object-cover"
         />
-      </div>
-      
-      <div className="p-6">
-        <div className="flex items-center justify-between mb-2">
-          <h3 className="text-xl font-bold text-gray-900">{ngo.name}</h3>
+        <div className="absolute top-4 right-4">
           {ngo.isVerified && (
-            <span className="bg-green-100 text-green-800 text-xs font-semibold px-2 py-1 rounded-full">
+            <span className="bg-green-500 text-white text-xs font-semibold px-2 py-1 rounded-full shadow-md">
               Verified
             </span>
           )}
         </div>
+      </div>
+      
+      <div className="p-6">
+        <h3 className="text-xl font-bold text-gray-900 mb-2">{ngo.name}</h3>
         
         <p className="text-gray-600 mb-4 line-clamp-2">{ngo.description}</p>
         
