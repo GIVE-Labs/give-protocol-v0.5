@@ -44,7 +44,7 @@ export default function StakingForm({ ngo, onClose }: StakingFormProps) {
     hash: stakeHash,
   })
 
-  const needsApproval = allowance < parseEther(amount || '0')
+  const needsApproval = allowance && allowance < parseEther(amount || '0')
   const amountInWei = parseEther(amount || '0')
 
   const handleApprove = async () => {
@@ -98,7 +98,7 @@ export default function StakingForm({ ngo, onClose }: StakingFormProps) {
         <label className="block text-sm font-medium text-gray-700 mb-2">Select Token</label>
         <select
           value={token}
-          onChange={(e) => setToken(e.target.value)}
+          onChange={(e) => setToken(e.target.value as typeof MOCK_WETH)}
           className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
         >
           <option value={MOCK_WETH}>WETH</option>
