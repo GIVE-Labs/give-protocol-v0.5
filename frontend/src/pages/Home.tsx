@@ -1,9 +1,27 @@
 import { Link } from 'react-router-dom'
-import { mockNGOs } from '../data/mockData'
+import { useNGORegistry } from '../hooks/useNGORegistryWagmi'
+import { useChainId } from 'wagmi'
 import { NGOCard } from '../components/ngo/NGOCard'
 
 export default function Home() {
-  const featuredNGOs = mockNGOs.filter(ngo => ngo.isVerified).slice(0, 3)
+  const chainId = useChainId()
+  const contractAddress = chainId === 2810 
+    ? '0x1234567890123456789012345678901234567890'
+    : '0x1234567890123456789012345678901234567890'
+  
+  const { ngos: allNGOs } = useNGORegistry(contractAddress)
+  
+  const featuredNGOs = allNGOs.filter(ngo => ngo.isVerified).slice(0, 3)
+  const verifiedNGOs = allNGOs.filter(ngo => ngo.isVerified)
+  const totalYieldDistributed = allNGOs.reduce(
+    (sum, ngo) => sum + Number(ngo.totalYieldReceived), 0
+  )
+  const totalStakers = allNGOs.reduce(
+    (sum, ngo) => sum + Number(ngo.totalStakers), 0
+  )
+  const totalValueStaked = allNGOs.reduce(
+    (sum, ngo) => sum + (Number(ngo.totalStakers) * 0.5), 0
+  )
 
   return (
     <div className="min-h-screen">
@@ -136,19 +154,19 @@ export default function Home() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-8 text-center">
             <div>
-              <div className="text-4xl font-bold text-white mb-2">4</div>
+              <div className="text-4xl font-bold text-white mb-2">{verifiedNGOs.length}</div>
               <div className="text-purple-200">Verified NGOs</div>
             </div>
             <div>
-              <div className="text-4xl font-bold text-white mb-2">$8,300</div>
+              <div className="text-4xl font-bold text-white mb-2">${totalYieldDistributed.toLocaleString()}</div>
               <div className="text-purple-200">Yield Distributed</div>
             </div>
             <div>
-              <div className="text-4xl font-bold text-white mb-2">414</div>
+              <div className="text-4xl font-bold text-white mb-2">{totalStakers.toLocaleString()}</div>
               <div className="text-purple-200">Active Stakers</div>
             </div>
             <div>
-              <div className="text-4xl font-bold text-white mb-2">50,000</div>
+              <div className="text-4xl font-bold text-white mb-2">{totalValueStaked.toLocaleString()} ETH</div>
               <div className="text-purple-200">Total Value Staked</div>
             </div>
           </div>
