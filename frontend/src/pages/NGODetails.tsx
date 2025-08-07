@@ -111,9 +111,9 @@ export default function NGODetails() {
     if (!ngo || !userAddress) return;
 
     let lockDuration = 0;
-    if (lockPeriod === '6m') lockDuration = 6 * 30 * 24 * 60 * 60;
-    if (lockPeriod === '1y') lockDuration = 365 * 24 * 60 * 60;
-    if (lockPeriod === '2y') lockDuration = 2 * 365 * 24 * 60 * 60;
+    if (lockPeriod === '6m') lockDuration = 180 * 24 * 60 * 60; // 180 days = 6 months
+    if (lockPeriod === '1y') lockDuration = 365 * 24 * 60 * 60; // 365 days = 1 year
+    if (lockPeriod === '2y') lockDuration = 730 * 24 * 60 * 60; // 730 days = 2 years
 
     const yieldShareBP = parseInt(yieldShare.replace('%', '')) * 100;
     const tokenAddress = selectedToken === 'ETH' ? '0x0000000000000000000000000000000000000000' : 
@@ -124,11 +124,11 @@ export default function NGODetails() {
         address: STAKING_CONTRACT as `0x${string}`,
         abi: [{
           name: 'stake', type: 'function', stateMutability: 'payable',
-          inputs: [{ name: 'ngoAddress', type: 'address' }, { name: 'token', type: 'address' }, { name: 'amount', type: 'uint256' }, { name: 'lockDuration', type: 'uint256' }, { name: 'yieldShareBP', type: 'uint16' }],
+          inputs: [{ name: 'ngoAddress', type: 'address' }, { name: 'token', type: 'address' }, { name: 'amount', type: 'uint256' }, { name: 'lockDuration', type: 'uint256' }, { name: 'yieldShareBP', type: 'uint256' }],
           outputs: []
         }],
         functionName: 'stake',
-        args: [ngo.ngoAddress as `0x${string}`, tokenAddress as `0x${string}`, amountToStake, BigInt(lockDuration), yieldShareBP],
+        args: [ngo.ngoAddress as `0x${string}`, tokenAddress as `0x${string}`, amountToStake, BigInt(lockDuration), BigInt(yieldShareBP)],
         value: selectedToken === 'ETH' ? amountToStake : 0n
       });
     } catch (error) {
@@ -141,6 +141,22 @@ export default function NGODetails() {
     if (!stakeAmount || parseFloat(stakeAmount) <= 0 || !userAddress || !ngo) return;
 
     console.log('handlePrimaryAction - needsApproval:', needsApproval, 'for amount:', amountToStake.toString());
+    const yieldShareBP = parseInt(yieldShare.replace('%', '')) * 100;
+    let lockDuration = 0;
+    if (lockPeriod === '6m') lockDuration = 180 * 24 * 60 * 60;
+    if (lockPeriod === '1y') lockDuration = 365 * 24 * 60 * 60;
+    if (lockPeriod === '2y') lockDuration = 730 * 24 * 60 * 60;
+
+    console.log('Staking parameters:', {
+      ngoAddress: ngo.ngoAddress,
+      tokenAddress,
+      amount: amountToStake.toString(),
+      lockDuration: lockDuration.toString(),
+      yieldShareBP: yieldShareBP.toString(),
+      selectedToken,
+      lockPeriod,
+      yieldShare
+    });
 
     if (needsApproval) {
       setProgressSteps(['Approve Token', 'Stake Tokens']);
