@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useReadContract } from 'wagmi';
 import { NGO } from '../types';
 
@@ -89,7 +89,7 @@ export const useNGORegistry = (contractAddress: string) => {
       name: 'Education For All',
       description: 'Providing quality education to underprivileged children worldwide through innovative digital learning platforms and community-based programs.',
       website: 'https://educationforall.org',
-      logoURI: 'https://via.placeholder.com/150/667eea/ffffff?text=EFA',
+      logoURI: 'https://images.unsplash.com/photo-1488521787991-ed7bbaae773c?w=400&h=300&fit=crop&q=80',
       walletAddress: '0x1234567890123456789012345678901234567890',
       isVerified: true,
       isActive: true,
@@ -104,7 +104,7 @@ export const useNGORegistry = (contractAddress: string) => {
       name: 'Clean Water Initiative',
       description: 'Bringing clean and safe drinking water to communities in need through sustainable water purification systems and infrastructure development.',
       website: 'https://cleanwaterinitiative.org',
-      logoURI: 'https://via.placeholder.com/150/764ba2/ffffff?text=CWI',
+      logoURI: 'https://images.unsplash.com/photo-1441974231531-c6227db76b6e?w=400&h=300&fit=crop&q=80',
       walletAddress: '0x2345678901234567890123456789012345678901',
       isVerified: true,
       isActive: true,
@@ -119,7 +119,7 @@ export const useNGORegistry = (contractAddress: string) => {
       name: 'HealthCare Access',
       description: 'Ensuring equitable access to healthcare services in underserved communities through mobile clinics and telemedicine solutions.',
       website: 'https://healthcareaccess.org',
-      logoURI: 'https://via.placeholder.com/150/f093fb/ffffff?text=HCA',
+      logoURI: 'https://images.unsplash.com/photo-1576091160550-2173dba999ef?w=400&h=300&fit=crop&q=80',
       walletAddress: '0x3456789012345678901234567890123456789012',
       isVerified: true,
       isActive: true,
@@ -132,23 +132,23 @@ export const useNGORegistry = (contractAddress: string) => {
     }
   };
 
-  useEffect(() => {
-    const loadNGOs = async () => {
-      try {
-        // For now, use the deployed NGO addresses from the deployment script
-        const addresses = Object.keys(deployedNGOs);
-        const ngoData = addresses.map(address => formatNGOData(address, deployedNGOs[address]));
-        setNgos(ngoData);
-        setLoading(false);
-      } catch (err) {
-        console.error('Error loading NGOs:', err);
-        setError(err instanceof Error ? err.message : 'Failed to load NGOs');
-        setLoading(false);
-      }
-    };
-
-    loadNGOs();
+  const loadNGOs = useCallback(async () => {
+    try {
+      // For now, use the deployed NGO addresses from the deployment script
+      const addresses = Object.keys(deployedNGOs);
+      const ngoData = addresses.map(address => formatNGOData(address, deployedNGOs[address]));
+      setNgos(ngoData);
+      setLoading(false);
+    } catch (err) {
+      console.error('Error loading NGOs:', err);
+      setError(err instanceof Error ? err.message : 'Failed to load NGOs');
+      setLoading(false);
+    }
   }, [contractAddress]);
+
+  useEffect(() => {
+    loadNGOs();
+  }, [loadNGOs]);
 
   // Fetch individual NGO details
   const fetchNGODetails = async (address: string): Promise<NGO> => {
@@ -157,7 +157,7 @@ export const useNGORegistry = (contractAddress: string) => {
         name: 'Education For All',
         description: 'Providing quality education to underprivileged children worldwide through innovative digital learning platforms and community-based programs.',
         website: 'https://educationforall.org',
-        logoURI: 'https://via.placeholder.com/150/667eea/ffffff?text=EFA',
+        logoURI: 'https://images.unsplash.com/photo-1488521787991-ed7bbaae773c?w=400&h=300&fit=crop&q=80',
         walletAddress: '0x1234567890123456789012345678901234567890',
         isVerified: true,
         isActive: true,
@@ -172,7 +172,7 @@ export const useNGORegistry = (contractAddress: string) => {
         name: 'Clean Water Initiative',
         description: 'Bringing clean and safe drinking water to communities in need through sustainable water purification systems and infrastructure development.',
         website: 'https://cleanwaterinitiative.org',
-        logoURI: 'https://via.placeholder.com/150/764ba2/ffffff?text=CWI',
+        logoURI: 'https://images.unsplash.com/photo-1441974231531-c6227db76b6e?w=400&h=300&fit=crop&q=80',
         walletAddress: '0x2345678901234567890123456789012345678901',
         isVerified: true,
         isActive: true,
@@ -187,7 +187,7 @@ export const useNGORegistry = (contractAddress: string) => {
         name: 'HealthCare Access',
         description: 'Ensuring equitable access to healthcare services in underserved communities through mobile clinics and telemedicine solutions.',
         website: 'https://healthcareaccess.org',
-        logoURI: 'https://via.placeholder.com/150/f093fb/ffffff?text=HCA',
+        logoURI: 'https://images.unsplash.com/photo-1576091160550-2173dba999ef?w=400&h=300&fit=crop&q=80',
         walletAddress: '0x3456789012345678901234567890123456789012',
         isVerified: true,
         isActive: true,
@@ -257,7 +257,7 @@ export const useNGODetails = (contractAddress: string, ngoAddress: string) => {
             name: 'Education For All',
             description: 'Providing quality education to underprivileged children worldwide through innovative digital learning platforms and community-based programs.',
             website: 'https://educationforall.org',
-            logoURI: 'https://via.placeholder.com/150/667eea/ffffff?text=EFA',
+            logoURI: 'https://images.unsplash.com/photo-1488521787991-ed7bbaae773c?w=400&h=300&fit=crop&q=80',
             walletAddress: '0x1234567890123456789012345678901234567890',
             isVerified: true,
             isActive: true,
@@ -272,7 +272,7 @@ export const useNGODetails = (contractAddress: string, ngoAddress: string) => {
             name: 'Clean Water Initiative',
             description: 'Bringing clean and safe drinking water to communities in need through sustainable water purification systems and infrastructure development.',
             website: 'https://cleanwaterinitiative.org',
-            logoURI: 'https://via.placeholder.com/150/764ba2/ffffff?text=CWI',
+            logoURI: 'https://images.unsplash.com/photo-1441974231531-c6227db76b6e?w=400&h=300&fit=crop&q=80',
             walletAddress: '0x2345678901234567890123456789012345678901',
             isVerified: true,
             isActive: true,
@@ -287,7 +287,7 @@ export const useNGODetails = (contractAddress: string, ngoAddress: string) => {
             name: 'HealthCare Access',
             description: 'Ensuring equitable access to healthcare services in underserved communities through mobile clinics and telemedicine solutions.',
             website: 'https://healthcareaccess.org',
-            logoURI: 'https://via.placeholder.com/150/f093fb/ffffff?text=HCA',
+            logoURI: 'https://images.unsplash.com/photo-1576091160550-2173dba999ef?w=400&h=300&fit=crop&q=80',
             walletAddress: '0x3456789012345678901234567890123456789012',
             isVerified: true,
             isActive: true,
