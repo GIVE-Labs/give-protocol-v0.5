@@ -112,10 +112,10 @@ cache_forge/
 .local
 
 # LLM collaboration files (keep these local)
-# llm/
-# CLAUDE.md
-# docs/
-# references/
+llm/
+CLAUDE.md
+docs/
+references/
 
 # Frontend development files
 frontend/.next/
