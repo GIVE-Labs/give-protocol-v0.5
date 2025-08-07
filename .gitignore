@@ -115,7 +115,7 @@ cache_forge/
 # llm/
 # CLAUDE.md
 # docs/
-# references/
+references/
 
 # Frontend development files
 frontend/.next/
