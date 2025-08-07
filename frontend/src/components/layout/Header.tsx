@@ -56,6 +56,11 @@ export default function Header() {
                 smallScreen: false,
                 largeScreen: true,
               }}
+              chainStatus={{
+                smallScreen: 'none',
+                largeScreen: 'icon',
+              }}
+              label="Connect Wallet"
             />
             <button
               className="md:hidden"

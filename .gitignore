@@ -131,3 +131,6 @@ dist/
 # Temporary files
 *.tmp
 *.temp
+
+vite.config.d.ts
+vite.config.js
