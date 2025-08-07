@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useAccount, useBalance, useReadContract, useWriteContract, useWaitForTransactionReceipt } from 'wagmi'
 import { parseEther, formatEther } from 'viem'
 import { NGO } from '../../types'
@@ -6,6 +6,7 @@ import { MORPH_IMPACT_STAKING, MOCK_WETH, MOCK_USDC } from '../../config/contrac
 import { erc20Abi } from '../../abis/erc20'
 import { morphImpactStakingAbi } from '../../abis/MorphImpactStaking'
 import Button from '../ui/Button'
+import StakingProgressModal from './StakingProgressModal'
 
 interface StakingFormProps {
   ngo: NGO
@@ -20,6 +21,10 @@ export default function StakingForm({ ngo, onClose }: StakingFormProps) {
   const [lockPeriod, setLockPeriod] = useState(12)
   const [isApproving, setIsApproving] = useState(false)
   const [isStaking, setIsStaking] = useState(false)
+  const [showProgressModal, setShowProgressModal] = useState(false)
+  const [currentStep, setCurrentStep] = useState(0)
+  const [progressSteps, setProgressSteps] = useState<string[]>([])
+  const [currentTxHash, setCurrentTxHash] = useState<string>()
 
   const { data: tokenBalance } = useBalance({
     address,
@@ -50,7 +55,11 @@ export default function StakingForm({ ngo, onClose }: StakingFormProps) {
   const handleApprove = async () => {
     if (!amount) return
     
+    setProgressSteps(['Approve Token Allowance', 'Confirm Staking Transaction'])
+    setCurrentStep(0)
+    setShowProgressModal(true)
     setIsApproving(true)
+    
     try {
       approveToken({
         address: token as `0x${string}`,
@@ -60,6 +69,7 @@ export default function StakingForm({ ngo, onClose }: StakingFormProps) {
       })
     } catch (error) {
       console.error('Error approving token:', error)
+      setShowProgressModal(false)
     } finally {
       setIsApproving(false)
     }
@@ -68,7 +78,11 @@ export default function StakingForm({ ngo, onClose }: StakingFormProps) {
   const handleStake = async () => {
     if (!amount) return
 
+    setProgressSteps(['Confirm Staking Transaction'])
+    setCurrentStep(0)
+    setShowProgressModal(true)
     setIsStaking(true)
+    
     try {
       stakeTokens({
         address: MORPH_IMPACT_STAKING,
@@ -84,12 +98,45 @@ export default function StakingForm({ ngo, onClose }: StakingFormProps) {
       })
     } catch (error) {
       console.error('Error staking tokens:', error)
+      setShowProgressModal(false)
     } finally {
       setIsStaking(false)
     }
   }
 
   const estimatedYield = (parseFloat(amount || '0') * 0.05 * (lockPeriod / 12) * (contributionRate / 100)).toFixed(2)
+
+  useEffect(() => {
+    if (approveHash) {
+      setCurrentTxHash(approveHash)
+    }
+  }, [approveHash])
+
+  useEffect(() => {
+    if (stakeHash) {
+      setCurrentTxHash(stakeHash)
+    }
+  }, [stakeHash])
+
+  useEffect(() => {
+    if (isApprovingTx) {
+      setCurrentStep(0)
+    } else if (approveHash && !isApprovingTx) {
+      setCurrentStep(1)
+    }
+  }, [isApprovingTx, approveHash])
+
+  useEffect(() => {
+    if (isStakingTx) {
+      setCurrentStep(0)
+    } else if (stakeHash && !isStakingTx) {
+      setCurrentStep(1)
+      setTimeout(() => {
+        setShowProgressModal(false)
+        onClose()
+      }, 2000)
+    }
+  }, [isStakingTx, stakeHash, onClose])
 
   return (
     <div className="space-y-6">
@@ -198,6 +245,17 @@ export default function StakingForm({ ngo, onClose }: StakingFormProps) {
           Cancel
         </Button>
       </div>
+
+      <StakingProgressModal
+        isOpen={showProgressModal}
+        onClose={() => {
+          setShowProgressModal(false)
+          onClose()
+        }}
+        currentStep={currentStep}
+        steps={progressSteps}
+        txHash={currentTxHash}
+      />
     </div>
   )
 }
