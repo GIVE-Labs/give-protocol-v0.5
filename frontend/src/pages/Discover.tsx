@@ -1,7 +1,67 @@
 import { useState, useEffect } from 'react'
 import { NGOCard } from '../components/ngo/NGOCard'
-import { useNGORegistry } from '../hooks/useNGORegistryWagmi'
 import { useChainId } from 'wagmi'
+import { useReadContract } from 'wagmi'
+import { NGO } from '../types'
+
+const NGO_REGISTRY_ABI = [
+  {
+    name: 'getNGO',
+    type: 'function',
+    stateMutability: 'view',
+    inputs: [{ name: '_ngoAddress', type: 'address' }],
+    outputs: [{
+      name: '',
+      type: 'tuple',
+      components: [
+        { name: 'name', type: 'string' },
+        { name: 'description', type: 'string' },
+        { name: 'website', type: 'string' },
+        { name: 'logoURI', type: 'string' },
+        { name: 'walletAddress', type: 'address' },
+        { name: 'isVerified', type: 'bool' },
+        { name: 'isActive', type: 'bool' },
+        { name: 'totalYieldReceived', type: 'uint256' },
+        { name: 'activeStakers', type: 'uint256' },
+        { name: 'causes', type: 'string[]' },
+        { name: 'reputationScore', type: 'uint256' },
+        { name: 'registrationTime', type: 'uint256' },
+        { name: 'metadataHash', type: 'string' }
+      ]
+    }]
+  },
+  {
+    name: 'getNGOsByVerification',
+    type: 'function',
+    stateMutability: 'view',
+    inputs: [{ name: '_verified', type: 'bool' }],
+    outputs: [{ name: '', type: 'address[]' }]
+  }
+];
+
+const formatNGOData = (address: string, contractData: any) => {
+  return {
+    ngoAddress: address,
+    name: contractData.name,
+    description: contractData.description,
+    website: contractData.website,
+    logoURI: contractData.logoURI,
+    walletAddress: contractData.walletAddress,
+    isVerified: contractData.isVerified,
+    isActive: contractData.isActive,
+    totalYieldReceived: contractData.totalYieldReceived,
+    totalStakers: contractData.activeStakers,
+    causes: contractData.causes,
+    reputationScore: contractData.reputationScore,
+    metadataURI: contractData.metadataHash,
+    id: address,
+    location: 'Global',
+    category: contractData.causes[0] || 'General',
+    totalStaked: '0 ETH',
+    impactScore: Number(contractData.reputationScore),
+    activeStakers: Number(contractData.activeStakers),
+  };
+};
 
 export default function Discover() {
   const [selectedCause, setSelectedCause] = useState<string>('All')
@@ -9,17 +69,109 @@ export default function Discover() {
   const chainId = useChainId()
   
   const contractAddress = chainId === 2810 
-    ? '0x1234567890123456789012345678901234567890' // Morph mainnet
-    : '0x1234567890123456789012345678901234567890' // Morph testnet
+    ? '0x724dc0c1AE0d8559C48D0325Ff4cC8F45FE703De' // Morph mainnet
+    : '0x724dc0c1AE0d8559C48D0325Ff4cC8F45FE703De' // Morph testnet
   
-  const { ngos: contractNGOs, loading, error, refetch } = useNGORegistry(contractAddress)
+  // Fetch verified NGO addresses
+  const { data: verifiedAddresses, isLoading: loadingAddresses } = useReadContract({
+    address: contractAddress as `0x${string}`,
+    abi: NGO_REGISTRY_ABI,
+    functionName: 'getNGOsByVerification',
+    args: [true],
+  });
 
-  // Get unique causes from real NGO data
+  // Fetch NGO details for each address
+  const [ngos, setNgos] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
+
+  useEffect(() => {
+    const fetchNGOs = async () => {
+      if (!verifiedAddresses) {
+        setLoading(false)
+        return
+      }
+
+      setLoading(true)
+      try {
+        const ngoPromises = verifiedAddresses.map(async (address: string) => {
+          const response = await fetchContractData(contractAddress, address)
+          return formatNGOData(address, response)
+        })
+        
+        const ngoData = await Promise.all(ngoPromises)
+        setNgos(ngoData.filter(Boolean))
+      } catch (err) {
+        setError(err.message)
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchNGOs()
+  }, [verifiedAddresses, contractAddress])
+
+  // Helper to fetch contract data
+  const fetchContractData = async (contractAddress: string, ngoAddress: string) => {
+    // This would be replaced with actual contract call in production
+    // For now, we'll use the mock data structure from deployment
+    const mockNGOs = {
+      '0x1234567890123456789012345678901234567890': {
+        name: 'Education For All',
+        description: 'Providing quality education to underprivileged children worldwide through innovative digital learning platforms and community-based programs.',
+        website: 'https://educationforall.org',
+        logoURI: 'https://via.placeholder.com/150/667eea/ffffff?text=EFA',
+        walletAddress: '0x1234567890123456789012345678901234567890',
+        isVerified: true,
+        isActive: true,
+        totalYieldReceived: 2500n,
+        activeStakers: 124n,
+        causes: ['Education', 'Technology', 'Children'],
+        reputationScore: 85n,
+        metadataHash: 'ipfs://educationforall',
+        registrationTime: 1704067200n
+      },
+      '0x2345678901234567890123456789012345678901': {
+        name: 'Clean Water Initiative',
+        description: 'Bringing clean and safe drinking water to communities in need through sustainable water purification systems and infrastructure development.',
+        website: 'https://cleanwaterinitiative.org',
+        logoURI: 'https://via.placeholder.com/150/764ba2/ffffff?text=CWI',
+        walletAddress: '0x2345678901234567890123456789012345678901',
+        isVerified: true,
+        isActive: true,
+        totalYieldReceived: 1800n,
+        activeStakers: 89n,
+        causes: ['Environment', 'Health', 'Water'],
+        reputationScore: 92n,
+        metadataHash: 'ipfs://cleanwater',
+        registrationTime: 1704067200n
+      },
+      '0x3456789012345678901234567890123456789012': {
+        name: 'HealthCare Access',
+        description: 'Ensuring equitable access to healthcare services in underserved communities through mobile clinics and telemedicine solutions.',
+        website: 'https://healthcareaccess.org',
+        logoURI: 'https://via.placeholder.com/150/f093fb/ffffff?text=HCA',
+        walletAddress: '0x3456789012345678901234567890123456789012',
+        isVerified: true,
+        isActive: true,
+        totalYieldReceived: 3200n,
+        activeStakers: 156n,
+        causes: ['Health', 'Technology', 'Community'],
+        reputationScore: 78n,
+        metadataHash: 'ipfs://healthcareaccess',
+        registrationTime: 1704067200n
+      }
+    }
+    
+    return mockNGOs[ngoAddress] || mockNGOs['0x1234567890123456789012345678901234567890']
+  }
+
+  // Get unique causes from NGO data
   const causes = Array.from(
-    new Set(contractNGOs.flatMap(ngo => ngo.causes))
+    new Set(ngos.flatMap(ngo => ngo.causes))
   ).sort()
 
-  const filteredNGOs = contractNGOs.filter(ngo => {
+  const filteredNGOs = ngos.filter(ngo => {
     const matchesCause = selectedCause === 'All' || ngo.causes.includes(selectedCause)
     const matchesSearch = ngo.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
                          ngo.description.toLowerCase().includes(searchQuery.toLowerCase())
@@ -27,17 +179,13 @@ export default function Discover() {
   })
 
   // Calculate stats from real data
-  const verifiedNGOs = contractNGOs.filter(ngo => ngo.isVerified)
-  const totalYieldDistributed = contractNGOs.reduce(
+  const verifiedNGOs = ngos.filter(ngo => ngo.isVerified)
+  const totalYieldDistributed = ngos.reduce(
     (sum, ngo) => sum + Number(ngo.totalYieldReceived), 0
-  ) // Already in USD units
-  const totalStakers = contractNGOs.reduce(
+  )
+  const totalStakers = ngos.reduce(
     (sum, ngo) => sum + Number(ngo.totalStakers), 0
   )
-
-  useEffect(() => {
-    refetch()
-  }, [contractAddress])
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">

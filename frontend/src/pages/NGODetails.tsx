@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
-import { useNGORegistry } from '../hooks/useNGORegistryWagmi';
+import { useNGODetails, useNGOVerification } from '../hooks/useNGORegistryWagmi';
 import { useAccount, useBalance, useWriteContract, useWaitForTransactionReceipt, useReadContract } from 'wagmi';
 import { formatUnits, parseUnits } from 'viem';
 import { NGO } from '../types';
@@ -20,9 +20,8 @@ export default function NGODetails() {
   const [yieldShare, setYieldShare] = useState<'50%' | '75%' | '100%'>('50%');
   const { address: userAddress } = useAccount();
   
-  const ngoHook = useNGORegistry(CONTRACT_ADDRESS);
-  const [ngo, setNgo] = useState<NGO | null>(null);
-  const [loading, setLoading] = useState(true);
+  const { ngo, loading, error: ngoError } = useNGODetails(CONTRACT_ADDRESS, address || '');
+  const { isVerifiedAndActive } = useNGOVerification(CONTRACT_ADDRESS, address || '');
 
   const [showProgressModal, setShowProgressModal] = useState(false);
   const [currentStep, setCurrentStep] = useState(0);
@@ -90,22 +89,6 @@ export default function NGODetails() {
   const currentBalance = getBalance();
   const formattedBalance = currentBalance ? formatUnits(currentBalance.value, currentBalance.decimals) : '0';
 
-  useEffect(() => {
-    const loadNGO = async () => {
-      if (address) {
-        setLoading(true);
-        try {
-          const ngoData = await ngoHook.fetchNGOByAddress(address);
-          setNgo(ngoData);
-        } catch (error) {
-          console.error('Error loading NGO:', error);
-        } finally {
-          setLoading(false);
-        }
-      }
-    };
-    loadNGO();
-  }, [address]);
 
   const executeStake = useCallback(() => {
     if (!ngo || !userAddress) return;
@@ -241,7 +224,9 @@ export default function NGODetails() {
         : 'Stake Now';
 
   if (loading) return <div className="text-center py-12">Loading...</div>;
+  if (ngoError) return <div className="text-center py-12">Error: {ngoError.message}</div>;
   if (!ngo) return <div className="text-center py-12">NGO Not Found</div>;
+  if (!isVerifiedAndActive) return <div className="text-center py-12">This NGO is not verified or not active</div>;
 
   return (
     <>
