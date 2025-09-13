@@ -1,15 +1,29 @@
 import { ConnectButton } from '@rainbow-me/rainbowkit'
 import { Link, useLocation } from 'react-router-dom'
 import { Heart, Menu } from 'lucide-react'
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
+import { useAccount, useReadContract } from 'wagmi'
+import { CONTRACT_ADDRESSES } from '../../config/contracts'
+import { NGO_REGISTRY_ABI } from '../../abis/NGORegistry'
+import { keccak256, toBytes } from 'viem'
 
 export default function Header() {
   const location = useLocation()
   const [isMenuOpen, setIsMenuOpen] = useState(false)
+  const { address } = useAccount()
+  const NGO_MANAGER_ROLE = useMemo(() => keccak256(toBytes('NGO_MANAGER_ROLE')) as `0x${string}` , [])
+  const { data: isManager } = useReadContract({
+    address: CONTRACT_ADDRESSES.NGO_REGISTRY as `0x${string}`,
+    abi: NGO_REGISTRY_ABI,
+    functionName: 'hasRole',
+    args: address ? [NGO_MANAGER_ROLE, address] : undefined,
+    query: { enabled: !!address },
+  })
 
   const navItems = [
     { path: '/', label: 'Home' },
-    { path: '/discover', label: 'Discover NGOs' },
+    { path: '/stake', label: 'Stake' },
+    { path: '/discover', label: 'NGOs' },
     { path: '/dashboard', label: 'Dashboard' },
   ]
 
@@ -19,8 +33,8 @@ export default function Header() {
         <div className="flex justify-between items-center h-16">
           <div className="flex items-center">
             <Link to="/" className="flex items-center space-x-2">
-              <Heart className="h-8 w-8 text-morph-600" />
-              <span className="text-xl font-bold text-gradient">MorphImpact</span>
+              <Heart className="h-8 w-8 text-brand-600" />
+              <span className="text-xl font-bold text-gradient">GIVE Protocol</span>
             </Link>
           </div>
 
@@ -31,8 +45,8 @@ export default function Header() {
                 to={item.path}
                 className={`text-sm font-medium transition-colors ${
                   location.pathname === item.path
-                    ? 'text-morph-600'
-                    : 'text-gray-700 hover:text-morph-600'
+                    ? 'text-brand-600'
+                    : 'text-gray-700 hover:text-brand-600'
                 }`}
               >
                 {item.label}
@@ -41,12 +55,14 @@ export default function Header() {
           </nav>
 
           <div className="flex items-center space-x-4">
-            <Link
-              to="/create-ngo"
-              className="hidden sm:inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-morph-600 hover:bg-morph-700"
-            >
-              Register NGO
-            </Link>
+            {isManager && (
+              <Link
+                to="/create-ngo"
+                className="hidden sm:inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-brand-600 hover:bg-brand-700"
+              >
+                Register NGO
+              </Link>
+            )}
             <ConnectButton
               accountStatus={{
                 smallScreen: 'avatar',
@@ -80,21 +96,23 @@ export default function Header() {
                   to={item.path}
                   className={`block px-3 py-2 text-base font-medium rounded-md ${
                     location.pathname === item.path
-                      ? 'text-morph-600 bg-morph-50'
-                      : 'text-gray-700 hover:text-morph-600 hover:bg-gray-50'
+                    ? 'text-brand-600 bg-brand-50'
+                    : 'text-gray-700 hover:text-brand-600 hover:bg-gray-50'
                   }`}
                   onClick={() => setIsMenuOpen(false)}
                 >
                   {item.label}
                 </Link>
               ))}
-              <Link
-                to="/create-ngo"
-                className="block px-3 py-2 text-base font-medium rounded-md text-morph-600 hover:bg-gray-50"
-                onClick={() => setIsMenuOpen(false)}
-              >
-                Register NGO
-              </Link>
+              {isManager && (
+                <Link
+                  to="/create-ngo"
+                  className="block px-3 py-2 text-base font-medium rounded-md text-brand-600 hover:bg-gray-50"
+                  onClick={() => setIsMenuOpen(false)}
+                >
+                  Register NGO
+                </Link>
+              )}
             </div>
           </div>
         )}

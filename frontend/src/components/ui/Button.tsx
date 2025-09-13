@@ -19,7 +19,7 @@ export default function Button({
   const baseClasses = 'font-medium rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2'
   
   const variants = {
-    primary: 'bg-morph-600 text-white hover:bg-morph-700 focus:ring-morph-500',
+    primary: 'bg-brand-600 text-white hover:bg-brand-700 focus:ring-brand-500',
     secondary: 'bg-gray-100 text-gray-900 hover:bg-gray-200 focus:ring-gray-500',
     outline: 'border border-gray-300 text-gray-700 hover:bg-gray-50 focus:ring-gray-500',
     ghost: 'text-gray-700 hover:bg-gray-100 focus:ring-gray-500',

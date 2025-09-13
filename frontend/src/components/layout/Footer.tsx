@@ -7,19 +7,19 @@ export default function Footer() {
         <div className="py-8">
           <div className="flex justify-between items-center">
             <div className="flex items-center space-x-2">
-              <Heart className="h-5 w-5 text-morph-600" />
+              <Heart className="h-5 w-5 text-brand-600" />
               <span className="text-sm text-gray-600">
-                © 2024 MorphImpact. Powered by Morph Chain.
+                © 2024 GIVE Protocol.
               </span>
             </div>
             <div className="flex space-x-6">
-              <a href="#" className="text-sm text-gray-600 hover:text-morph-600">
+              <a href="#" className="text-sm text-gray-600 hover:text-brand-600">
                 About
               </a>
-              <a href="#" className="text-sm text-gray-600 hover:text-morph-600">
+              <a href="#" className="text-sm text-gray-600 hover:text-brand-600">
                 Docs
               </a>
-              <a href="#" className="text-sm text-gray-600 hover:text-morph-600">
+              <a href="#" className="text-sm text-gray-600 hover:text-brand-600">
                 Contact
               </a>
             </div>
