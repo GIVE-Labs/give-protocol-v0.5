@@ -17,7 +17,7 @@ export default function Footer() {
                 <Heart className="w-5 h-5 text-white" />
               </div>
               <h3 className="text-xl font-bold bg-gradient-to-r from-emerald-400 to-cyan-400 bg-clip-text text-transparent font-unbounded">
-                Give Protocol
+                GIVE Protocol
               </h3>
             </div>
             <p className="text-gray-300 leading-relaxed text-lg">

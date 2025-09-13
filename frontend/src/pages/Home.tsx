@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom'
 import { DotLottieReact } from '@lottiefiles/dotlottie-react'
 import { ArrowRight, Heart, Sparkles, Zap, Globe } from 'lucide-react'
 import { motion } from 'framer-motion'
+import FeaturedNGO from '../components/FeaturedNGO'
 
 export default function Home() {
   const containerVariants = {
@@ -207,6 +208,9 @@ export default function Home() {
           </motion.div>
         </div>
       </motion.div>
+
+      {/* Featured NGO Section */}
+      <FeaturedNGO />
 
       {/* How It Works Section */}
       <motion.div 
