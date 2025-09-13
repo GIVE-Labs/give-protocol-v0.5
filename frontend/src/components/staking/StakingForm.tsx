@@ -2,9 +2,9 @@ import { useState, useEffect, useCallback } from 'react';
 import { useAccount, useBalance, useReadContract, useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
 import { parseEther, formatEther } from 'viem';
 import { NGO } from '../../types';
-import { MORPH_IMPACT_STAKING, MOCK_WETH, MOCK_USDC } from '../../config/contracts';
+import { MOCK_WETH, MOCK_USDC } from '../../config/contracts';
 import { erc20Abi } from '../../abis/erc20';
-import { morphImpactStakingAbi } from '../../abis/MorphImpactStaking';
+
 import Button from '../ui/Button';
 import StakingProgressModal from './StakingProgressModal';
 
@@ -31,15 +31,10 @@ export default function StakingForm({ ngo, onClose }: StakingFormProps) {
 
   const amountInWei = amount ? parseEther(amount) : BigInt(0);
 
-  const { data: allowance, refetch: refetchAllowance, isLoading: isAllowanceLoading } = useReadContract({
-    address: token as `0x${string}`,
-    abi: erc20Abi,
-    functionName: 'allowance',
-    args: [address!, MORPH_IMPACT_STAKING],
-    query: {
-      enabled: !!address && !!token && amountInWei > 0,
-    },
-  });
+  // Removed staking contract allowance check - no longer using MORPH_IMPACT_STAKING
+  const allowance = BigInt(0);
+  const refetchAllowance = () => {};
+  const isAllowanceLoading = false;
 
   const { writeContract: approveToken, data: approveHash, isPending: isApproving, reset: resetApprove } = useWriteContract();
   const { writeContract: stakeTokens, data: stakeHash, isPending: isStaking, reset: resetStake } = useWriteContract();
@@ -54,23 +49,9 @@ export default function StakingForm({ ngo, onClose }: StakingFormProps) {
     setCurrentStep(needsApproval ? 1 : 0);
     if (!showProgressModal) setShowProgressModal(true);
     
-    stakeTokens({
-      address: MORPH_IMPACT_STAKING,
-      abi: morphImpactStakingAbi,
-      functionName: 'stake',
-      args: [
-        ngo.id as `0x${string}`,
-        token as `0x${string}`,
-        amountInWei,
-        BigInt(lockPeriod * 30 * 24 * 60 * 60),
-        BigInt(contributionRate),
-      ],
-    }, {
-      onError: (err) => {
-        console.error("Staking failed:", err);
-        setShowProgressModal(false);
-      }
-    });
+    // Removed staking contract call - no longer using MORPH_IMPACT_STAKING
+    console.log('Staking functionality disabled - contract removed');
+    setShowProgressModal(false);
   }, [ngo.id, token, amountInWei, lockPeriod, contributionRate, needsApproval, showProgressModal, stakeTokens]);
 
   const handleStakeFlow = async () => {
@@ -84,7 +65,7 @@ export default function StakingForm({ ngo, onClose }: StakingFormProps) {
         address: token as `0x${string}`,
         abi: erc20Abi,
         functionName: 'approve',
-        args: [MORPH_IMPACT_STAKING, amountInWei],
+        args: ['0x0000000000000000000000000000000000000000' as `0x${string}`, amountInWei],
       }, {
         onError: (err) => {
           console.error("Approval failed:", err);

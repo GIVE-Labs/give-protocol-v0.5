@@ -1,83 +1,96 @@
-import { useAccount, useReadContract, useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
+import { useAccount, useReadContract } from 'wagmi';
+import { useNavigate } from 'react-router-dom';
 import { CONTRACT_ADDRESSES } from '../config/contracts';
 import { NGO_REGISTRY_ABI } from '../abis/NGORegistry';
+
 import { formatUnits } from 'viem';
 import { keccak256, toBytes } from 'viem';
 
-function NGOItem({ address, isManager, isCurrent, onAfterSetCurrent }: { address: `0x${string}`, isManager?: boolean, isCurrent?: boolean, onAfterSetCurrent?: () => void }) {
-  const { data: info, isLoading } = useReadContract({
-    address: CONTRACT_ADDRESSES.NGO_REGISTRY as `0x${string}`,
+function CampaignCard({ address }: { address: `0x${string}` }) {
+  const navigate = useNavigate();
+  
+  const { data: ngoInfo, isLoading } = useReadContract({
+    address: CONTRACT_ADDRESSES.NGO_REGISTRY,
     abi: NGO_REGISTRY_ABI,
     functionName: 'getNGOInfo',
     args: [address],
   });
 
-  const { writeContract, data: txHash, isPending } = useWriteContract();
-  const { isLoading: confirming, isSuccess } = useWaitForTransactionReceipt({ hash: txHash });
+  // Removed staking contract call - no longer using MORPH_IMPACT_STAKING
+  const totalStaked = BigInt(0);
+
+  // Calculate current APY (this would typically come from the vault)
+  const calculateAPY = (): number => {
+    const baseAPY = 5.0; // 5% base APY
+    const lockMultiplier = 1.2; // 12 month default
+    return baseAPY * lockMultiplier;
+  };
+
+  const handleStakeClick = () => {
+    navigate(`/campaign/${address}`);
+  };
 
   if (isLoading) {
-    return (
-      <div className="p-4 rounded-lg border bg-white animate-pulse h-24" />
-    );
+    return <div className="p-6 rounded-lg border bg-white animate-pulse h-64" />;
   }
 
-  const [name, description, approvalTime, totalReceived, isActive] = (info || []) as any[];
+  if (!ngoInfo) {
+    return null;
+  }
+
+  const name = (ngoInfo as any)?.name || 'Unknown Campaign';
+    const description = (ngoInfo as any)?.description || 'No description available';
+    const isActive = (ngoInfo as any)?.isActive || false;
+  const currentAPY = calculateAPY();
 
   return (
-    <div className="p-5 rounded-lg border bg-white">
-      <div className="flex items-center justify-between">
-        <div>
-          <h3 className="text-lg font-semibold">{name || 'NGO'}</h3>
-          <p className="text-sm text-gray-600 mt-1 line-clamp-2">{description}</p>
+    <div className="bg-white rounded-lg border hover:shadow-lg transition-all duration-200 cursor-pointer group"
+         onClick={handleStakeClick}>
+      <div className="p-6">
+        <div className="flex justify-between items-start mb-4">
+          <h3 className="font-bold text-xl text-gray-900 group-hover:text-blue-600 transition-colors">
+            {name}
+          </h3>
+          <span className={`px-3 py-1 text-xs rounded-full font-medium ${
+            isActive ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+          }`}>
+            {isActive ? 'Active' : 'Inactive'}
+          </span>
         </div>
-        <div className="text-right text-sm">
-          <div className="flex items-center gap-2 justify-end">
-            <div className={`inline-block px-2 py-1 rounded-full ${isActive ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'}`}>{isActive ? 'Active' : 'Inactive'}</div>
-            {isCurrent && (
-              <div className="inline-block px-2 py-1 rounded-full bg-brand-100 text-brand-700">Current</div>
-            )}
+        
+        <p className="text-gray-600 text-sm mb-4 line-clamp-2">{description}</p>
+        
+        {/* Campaign Stats */}
+        <div className="grid grid-cols-2 gap-4 mb-4">
+          <div className="bg-blue-50 p-3 rounded-lg">
+            <div className="text-xs text-blue-600 font-medium">Current APY</div>
+            <div className="text-lg font-bold text-blue-700">{currentAPY.toFixed(1)}%</div>
           </div>
-          <div className="mt-2 font-mono text-xs text-gray-500">{address.slice(0, 6)}…{address.slice(-4)}</div>
+          <div className="bg-green-50 p-3 rounded-lg">
+            <div className="text-xs text-green-600 font-medium">Total Staked</div>
+            <div className="text-lg font-bold text-green-700">
+              {totalStaked ? formatUnits(totalStaked, 18).slice(0, 6) : '0'} ETH
+            </div>
+          </div>
         </div>
-      </div>
-      <div className="mt-3 grid grid-cols-2 gap-4 text-sm">
-        <div>
-          <div className="text-gray-500">Total Received</div>
-          <div className="font-medium">{totalReceived ? formatUnits(totalReceived as bigint, 6) : '0.00'} USDC</div>
-        </div>
-        <div>
-          <div className="text-gray-500">Approved Since</div>
-          <div className="font-medium">{approvalTime ? new Date(Number(approvalTime) * 1000).toLocaleDateString() : '-'}</div>
-        </div>
-      </div>
-      {isManager && !isCurrent && (
-        <div className="mt-4 flex justify-end">
-          <button
-            onClick={() => {
-              writeContract({
-                address: CONTRACT_ADDRESSES.NGO_REGISTRY as `0x${string}`,
-                abi: NGO_REGISTRY_ABI,
-                functionName: 'setCurrentNGO',
-                args: [address],
-              }, {
-                onSuccess: () => {
-                  onAfterSetCurrent && onAfterSetCurrent();
-                }
-              });
-            }}
-            disabled={isPending || confirming}
-            className="px-3 py-2 rounded-md bg-brand-600 hover:bg-brand-700 text-white disabled:opacity-60"
-          >
-            {isPending || confirming ? 'Setting…' : 'Set as Current'}
+        
+
+        
+        <div className="flex justify-between items-center">
+          <div className="text-xs text-gray-500">
+            {address.slice(0, 6)}...{address.slice(-4)}
+          </div>
+          <button className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium group-hover:bg-blue-700">
+            Stake Now →
           </button>
         </div>
-      )}
+      </div>
     </div>
   );
 }
 
 export default function NGOsPage() {
-  const { isConnected } = useAccount();
+  useAccount();
   const NGO_MANAGER_ROLE = keccak256(toBytes('NGO_MANAGER_ROLE')) as `0x${string}`;
   const { address } = useAccount();
 
@@ -87,13 +100,13 @@ export default function NGOsPage() {
     functionName: 'getApprovedNGOs',
   });
 
-  const { data: stats, refetch: refetchStats } = useReadContract({
+  const { data: stats } = useReadContract({
     address: CONTRACT_ADDRESSES.NGO_REGISTRY as `0x${string}`,
     abi: NGO_REGISTRY_ABI,
     functionName: 'getRegistryStats',
   });
 
-  const { data: isManager } = useReadContract({
+  useReadContract({
     address: CONTRACT_ADDRESSES.NGO_REGISTRY as `0x${string}`,
     abi: NGO_REGISTRY_ABI,
     functionName: 'hasRole',
@@ -101,15 +114,16 @@ export default function NGOsPage() {
     query: { enabled: !!address },
   });
 
-  const totalApproved = stats ? (stats as any[])[0] as bigint : 0n;
-  const currentNGO = stats ? (stats as any[])[1] as `0x${string}` : undefined;
-  const totalDonations = stats ? (stats as any[])[2] as bigint : 0n;
+  const registryStats = stats as readonly [bigint, `0x${string}`, bigint] | undefined;
+  const totalApproved = registryStats ? registryStats[0] : 0n;
+  const currentNGO = registryStats ? registryStats[1] : undefined;
+  const totalDonations = registryStats ? registryStats[2] : 0n;
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
       <div className="mb-6">
-        <h1 className="text-3xl font-bold">NGOs</h1>
-        <p className="text-gray-600 mt-1">Browse approved NGOs. Yield from the vault is routed to the current NGO.</p>
+        <h1 className="text-3xl font-bold">Discover Campaigns</h1>
+        <p className="text-gray-600 mt-1">Stake your assets and generate yield for impactful causes</p>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
@@ -136,7 +150,7 @@ export default function NGOsPage() {
       ) : approvedNGOs && (approvedNGOs as string[]).length > 0 ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {(approvedNGOs as `0x${string}`[]).map((addr) => (
-            <NGOItem key={addr} address={addr} isManager={Boolean(isManager)} isCurrent={currentNGO === addr} onAfterSetCurrent={() => refetchStats()} />
+            <CampaignCard key={addr} address={addr} />
           ))}
         </div>
       ) : (

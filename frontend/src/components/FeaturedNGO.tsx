@@ -145,7 +145,7 @@ export default function FeaturedNGO() {
                 initial={{ opacity: 0, y: 20 }}
                 whileInView={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.6, delay: 0.2 }}
-                className="text-lg font-semibold text-gray-800 font-unbounded mb-6"
+                className="text-lg font-semibold text-gray-800 font-unbounded mb-4"
               >
                 Star Dream Garden: Biodynamic Farming Program
               </motion.h3>
