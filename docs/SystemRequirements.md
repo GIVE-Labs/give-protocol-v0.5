@@ -160,8 +160,9 @@ Upgrade (optional v1): UUPS proxy with UPGRADER_ROLE + Timelock
 
 ### 4.3 DonationRouter
 
-* `function claim(address ngo) external` (transfers balance to NGO if `isApproved(ngo)`).
-* `function setFeeBps(uint16 bps) external onlyAdmin`
+* `function distribute(address asset, uint256 amount) external` (authorized caller: vault/keeper). Routes funds to the current NGO after fees.
+* `function distributeToMultiple(address asset, uint256 amount, address[] calldata ngos) external` (authorized caller) for equal-split distributions when needed.
+* `function updateFeeConfig(address recipient, uint16 bps) external onlyAdmin`
 
 ### 4.4 NGO Registry
 
@@ -189,8 +190,8 @@ Upgrade (optional v1): UUPS proxy with UPGRADER_ROLE + Timelock
 ### 5.3 Harvest
 
 1. Vault calls `adapter.harvest()`; adapter realizes P/L.
-2. If `profit > 0`: compute `donation = profit * donationSplitBps`, `fee = donation * feeBps (optional)`.
-3. Transfer to DonationRouter → `claim(currentNGO)` → NGO.
+2. If `profit > 0`: Vault transfers profit to DonationRouter and immediately calls `router.distribute(asset, profit)`.
+3. Router computes `fee = amount * feeBps` and transfers net donation to the current NGO; registry records donation.
 
 ### 5.4 Emergency
 
@@ -397,4 +398,3 @@ Acceptance
 * Monitoring live; first donations executed on testnet/mainnet canary vault.
 * External audit complete; criticals/mediums resolved.
 * Public docs: architecture overview, risk disclosures, how‑to‑use.
-

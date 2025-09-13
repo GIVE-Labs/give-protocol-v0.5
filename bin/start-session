@@ -1,0 +1,19 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Resolve repo root
+SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
+ROOT_DIR=$(cd -- "${SCRIPT_DIR}/.." && pwd)
+
+SESS_DIR="${ROOT_DIR}/llm/sessions"
+mkdir -p "${SESS_DIR}"
+
+TS=$(date -u +"%Y-%m-%d_%H-%M-%S_UTC")
+LOG_FILE="${SESS_DIR}/${TS}.session"
+
+echo "Recording terminal session to ${LOG_FILE}"
+echo "End recording with 'exit'"
+
+# Start recording; -a append, -q quiet
+exec script -a -q "${LOG_FILE}"
+

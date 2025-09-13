@@ -20,6 +20,11 @@ contract StrategyManagerBasicTest is Test {
         vault = new GiveVault4626(IERC20(address(usdc)), "GIVE USDC", "gvUSDC", admin);
         manager = new StrategyManager(address(vault), admin);
         adapter = new MockAdapter(IERC20(address(usdc)), address(vault));
+
+        // Grant the manager permission to call vault setters invoked by manager
+        vm.startPrank(admin);
+        vault.grantRole(vault.VAULT_MANAGER_ROLE(), address(manager));
+        vm.stopPrank();
     }
 
     function testApproveAndActivateAdapter() public {
@@ -61,4 +66,3 @@ contract MockAdapter is IYieldAdapter {
     function harvest() external override returns(uint256,uint256){ require(msg.sender==vault, "only vault"); emit Harvested(0,0); return (0,0);} 
     function emergencyWithdraw() external override returns(uint256){ emit EmergencyWithdraw(0); return 0; }
 }
-

@@ -6,6 +6,7 @@ import Discover from './pages/Discover'
 import Dashboard from './pages/Dashboard'
 import NGODetails from './pages/NGODetails'
 import CreateNGO from './pages/CreateNGO'
+import { GiveProtocolDemo } from './components/GiveProtocolDemo'
 
 function App() {
   return (
@@ -19,6 +20,7 @@ function App() {
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/ngo/:address" element={<NGODetails />} />
             <Route path="/create-ngo" element={<CreateNGO />} />
+            <Route path="/demo" element={<GiveProtocolDemo />} />
           </Routes>
         </main>
         <Footer />

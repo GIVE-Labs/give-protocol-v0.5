@@ -1,7 +1,7 @@
 # GIVE Protocol Frontend Interaction Guide
 
 ## Overview
-This guide shows how to interact with GIVE Protocol contracts (ERC-4626 vault, DonationRouter, NGORegistry) from the frontend using thirdweb/viem.
+This guide shows how to interact with GIVE Protocol contracts (ERC-4626 vault, DonationRouter, NGORegistry) from the frontend using wagmi/viem.
 
 ## Contract Addresses (Scroll Sepolia)
 After deployment, update these addresses:
@@ -18,26 +18,17 @@ Adapter (Aave): 0x...
 
 ## Frontend Integration
 
-### 1. Setup thirdweb Client
+### 1. Setup wagmi + viem
 ```typescript
-import { createThirdwebClient } from "thirdweb";
+import { createConfig, http } from 'wagmi'
+import { injected } from 'wagmi/connectors'
+import { SCROLL_SEPOLIA } from '@/src/config/contracts'
 
-const client = createThirdwebClient({
-  clientId: "YOUR_THIRDWEB_CLIENT_ID",
-});
-```
-
-### 2. Connect Wallet
-```typescript
-import { ConnectButton } from "thirdweb/react";
-
-<ConnectButton
-  client={client}
-  appMetadata={{
-    name: "GIVE Protocol",
-    url: "https://giveprotocol.org",
-  }}
-/>
+export const config = createConfig({
+  chains: [SCROLL_SEPOLIA],
+  connectors: [injected()],
+  transports: { [SCROLL_SEPOLIA.id]: http(SCROLL_SEPOLIA.rpcUrls.default.http[0]) },
+})
 ```
 
 ## Contract Interactions
@@ -46,98 +37,81 @@ import { ConnectButton } from "thirdweb/react";
 
 #### Deposit
 ```typescript
-import { prepareContractCall, sendTransaction } from "thirdweb";
+import { parseUnits } from 'viem'
+import { useWriteContract } from 'wagmi'
 
-const deposit = async (amountWei: string, receiver: string) => {
-  // Approve USDC to vault first
-  await sendTransaction({
-    transaction: prepareContractCall({
-      contract: USDC,
-      method: "approve",
-      params: [GiveVault4626.address, amountWei]
-    }),
-    account: activeAccount,
-  });
+const { writeContractAsync } = useWriteContract()
 
-  // Deposit to ERC-4626 vault
-  const { transactionHash } = await sendTransaction({
-    transaction: prepareContractCall({
-      contract: GiveVault4626,
-      method: "deposit",
-      params: [amountWei, receiver]
-    }),
-    account: activeAccount,
-  });
-
-  return transactionHash;
-};
+async function deposit(amount: string, receiver: `0x${string}`) {
+  const amountWei = parseUnits(amount, 6) // USDC
+  // 1) Approve USDC to vault
+  await writeContractAsync({
+    abi: erc20ABI,
+    address: USDC_ADDRESS,
+    functionName: 'approve',
+    args: [VAULT_ADDRESS, amountWei],
+  })
+  // 2) Deposit
+  return writeContractAsync({
+    abi: vaultAbi,
+    address: VAULT_ADDRESS,
+    functionName: 'deposit',
+    args: [amountWei, receiver],
+  })
+}
 ```
 
 #### Withdraw
 ```typescript
-const withdraw = async (assetsWei: string, receiver: string, owner: string) => {
-  const { transactionHash } = await sendTransaction({
-    transaction: prepareContractCall({
-      contract: GiveVault4626,
-      method: "withdraw",
-      params: [assetsWei, receiver, owner]
-    }),
-    account: activeAccount,
-  });
-  return transactionHash;
-};
+async function withdraw(assets: string, receiver: `0x${string}`, owner: `0x${string}`) {
+  const assetsWei = parseUnits(assets, 6)
+  return writeContractAsync({
+    abi: vaultAbi,
+    address: VAULT_ADDRESS,
+    functionName: 'withdraw',
+    args: [assetsWei, receiver, owner],
+  })
+}
 ```
 
 #### Previews
 ```typescript
-import { readContract } from "thirdweb";
+import { useReadContract } from 'wagmi'
 
-const previews = async (assetsWei: string, sharesWei: string) => {
-  const shares = await readContract({
-    contract: GiveVault4626,
-    method: "previewDeposit",
-    params: [assetsWei]
-  });
-  const assets = await readContract({
-    contract: GiveVault4626,
-    method: "previewRedeem",
-    params: [sharesWei]
-  });
-  return { shares, assets };
-};
+function usePreviews(assets: string, shares: string) {
+  const assetsWei = parseUnits(assets || '0', 6)
+  const sharesWei = parseUnits(shares || '0', 6)
+  const previewDeposit = useReadContract({
+    abi: vaultAbi,
+    address: VAULT_ADDRESS,
+    functionName: 'previewDeposit',
+    args: [assetsWei],
+  })
+  const previewRedeem = useReadContract({
+    abi: vaultAbi,
+    address: VAULT_ADDRESS,
+    functionName: 'previewRedeem',
+    args: [sharesWei],
+  })
+  return { previewDeposit, previewRedeem }
+}
 ```
 
 ### Harvest and Donations
 
-#### Harvest (anyone / keeper / manager)
+#### Harvest (permissionless)
 ```typescript
-const harvest = async () => {
-  const { transactionHash } = await sendTransaction({
-    transaction: prepareContractCall({
-      contract: GiveVault4626,
-      method: "harvest",
-      params: []
-    }),
-    account: activeAccount,
-  });
-  return transactionHash;
-};
+async function harvest() {
+  return writeContractAsync({
+    abi: vaultAbi,
+    address: VAULT_ADDRESS,
+    functionName: 'harvest',
+    args: [],
+  })
+}
 ```
 
-#### Claim to Current NGO
-```typescript
-const claimDonation = async (ngoAddress: string) => {
-  const { transactionHash } = await sendTransaction({
-    transaction: prepareContractCall({
-      contract: DonationRouter,
-      method: "claim",
-      params: [ngoAddress]
-    }),
-    account: activeAccount,
-  });
-  return transactionHash;
-};
-```
+Note: In v0.1, donations are sent atomically during `harvest()` via the router’s `distribute`. No manual claim is needed.
 
 ### NGO Management
 
@@ -179,24 +153,26 @@ const registerNGO = async (
 
 #### Get NGO Details
 ```typescript
-const getNGODetails = async (ngoAddress: string) => {
-  const ngo = await readContract({
-    contract: NGORegistry,
-    method: "getNGO",
-    params: [ngoAddress]
-  });
-  
-  return {
-    name: ngo.name,
-    description: ngo.description,
-    website: ngo.website,
-    logoURI: ngo.logoURI,
-    walletAddress: ngo.walletAddress,
-    causes: ngo.causes,
-    metadataURI: ngo.metadataURI,
-    isVerified: ngo.isVerified,
-  };
-};
+// Example reads
+// Current NGO
+const { data: currentNGO } = useReadContract({
+  abi: registryAbi,
+  address: NGO_REGISTRY_ADDRESS,
+  functionName: 'getCurrentNGO',
+})
+
+// Router fee config & totals
+const { data: feeConfig } = useReadContract({
+  abi: routerAbi,
+  address: DONATION_ROUTER_ADDRESS,
+  functionName: 'getFeeConfig',
+})
+const { data: stats } = useReadContract({
+  abi: routerAbi,
+  address: DONATION_ROUTER_ADDRESS,
+  functionName: 'getDistributionStats',
+  args: [USDC_ADDRESS],
+})
 ```
 
 #### List All NGOs

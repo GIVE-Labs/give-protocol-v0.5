@@ -131,6 +131,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Removed outdated tests referencing deprecated APIs (multi-mode router, allocations/rebalance API, Morph prototype).
 - forge build: green. forge test: updated, but execution blocked in sandbox; run locally to verify.
   - Large-scale operation testing
+  - Local run summary: 13 tests passed, 0 failed.
+
+#### Environment & Scripts
+- Backend env (backend/.env) used by Deploy.s.sol and fork tests:
+  - Deploy: `PRIVATE_KEY`, `ADMIN_ADDRESS`, `USDC_ADDRESS`, `AAVE_POOL_ADDRESS`, `FEE_RECIPIENT_ADDRESS`.
+  - Optional deploy params: `CASH_BUFFER_BPS` (default 100), `SLIPPAGE_BPS` (default 50), `MAX_LOSS_BPS` (default 50), `FEE_BPS` (default 250).
+  - Fork test: `FORK_RPC_URL`, `FORK_USDC`, `FORK_AAVE_POOL`.
+- Frontend env (frontend/.env.local): `VITE_SCROLL_SEPOLIA_RPC`, `VITE_WALLETCONNECT_PROJECT_ID`.
+  - Contract addresses are configured in `frontend/src/config/contracts.ts` after deployment.
+
+#### Tooling
+- Added Sepolia fork harness `Fork_AaveSepolia.t.sol` (env-gated).
+- Rewrote `backend/script/Deploy.s.sol` to current constructors and role wiring.
+- Added `llm/SESSION_CONTEXT.md` and `bin/start-session` for session persistence.
 
 ### Deployment Infrastructure
 
