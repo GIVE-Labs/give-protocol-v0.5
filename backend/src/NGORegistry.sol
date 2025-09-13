@@ -39,33 +39,19 @@ contract NGORegistry is AccessControl, ReentrancyGuard, Pausable {
     mapping(address => NGO) public ngos;
     mapping(address => CauseDeviation) public causeDeviations;
     mapping(address => bool) public hasRegistered;
-    
+
     address[] public ngoAddresses;
     uint256 public totalNGOs;
     uint256 public minReputationScore = 70;
     uint256 public maxReputationScore = 100;
 
     // Events
-    event NGORegistered(
-        address indexed ngoAddress,
-        string name,
-        string[] causes,
-        uint256 registrationTime
-    );
+    event NGORegistered(address indexed ngoAddress, string name, string[] causes, uint256 registrationTime);
 
     event NGOVerified(address indexed ngoAddress, bool isVerified);
     event NGOUpdated(address indexed ngoAddress, string name, string[] causes);
-    event CauseDeviationFlagged(
-        address indexed ngoAddress,
-        string reason,
-        address reporter,
-        uint256 timestamp
-    );
-    event ReputationScoreUpdated(
-        address indexed ngoAddress,
-        uint256 newScore,
-        uint256 oldScore
-    );
+    event CauseDeviationFlagged(address indexed ngoAddress, string reason, address reporter, uint256 timestamp);
+    event ReputationScoreUpdated(address indexed ngoAddress, uint256 newScore, uint256 oldScore);
 
     // Custom errors
     error NGOAlreadyRegistered();
@@ -123,7 +109,7 @@ contract NGORegistry is AccessControl, ReentrancyGuard, Pausable {
         newNGO.reputationScore = minReputationScore;
         newNGO.registrationTime = block.timestamp;
         newNGO.metadataHash = _metadataHash;
-        
+
         // Copy causes array
         for (uint256 i = 0; i < _causes.length; i++) {
             newNGO.causes.push(_causes[i]);
@@ -168,8 +154,9 @@ contract NGORegistry is AccessControl, ReentrancyGuard, Pausable {
         string calldata _metadataHash
     ) external whenNotPaused nonReentrant {
         if (!hasRegistered[_ngoAddress]) revert NGONotRegistered();
-        if (msg.sender != _ngoAddress && !hasRole(ADMIN_ROLE, msg.sender))
+        if (msg.sender != _ngoAddress && !hasRole(ADMIN_ROLE, msg.sender)) {
             revert NotAuthorized();
+        }
         if (bytes(_name).length == 0) revert InvalidName();
         if (bytes(_website).length == 0) revert InvalidWebsite();
         if (_causes.length == 0) revert EmptyCauses();
@@ -180,7 +167,7 @@ contract NGORegistry is AccessControl, ReentrancyGuard, Pausable {
         ngo.website = _website;
         ngo.logoURI = _logoURI;
         ngo.metadataHash = _metadataHash;
-        
+
         // Update causes array
         delete ngo.causes;
         for (uint256 i = 0; i < _causes.length; i++) {
@@ -195,18 +182,11 @@ contract NGORegistry is AccessControl, ReentrancyGuard, Pausable {
      * @param _ngoAddress Address of the NGO to flag
      * @param _reason Reason for flagging
      */
-    function flagCauseDeviation(
-        address _ngoAddress,
-        string calldata _reason
-    ) external onlyRole(VERIFIER_ROLE) {
+    function flagCauseDeviation(address _ngoAddress, string calldata _reason) external onlyRole(VERIFIER_ROLE) {
         if (!hasRegistered[_ngoAddress]) revert NGONotRegistered();
 
-        causeDeviations[_ngoAddress] = CauseDeviation({
-            isFlagged: true,
-            reason: _reason,
-            timestamp: block.timestamp,
-            reporter: msg.sender
-        });
+        causeDeviations[_ngoAddress] =
+            CauseDeviation({isFlagged: true, reason: _reason, timestamp: block.timestamp, reporter: msg.sender});
 
         emit CauseDeviationFlagged(_ngoAddress, _reason, msg.sender, block.timestamp);
     }
@@ -216,13 +196,11 @@ contract NGORegistry is AccessControl, ReentrancyGuard, Pausable {
      * @param _ngoAddress Address of the NGO
      * @param _newScore New reputation score (70-100)
      */
-    function updateReputationScore(
-        address _ngoAddress,
-        uint256 _newScore
-    ) external onlyRole(VERIFIER_ROLE) {
+    function updateReputationScore(address _ngoAddress, uint256 _newScore) external onlyRole(VERIFIER_ROLE) {
         if (!hasRegistered[_ngoAddress]) revert NGONotRegistered();
-        if (_newScore < minReputationScore || _newScore > maxReputationScore)
+        if (_newScore < minReputationScore || _newScore > maxReputationScore) {
             revert InvalidReputationScore();
+        }
 
         NGO storage ngo = ngos[_ngoAddress];
         uint256 oldScore = ngo.reputationScore;
@@ -287,10 +265,7 @@ contract NGORegistry is AccessControl, ReentrancyGuard, Pausable {
      * @param _ngoAddress Address of the NGO
      * @param _increment Whether to increment or decrement
      */
-    function updateStakerCount(
-        address _ngoAddress,
-        bool _increment
-    ) external whenNotPaused {
+    function updateStakerCount(address _ngoAddress, bool _increment) external whenNotPaused {
         // Only callable by authorized contracts (GiveFiStaking)
         if (!hasRegistered[_ngoAddress]) revert NGONotRegistered();
 
@@ -308,10 +283,7 @@ contract NGORegistry is AccessControl, ReentrancyGuard, Pausable {
      * @param _ngoAddress Address of the NGO
      * @param _amount Amount of yield received
      */
-    function updateYieldReceived(
-        address _ngoAddress,
-        uint256 _amount
-    ) external whenNotPaused {
+    function updateYieldReceived(address _ngoAddress, uint256 _amount) external whenNotPaused {
         // Only callable by authorized contracts (YieldDistributor)
         if (!hasRegistered[_ngoAddress]) revert NGONotRegistered();
 
@@ -326,9 +298,11 @@ contract NGORegistry is AccessControl, ReentrancyGuard, Pausable {
      * @return timestamp When it was flagged
      * @return reporter Who flagged it
      */
-    function getCauseDeviation(
-        address _ngoAddress
-    ) external view returns (bool isFlagged, string memory reason, uint256 timestamp, address reporter) {
+    function getCauseDeviation(address _ngoAddress)
+        external
+        view
+        returns (bool isFlagged, string memory reason, uint256 timestamp, address reporter)
+    {
         CauseDeviation memory deviation = causeDeviations[_ngoAddress];
         return (deviation.isFlagged, deviation.reason, deviation.timestamp, deviation.reporter);
     }

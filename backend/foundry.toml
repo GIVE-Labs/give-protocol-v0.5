@@ -11,11 +11,11 @@ via_ir = true
 optimizer = true
 optimizer_runs = 200
 
-# Morph Holesky configuration
+# Scroll Sepolia configuration
 [rpc_endpoints]
-morph_holesky = "https://rpc-holesky.morphl2.io"
+scroll_sepolia = "https://sepolia-rpc.scroll.io"
 
 [etherscan]
-morph_holesky = { key = "", url = "https://explorer-holesky.morphl2.io/api" }
+scroll_sepolia = { key = "${SCROLLSCAN_API_KEY}", url = "https://api-sepolia.scrollscan.com/api" }
 
 # See more config options https://github.com/foundry-rs/foundry/blob/master/crates/config/README.md#all-options

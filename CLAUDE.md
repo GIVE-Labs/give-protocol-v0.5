@@ -4,9 +4,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-**MorphImpact** - A DeFi NGO fundraising platform on Morph Chain that revolutionizes charitable giving through yield generation.
+**GIVE Protocol** - No-loss giving on Scroll Sepolia (testnet) using ERC-4626 vaults where users keep principal redeemable and NGOs receive realized yield.
 
-**Core Value Proposition**: Instead of traditional donations where you lose your principal forever, users stake ETH/USDC on Morph Chain on behalf of verified NGOs. Users select yield contribution rates (50%, 75%, or 100%) and lock periods (6, 12, or 24 months), then withdraw their full principal after the period while NGOs receive continuous yield funding.
+**Core Value Proposition**: Users deposit an ERC-20 asset into an ERC-4626 vault. The vault invests via adapters (Aave/Euler first), and only realized profit is routed to approved NGOs through a Donation Router, while users can redeem principal subject to liquidity.
 
 ## Technology Stack
 
@@ -80,11 +80,11 @@ Since this is a fresh workspace, initialize with:
 ## Core Features to Implement
 
 ### Smart Contract Layer (backend/)
-1. **Staking Contract**: Handle ETH/USDC staking
-2. **Yield Distribution**: Manage yield contribution percentages
-3. **Time Locking**: Implement 6/12/24 month periods
-4. **NGO Registry**: Track supported NGOs
-5. **Principal Return**: Ensure principal can be returned
+1. **GiveVault4626**: ERC-4626 vault with cash buffer hooks
+2. **StrategyManager**: Admin surface for adapter and risk params
+3. **Adapters**: Aave/Euler supply-only (v0.1); Pendle PT later
+4. **DonationRouter**: Route profit to NGOs (+ optional fee)
+5. **NGO Registry**: Approvals and (later) rotation delay
 
 ### Frontend Layer (frontend/)
 1. **NGO Selection Interface**: Browse and select NGOs
@@ -99,20 +99,19 @@ Since this is a fresh workspace, initialize with:
 - [ ] Initialize pnpm workspace
 - [ ] Set up frontend with NextJS + Vite
 - [ ] Set up backend with Foundry
-- [ ] Create basic smart contract structure
-- [ ] Set up web3 frontend integration
-- [ ] Implement NGO selection interface
-- [ ] Implement staking mechanism
-- [ ] Add yield contribution logic
-- [ ] Add time period selection
+- [ ] Create ERC-4626 vault + adapter structure
+- [ ] Set up web3 frontend integration (deposit/withdraw/harvest UX)
+- [ ] Implement NGO selection and donation display
+- [ ] Implement harvest → DonationRouter → NGO flow
+- [ ] Add monitoring events and basic dashboards
 - [ ] Test end-to-end flow
 
 ## Next Steps
 
 1. Initialize the project structure as outlined above
 2. Set up the pnpm workspace
-3. Begin with basic smart contract development in backend/
-4. Set up frontend with web3 connectivity
-5. Implement core staking and yield contribution features
+3. Implement ERC-4626 vault, StrategyManager, and Aave adapter in backend/
+4. Set up frontend with ERC-4626 deposit/withdraw flows
+5. Implement harvest + donation features and events
 
 Remember to log all changes in `llm/LLM-CHANGELOG.md` as you work!

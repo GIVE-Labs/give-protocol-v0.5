@@ -1,214 +1,97 @@
-# MorphImpact Backend Development - TEMP MEMORY
+# GIVE Protocol Backend Development Guide
 
-## ✅ COMPLETED
-### Project Setup ✅
-- **Status**: Frontend initialized with thirdweb NextJS
-- **Frontend**: Next.js 14 + TypeScript + TailwindCSS + thirdweb SDK
-- **Environment**: pnpm workspace configured
-- **Web3**: Client ID set up for Morph Chain
+This guide outlines how to implement the GIVE Protocol backend (v0.1 → v1) aligned with SystemRequirements.
 
-## 🔄 CURRENT TASK - STARTING NOW
-### Phase 1: Smart Contract Foundation
-Starting implementation of core smart contracts for Morph Chain:
+## Architecture (v0.1)
+- ERC-4626 vault: `GiveVault4626` (shares = claim on totalAssets)
+- StrategyManager: config surface (active adapter, cash buffer, risk params)
+- Adapters: `IYieldAdapter` with Aave/Euler supply-only for MVP
+- DonationRouter: routes realized profit to current NGO (optional fee)
+- NGO Registry: approve/remove NGOs; validity checks used by vault/router
 
-1. **MockYieldVault.sol** (Priority: HIGH)
-   - Simulate Aave/Compound yield strategies for testing
-   - Mock functions: deposit(), withdraw(), getYield()
-   - Estimated: 30 minutes
+Key flows: deposit/withdraw per ERC-4626 with cash buffer; `harvest()` realizes P/L and donates profit.
 
-2. **NGORegistry.sol** (Priority: HIGH)
-   - NGO management system for MorphImpact
-   - Registration, verification, and metadata storage
-   - Integration with staking contracts
-   - Estimated: 45 minutes
+## Tech Stack
+- Foundry + Solidity 0.8.x
+- OpenZeppelin (ERC-20, ERC-4626, AccessControl, ReentrancyGuard)
+- Anvil/Forge (unit, fork, fuzz, invariants)
 
-3. **MorphImpactStaking.sol** (Priority: HIGH)
-   - Main staking contract with yield redirection
-   - Core functions: stakeForNGO(), redirectYieldToNGO(), reclaimPrincipal()
-   - Integration with NGORegistry for verification
-   - Estimated: 60 minutes
-
-4. **YieldDistributor.sol** (Priority: HIGH)
-   - Automated yield calculation and distribution
-   - Batch processing for gas efficiency
-   - Integration with staking and yield vault
-   - Estimated: 45 minutes
-
-## 📋 IMMEDIATE NEXT STEPS
-**Next 3 hours plan**:
-1. ✅ **Initialize Foundry backend** (15 min) - Set up backend directory structure
-2. ✅ **MockYieldVault.sol** (30 min) - Simple yield strategy mock
-3. ✅ **NGORegistry.sol** (45 min) - NGO management system
-4. ✅ **MorphImpactStaking.sol** (60 min) - Core staking logic
-5. ✅ **YieldDistributor.sol** (45 min) - Distribution mechanics
-6. ✅ **Integration tests** (45 min) - Full system testing
-7. ✅ **Deployment scripts** (30 min) - Foundry deployment setup
-
-## 🎯 PROJECT STATUS UPDATE
-- **Phase 0 Complete**: ✅ Frontend with thirdweb integration
-- **Phase 1 Starting**: 🔄 Core smart contract infrastructure
-- **Phase 2 Planned**: 🎯 Frontend integration and Morph testnet deployment
-
-## 🏗️ Backend Architecture
-
-### Technology Stack
-- **Framework**: Foundry + Solidity 0.8.x
-- **Blockchain**: Morph Chain (Ethereum L2)
-- **Testing**: Foundry + Forge + Anvil
-- **Deployment**: Foundry scripts
-- **Libraries**: OpenZeppelin contracts
-
-### Directory Structure
+## Suggested Directory Structure
 ```
 backend/
 ├── src/
-│   ├── contracts/
-│   │   ├── MorphImpactStaking.sol
-│   │   ├── NGORegistry.sol
-│   │   ├── YieldDistributor.sol
-│   │   └── MockYieldVault.sol
-│   ├── interfaces/
-│   │   ├── IMorphImpactStaking.sol
-│   │   ├── INGORegistry.sol
-│   │   ├── IYieldDistributor.sol
-│   │   └── IYieldVault.sol
-│   ├── libraries/
-│   │   └── YieldCalculator.sol
-│   └── mocks/
-│       └── MockERC20.sol
+│   ├── vault/
+│   │   └── GiveVault4626.sol
+│   ├── manager/
+│   │   └── StrategyManager.sol
+│   ├── adapters/
+│   │   ├── IYieldAdapter.sol
+│   │   └── AaveAdapter.sol
+│   ├── donation/
+│   │   ├── DonationRouter.sol
+│   │   └── NGORegistry.sol
+│   └── utils/
+│       └── Errors.sol
 ├── test/
-│   ├── MorphImpactStaking.t.sol
+│   ├── GiveVault4626.t.sol
+│   ├── AaveAdapter.t.sol
+│   ├── DonationRouter.t.sol
 │   ├── NGORegistry.t.sol
-│   ├── YieldDistributor.t.sol
-│   └── integration/
-│       └── FullSystem.t.sol
+│   └── integration/EndToEnd.t.sol
 ├── script/
 │   ├── Deploy.s.sol
-│   └── Interact.s.sol
+│   └── Smoke.s.sol
 ├── foundry.toml
 └── remappings.txt
 ```
 
-## 🚀 Quick Start
+## Development Workflow
+1. Implement interfaces and storage layout
+2. Implement `GiveVault4626` using OZ ERC-4626 hooks:
+   - `totalAssets() = cash + adapter.totalAssets()`
+   - `afterDeposit`: invest excess above cash buffer
+   - `beforeWithdraw`: divest shortfall with `maxLossBps`
+3. Implement `IYieldAdapter` + `AaveAdapter` (supply-only)
+4. Implement `NGORegistry` and `DonationRouter`
+5. Wire `harvest()` in vault → adapter.harvest() → DonationRouter
+6. Add AccessControl roles: DEFAULT_ADMIN, VAULT_MANAGER, NGO_MANAGER, PAUSER
 
-### Prerequisites
-- Foundry installed (`curl -L https://foundry.paradigm.xyz | bash`)
-- Node.js 18+ and pnpm
-- Morph Chain RPC endpoint
+## Risk & Controls (MVP hooks)
+- `cashBufferBps`, `slippageBps`, `maxLossBps`
+- Pausing: `pauseInvest`, `pauseHarvest` without blocking redemptions
+- Reentrancy guards on external entrypoints
+- Allowance hygiene & user-favored rounding
 
-### Initialize Backend
+## Tests (priorities)
+- ERC-4626 math: `previewDeposit/Withdraw/Mint/Redeem`
+- Cash buffer invest/divest logic
+- Donation flow: profit → DonationRouter → NGO
+- Adapter round-trip (unit and fork)
+- Reentrancy/pausing invariants
+
+## Quick Commands
 ```bash
-# Create backend directory
-mkdir backend && cd backend
-
-# Initialize Foundry
-forge init
-
-# Install OpenZeppelin contracts
-forge install OpenZeppelin/openzeppelin-contracts
-
-# Set up remappings
-echo 'openzeppelin-contracts/=lib/openzeppelin-contracts/contracts/' > remappings.txt
-```
-
-### Development Workflow
-1. **Write tests first** (TDD approach)
-2. **Implement contracts** in `src/contracts/`
-3. **Run comprehensive tests**
-4. **Deploy to Morph testnet**
-5. **Verify and document**
-
-## 📊 Contract Specifications
-
-### NGORegistry.sol
-**Purpose**: Manage NGO verification and metadata
-
-**Key Features**:
-- NGO registration with metadata
-- Verification system with roles
-- Reputation tracking
-- Cause categorization
-
-**Core Functions**:
-```solidity
-registerNGO(string name, string description, string website, string logoURI, address walletAddress, string[] causes)
-verifyNGO(address ngoAddress)
-updateNGOInfo(address ngoAddress, NGOInfo info)
-getVerifiedNGOs() returns (NGO[] memory)
-```
-
-### MorphImpactStaking.sol
-**Purpose**: Handle user staking and yield redirection
-
-**Key Features**:
-- Multi-token staking (ETH/USDC)
-- Configurable yield contribution rates
-- Lock period management
-- Principal protection
-
-**Core Functions**:
-```solidity
-stake(address ngo, address token, uint256 amount, uint256 duration, uint256 yieldRate)
-withdraw(uint256 positionId)
-emergencyWithdraw(uint256 positionId)
-calculateYield(uint256 positionId)
-```
-
-### YieldDistributor.sol
-**Purpose**: Automated yield calculation and distribution
-
-**Key Features**:
-- Batch yield distribution
-- Gas-efficient calculations
-- Integration with yield protocols
-- Distribution tracking
-
-**Core Functions**:
-```solidity
-distributeYield(address ngo)
-calculatePendingYield(address ngo)
-setDistributionParameters(uint256 interval, uint256 batchSize)
-```
-
-### MockYieldVault.sol
-**Purpose**: Simulate yield generation for testing
-
-**Key Features**:
-- Mock yield generation
-- Configurable APY rates
-- Test mode for development
-- Gas optimization testing
-
-## 🔧 Development Commands
-
-### Testing
-```bash
-# Run all tests
-forge test
-
-# Run with verbosity
-forge test -vvv
-
-# Run specific test
-forge test --match-test testStake
-
-# Run with coverage
+cd backend
+forge build
+forge test -vv
 forge coverage
-
-# Run on forked network
-forge test --fork-url https://rpc.morphl2.io
 ```
+
+## Next Steps
+- v0.2: delayed NGO rotation, granular pause events, best-effort unwind
+- v0.3: Pendle PT adapter with oracle/TWAP
+- v1: UUPS + Timelock upgrades, external audit
 
 ### Deployment
 ```bash
 # Deploy to local
 forge script script/Deploy.s.sol --rpc-url http://localhost:8545 --broadcast
 
-# Deploy to Morph testnet
-forge script script/Deploy.s.sol --rpc-url $MORPH_RPC --private-key $PRIVATE_KEY --broadcast --verify
+# Deploy to Scroll Sepolia testnet
+forge script script/Deploy.s.sol --rpc-url $SCROLL_SEPOLIA_RPC --private-key $PRIVATE_KEY --broadcast --verify
 
 # Verify contracts
-forge verify-contract --chain-id 2810 $CONTRACT_ADDRESS MorphImpactStaking
+forge verify-contract --chain-id 534351 $VAULT_ADDRESS GiveVault4626
 ```
 
 ### Gas Optimization
@@ -250,10 +133,10 @@ forge test --gas-report
 ## 📈 Performance Targets
 
 ### Gas Usage Optimization
-- **Stake transaction**: <150,000 gas
-- **Withdraw transaction**: <80,000 gas
-- **Yield distribution**: <60,000 gas per NGO
-- **Registration**: <100,000 gas
+- Deposit (no adapter move): <130,000 gas
+- Withdraw (no adapter move): <130,000 gas
+- Harvest (adapter-dependent): bounded and eventful
+- NGO registration: <100,000 gas
 
 ### Test Coverage Goals
 - **Line coverage**: 95%+
@@ -264,33 +147,33 @@ forge test --gas-report
 ## 🔄 Next Steps
 
 ### Immediate Actions (Next 30 minutes)
-1. **Initialize Foundry backend** (5 min)
-2. **Create MockYieldVault.sol** (10 min)
-3. **Write initial tests** (15 min)
+1. Initialize Foundry backend (5 min)
+2. Scaffold ERC-4626 vault + interfaces (10 min)
+3. Write initial ERC-4626 math tests (15 min)
 
 ### Next Hour
-1. **Implement NGORegistry.sol** (30 min)
-2. **Write comprehensive tests** (30 min)
+1. Implement NGORegistry.sol (30 min)
+2. Write comprehensive tests (30 min)
 
 ### Next 2 Hours
-1. **Implement MorphImpactStaking.sol** (60 min)
-2. **Implement YieldDistributor.sol** (45 min)
-3. **Integration testing** (15 min)
+1. Implement AaveAdapter.sol (60 min)
+2. Implement DonationRouter.sol (45 min)
+3. Integration testing (15 min)
 
-## 🔗 Morph Chain Resources
+## 🔗 Scroll Sepolia Resources
 
 ### Network Configuration
-- **Chain ID**: 2810
-- **RPC URL**: https://rpc.morphl2.io
-- **Explorer**: https://explorer.morphl2.io
-- **Bridge**: https://bridge.morphl2.io
+- **Chain ID**: 534351
+- **RPC URL**: https://sepolia-rpc.scroll.io
+- **Explorer**: https://sepolia.scrollscan.com
+- **Bridge**: https://sepolia.scroll.io/bridge
 
 ### Deployment Addresses (TBD)
-- **MorphImpactStaking**: `0x...`
-- **NGORegistry**: `0x...`
-- **YieldDistributor**: `0x...`
-- **MockYieldVault**: `0x...`
+- GiveVault4626 (USDC): `0x...`
+- StrategyManager: `0x...`
+- NGORegistry: `0x...`
+- DonationRouter: `0x...`
 
 ---
 
-**Ready to begin Phase 1 smart contract implementation for Morph Chain**
+**Ready to implement GIVE Protocol v0.1 on Scroll Sepolia**

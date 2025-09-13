@@ -1,23 +1,22 @@
-# MorphImpact Contract Interaction Guide
+# GIVE Protocol Frontend Interaction Guide
 
 ## Overview
-This guide provides comprehensive instructions for interacting with the MorphImpact smart contracts from the NextJS frontend using the thirdweb SDK.
+This guide shows how to interact with GIVE Protocol contracts (ERC-4626 vault, DonationRouter, NGORegistry) from the frontend using thirdweb/viem.
 
-## Contract Addresses (Deploy to Morph Chain)
+## Contract Addresses (Scroll Sepolia)
 After deployment, update these addresses:
 ```
+GiveVault4626 (USDC): 0x...
+StrategyManager: 0x...
 NGORegistry: 0x...
-MockYieldVault: 0x...
-MorphImpactStaking: 0x...
-YieldDistributor: 0x...
+DonationRouter: 0x...
+Adapter (Aave): 0x...
 ```
 
-## Supported Tokens
-- **ETH**: Native token for Morph Chain
-- **USDC**: 0x...
-- **WETH**: 0x...
+## Supported Assets
+- USDC (for v0.1 example vault)
 
-## Frontend Integration with thirdweb
+## Frontend Integration
 
 ### 1. Setup thirdweb Client
 ```typescript
@@ -32,24 +31,119 @@ const client = createThirdwebClient({
 ```typescript
 import { ConnectButton } from "thirdweb/react";
 
-// In your component
 <ConnectButton
   client={client}
   appMetadata={{
-    name: "MorphImpact",
-    url: "https://morphimpact.com",
+    name: "GIVE Protocol",
+    url: "https://giveprotocol.org",
   }}
 />
 ```
 
 ## Contract Interactions
 
+### Vault (ERC-4626)
+
+#### Deposit
+```typescript
+import { prepareContractCall, sendTransaction } from "thirdweb";
+
+const deposit = async (amountWei: string, receiver: string) => {
+  // Approve USDC to vault first
+  await sendTransaction({
+    transaction: prepareContractCall({
+      contract: USDC,
+      method: "approve",
+      params: [GiveVault4626.address, amountWei]
+    }),
+    account: activeAccount,
+  });
+
+  // Deposit to ERC-4626 vault
+  const { transactionHash } = await sendTransaction({
+    transaction: prepareContractCall({
+      contract: GiveVault4626,
+      method: "deposit",
+      params: [amountWei, receiver]
+    }),
+    account: activeAccount,
+  });
+
+  return transactionHash;
+};
+```
+
+#### Withdraw
+```typescript
+const withdraw = async (assetsWei: string, receiver: string, owner: string) => {
+  const { transactionHash } = await sendTransaction({
+    transaction: prepareContractCall({
+      contract: GiveVault4626,
+      method: "withdraw",
+      params: [assetsWei, receiver, owner]
+    }),
+    account: activeAccount,
+  });
+  return transactionHash;
+};
+```
+
+#### Previews
+```typescript
+import { readContract } from "thirdweb";
+
+const previews = async (assetsWei: string, sharesWei: string) => {
+  const shares = await readContract({
+    contract: GiveVault4626,
+    method: "previewDeposit",
+    params: [assetsWei]
+  });
+  const assets = await readContract({
+    contract: GiveVault4626,
+    method: "previewRedeem",
+    params: [sharesWei]
+  });
+  return { shares, assets };
+};
+```
+
+### Harvest and Donations
+
+#### Harvest (anyone / keeper / manager)
+```typescript
+const harvest = async () => {
+  const { transactionHash } = await sendTransaction({
+    transaction: prepareContractCall({
+      contract: GiveVault4626,
+      method: "harvest",
+      params: []
+    }),
+    account: activeAccount,
+  });
+  return transactionHash;
+};
+```
+
+#### Claim to Current NGO
+```typescript
+const claimDonation = async (ngoAddress: string) => {
+  const { transactionHash } = await sendTransaction({
+    transaction: prepareContractCall({
+      contract: DonationRouter,
+      method: "claim",
+      params: [ngoAddress]
+    }),
+    account: activeAccount,
+  });
+  return transactionHash;
+};
+```
+
 ### NGO Management
 
 #### Register New NGO
 ```typescript
 import { prepareContractCall, sendTransaction } from "thirdweb";
-import { MorphImpactStaking } from "./abis/MorphImpactStaking";
 
 const registerNGO = async (
   name: string,
@@ -101,11 +195,9 @@ const getNGODetails = async (ngoAddress: string) => {
     causes: ngo.causes,
     metadataURI: ngo.metadataURI,
     isVerified: ngo.isVerified,
-    reputationScore: ngo.reputationScore.toString(),
-    totalStakers: ngo.totalStakers.toString(),
-    totalYieldReceived: ngo.totalYieldReceived.toString()
   };
 };
+```
 
 #### List All NGOs
 ```typescript
@@ -122,261 +214,38 @@ const getAllNGOs = async () => {
     description: ngo.description,
     causes: ngo.causes,
     isVerified: ngo.isVerified,
-    reputationScore: ngo.reputationScore.toString()
   }));
-};
-```
-
-### Staking Operations
-
-#### Stake Tokens for NGO
-```typescript
-const stake = async (
-  ngoAddress: string,
-  tokenAddress: string,
-  amount: string, // in wei
-  lockPeriod: number, // in seconds
-  yieldContributionRate: number // 5000-10000 (50-100%)
-) => {
-  // First approve tokens
-  const approveTx = prepareContractCall({
-    contract: ERC20(tokenAddress),
-    method: "approve",
-    params: [MorphImpactStaking.address, amount]
-  });
-  
-  await sendTransaction({
-    transaction: approveTx,
-    account: activeAccount,
-  });
-
-  // Then stake
-  const stakeTx = prepareContractCall({
-    contract: MorphImpactStaking,
-    method: "stake",
-    params: [
-      ngoAddress,
-      tokenAddress,
-      amount,
-      lockPeriod,
-      yieldContributionRate
-    ]
-  });
-
-  const { transactionHash } = await sendTransaction({
-    transaction: stakeTx,
-    account: activeAccount,
-  });
-  
-  return transactionHash;
-};
-```
-
-#### Get User Stakes
-```typescript
-const getUserStakes = async (userAddress: string, tokenAddress: string) => {
-  const ngos = await readContract({
-    contract: MorphImpactStaking,
-    method: "getUserStakedNGOs",
-    params: [userAddress, tokenAddress]
-  });
-
-  const stakes = await Promise.all(
-    ngos.map(async (ngo) => {
-      const stake = await readContract({
-        contract: MorphImpactStaking,
-        method: "getUserStake",
-        params: [userAddress, ngo, tokenAddress]
-      });
-      
-      return {
-        ngoAddress: ngo,
-        amount: stake.amount.toString(),
-        lockUntil: new Date(Number(stake.lockUntil) * 1000),
-        yieldContributionRate: stake.yieldContributionRate,
-        totalYieldGenerated: stake.totalYieldGenerated.toString(),
-        totalYieldToNGO: stake.totalYieldToNGO.toString(),
-        isActive: stake.isActive
-      };
-    })
-  );
-  
-  return stakes;
-};
-```
-
-#### Claim Yield Without Unstaking
-```typescript
-const claimYield = async (ngoAddress: string, tokenAddress: string) => {
-  const transaction = prepareContractCall({
-    contract: MorphImpactStaking,
-    method: "claimYield",
-    params: [ngoAddress, tokenAddress]
-  });
-
-  const { transactionHash } = await sendTransaction({
-    transaction,
-    account: activeAccount,
-  });
-  
-  return transactionHash;
-};
-```
-
-#### Unstake Tokens
-```typescript
-const unstake = async (ngoAddress: string, tokenAddress: string, amount?: string) => {
-  const transaction = prepareContractCall({
-    contract: MorphImpactStaking,
-    method: "unstake",
-    params: [
-      ngoAddress,
-      tokenAddress,
-      amount || "0" // 0 for full unstake
-    ]
-  });
-
-  const { transactionHash } = await sendTransaction({
-    transaction,
-    account: activeAccount,
-  });
-  
-  return transactionHash;
-};
-```
-
-#### Get Pending Yield
-```typescript
-const getPendingYield = async (userAddress: string, ngoAddress: string, tokenAddress: string) => {
-  const [pendingYield, userYield, ngoYield] = await readContract({
-    contract: MorphImpactStaking,
-    method: "getPendingYield",
-    params: [userAddress, ngoAddress, tokenAddress]
-  });
-  
-  return {
-    pendingYield: pendingYield.toString(),
-    userYield: userYield.toString(),
-    ngoYield: ngoYield.toString()
-  };
-};
-```
-
-### Yield Distribution
-
-#### Initiate Distribution (Admin)
-```typescript
-const initiateDistribution = async () => {
-  const transaction = prepareContractCall({
-    contract: YieldDistributor,
-    method: "initiateDistribution",
-    params: []
-  });
-
-  const { transactionHash } = await sendTransaction({
-    transaction,
-    account: activeAccount,
-  });
-  
-  return transactionHash;
-};
-```
-
-#### Get Distribution Status
-```typescript
-const getDistributionStatus = async () => {
-  const [canDistribute, timeUntil, totalTokens] = await readContract({
-    contract: YieldDistributor,
-    method: "getDistributionStatus",
-    params: []
-  });
-  
-  return {
-    canDistribute,
-    timeUntil: Number(timeUntil),
-    totalTokens: Number(totalTokens)
-  };
-};
-
-#### Get Distribution Round Details
-```typescript
-const getDistributionRound = async (roundNumber: number) => {
-  const [round, totalYield, distributionTime, stakersCount] = await readContract({
-    contract: YieldDistributor,
-    method: "getDistributionRound",
-    params: [roundNumber]
-  });
-  
-  return {
-    roundNumber: Number(round),
-    totalYield: totalYield.toString(),
-    distributionTime: new Date(Number(distributionTime) * 1000),
-    stakersCount: Number(stakersCount)
-  };
 };
 ```
 
 ### Utility Functions
 
-#### Get Supported Tokens
+#### Get Vault Asset
 ```typescript
-const getSupportedTokens = async () => {
-  const tokens = await readContract({
-    contract: MorphImpactStaking,
-    method: "getSupportedTokens",
+const getVaultAsset = async () => {
+  const asset = await readContract({
+    contract: GiveVault4626,
+    method: "asset",
     params: []
   });
-  
-  return tokens;
+  return asset;
 };
+```
 
-#### Check Active Stake
+#### User Shares Balance
 ```typescript
-const hasActiveStake = async (userAddress: string, ngoAddress: string, tokenAddress: string) => {
+const userShares = async (user: string) => {
   return await readContract({
-    contract: MorphImpactStaking,
-    method: "hasActiveStake",
-    params: [userAddress, ngoAddress, tokenAddress]
+    contract: GiveVault4626,
+    method: "balanceOf",
+    params: [user]
   });
 };
-
-#### Get NGO Total Staked
-```typescript
-const getTotalStakedForNGO = async (ngoAddress: string, tokenAddress: string) => {
-  const total = await readContract({
-    contract: MorphImpactStaking,
-    method: "getTotalStakedForNGO",
-    params: [ngoAddress, tokenAddress]
-  });
-  
-  return total.toString();
-};
-
-### Event Handling
-
-#### Listen for Stake Events
-```typescript
-import { useContractEvents } from "thirdweb/react";
-
-const { data: stakeEvents } = useContractEvents({
-  contract: MorphImpactStaking,
-  eventName: "Staked",
-  watch: true,
-});
 ```
 
-#### Listen for Yield Distribution Events
-```typescript
-const { data: distributionEvents } = useContractEvents({
-  contract: YieldDistributor,
-  eventName: "DistributionInitiated",
-  watch: true,
-});
-```
+### Frontend Components Structure
 
-## Frontend Components Structure
-
-### 1. NGO Discovery Component
+#### 1. NGO Discovery Component
 ```typescript
 // components/NGODiscovery.tsx
 import { useReadContract } from "thirdweb/react";
@@ -398,81 +267,59 @@ const NGODiscovery: React.FC = () => {
 };
 ```
 
-### 2. Staking Modal Component
+#### 2. Deposit Modal Component
 ```typescript
-// components/StakingModal.tsx
+// components/DepositModal.tsx
 import { useState } from "react";
 import { useSendTransaction } from "thirdweb/react";
 
-interface StakingModalProps {
+interface DepositModalProps {
   ngo: NGO;
-  token: Token;
 }
 
-const StakingModal: React.FC<StakingModalProps> = ({ ngo, token }) => {
+const DepositModal: React.FC<DepositModalProps> = ({ ngo }) => {
   const [amount, setAmount] = useState("");
-  const [lockPeriod, setLockPeriod] = useState(90 * 24 * 60 * 60); // 90 days
-  const [yieldContribution, setYieldContribution] = useState(7500); // 75%
-  
   const { mutate: sendTransaction } = useSendTransaction();
 
-  const handleStake = async () => {
+  const handleDeposit = async () => {
     await sendTransaction({
       transaction: prepareContractCall({
-        contract: MorphImpactStaking,
-        method: "stake",
-        params: [
-          ngo.ngoAddress,
-          token.address,
-          parseEther(amount),
-          lockPeriod,
-          yieldContribution
-        ]
+        contract: GiveVault4626,
+        method: "deposit",
+        params: [parseUnits(amount, 6), activeAccount?.address]
       })
     });
   };
 
   return (
-    <div className="staking-modal">
-      <h2>Stake for {ngo.name}</h2>
+    <div className="deposit-modal">
+      <h2>Deposit to support {ngo.name}</h2>
       <input
         type="number"
         placeholder="Amount"
         value={amount}
         onChange={(e) => setAmount(e.target.value)}
       />
-      <input
-        type="range"
-        min="30"
-        max="365"
-        value={lockPeriod / (24 * 60 * 60)}
-        onChange={(e) => setLockPeriod(Number(e.target.value) * 24 * 60 * 60)}
-      />
-      <input
-        type="range"
-        min="5000"
-        max="10000"
-        value={yieldContribution}
-        onChange={(e) => setYieldContribution(Number(e.target.value))}
-      />
-      <button onClick={handleStake}>Stake</button>
+      <button onClick={handleDeposit}>Deposit</button>
     </div>
   );
 };
 ```
 
-### 3. User Dashboard Component
+#### 3. User Dashboard Component
 ```typescript
 // components/UserDashboard.tsx
 const UserDashboard: React.FC = () => {
-  const { data: stakes } = useUserStakes(activeAccount?.address, tokenAddress);
+  const { data: shares } = useReadContract({
+    contract: GiveVault4626,
+    method: "balanceOf",
+    params: [activeAccount?.address]
+  });
   
   return (
     <div className="user-dashboard">
-      <h2>Your Stakes</h2>
-      {stakes?.map(stake => (
-        <StakeCard key={stake.ngoAddress} stake={stake} />
-      ))}
+      <h2>Your Vault Position</h2>
+      <div>Shares: {shares?.toString()}</div>
     </div>
   );
 };
@@ -481,61 +328,16 @@ const UserDashboard: React.FC = () => {
 ## Error Handling
 
 ### Common Errors and Solutions
-
 ```typescript
 const handleContractError = (error: any) => {
-  if (error.message.includes("UnsupportedToken")) {
-    toast.error("This token is not supported for staking");
+  if (error.message.includes("MaxLossExceeded")) {
+    toast.error("Exit would exceed max loss");
   } else if (error.message.includes("InvalidNGO")) {
     toast.error("NGO is not verified or inactive");
-  } else if (error.message.includes("StakeStillLocked")) {
-    toast.error("Stake is still locked");
-  } else if (error.message.includes("DistributionTooFrequent")) {
-    toast.error("Distribution interval not passed");
+  } else if (error.message.includes("Paused")) {
+    toast.error("Invest/harvest is currently paused");
   } else {
     toast.error("Transaction failed");
   }
 };
 ```
-
-## Gas Estimation
-
-### Estimate Gas for Transactions
-```typescript
-const estimateGas = async (transaction: any) => {
-  const gasEstimate = await estimateGasCost({
-    transaction,
-    client,
-  });
-  
-  return gasEstimate;
-};
-```
-
-## Security Best Practices
-
-1. **Input Validation**: Always validate user inputs
-2. **Slippage Protection**: Use appropriate slippage tolerance for transactions
-3. **Error Handling**: Implement comprehensive error handling
-4. **Loading States**: Show loading indicators during transactions
-5. **Confirmation Modals**: Require user confirmation for high-value transactions
-
-## Testing Checklist
-
-- [ ] Connect wallet successfully
-- [ ] Register new NGO
-- [ ] View NGO details
-- [ ] Stake tokens for NGO
-- [ ] View user stakes
-- [ ] Claim yield without unstaking
-- [ ] Unstake tokens
-- [ ] Get pending yield information
-- [ ] Handle all error states gracefully
-- [ ] Test on Morph Chain testnet
-
-## Resources
-
-- [thirdweb React SDK Docs](https://portal.thirdweb.com/react)
-- [Morph Chain Documentation](https://docs.morphl2.io/)
-- [Contract ABIs](./abis/) - Copy ABIs here after deployment
-- [Example Code Snippets](./examples/) - Ready-to-use code patterns

@@ -2,12 +2,12 @@
 
 ## Master Instructions for All LLMs
 
-This file contains the master rules that all LLMs must follow when working on this DeFi NGO fundraising platform project.
+This file contains the master rules that all LLMs must follow when working on the GIVE Protocol no-loss giving platform.
 
 ### Project Overview
-**Project Name**: MorphImpact  
-**Purpose**: DeFi NGO fundraising platform on Morph Chain that revolutionizes charitable giving  
-**Core Concept**: Users stake ETH/USDC on Morph Chain on behalf of verified NGOs, selecting yield contribution rates (50%, 75%, or 100%) and lock periods (6, 12, or 24 months). Users retain their full principal after the period while NGOs receive continuous yield funding.
+**Project Name**: GIVE Protocol  
+**Purpose**: No-loss giving via ERC-4626 vaults on Scroll Sepolia (testnet)  
+**Core Concept**: Users deposit an ERC-20 asset into an ERC-4626 vault. Principal remains redeemable, while realized yield is harvested and routed to approved NGOs via a Donation Router and NGO Registry. Pluggable adapters manage investments (Aave/Euler for v0.1, Pendle later).
 
 ### Technology Stack
 - **Frontend**: NextJS + Vite with full web3 functionality

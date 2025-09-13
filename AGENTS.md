@@ -31,7 +31,7 @@
 - **File Names**: 
   - Frontend components: PascalCase (e.g., `StakeForm.tsx`)
   - Smart contracts: PascalCase ending in `.sol` (e.g., `NGORegistry.sol`)
-  - Tests: `.t.sol` suffix for Foundry tests (e.g., `MorphImpactStaking.t.sol`).
+  - Tests: `.t.sol` suffix for Foundry tests (e.g., `GiveVault4626.t.sol`).
 - **Commits**: Follow Conventional Commits (e.g., `feat:`, `fix:`, `chore:`).
 
 ## Testing Guidelines
@@ -52,7 +52,7 @@
 
 ## Environment & Configuration Tips
 
-- Copy `.env.example` to `.env.local` in `frontend/` and add your Morph Chain keys.
+- Copy `.env.example` to `.env.local` in `frontend/` and add your Scroll Sepolia RPC and keys (e.g., `SCROLL_SEPOLIA_RPC=https://sepolia-rpc.scroll.io`).
 - Ensure Node.js >=18 and Foundry installed (`curl -L https://foundry.paradigm.xyz | bash`).
 
 _This guide helps new contributors get up to speed quickly. Thank you for contributing!_

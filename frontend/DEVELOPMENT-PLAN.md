@@ -1,21 +1,20 @@
-# MorphImpact Frontend Development Plan
+# GIVE Protocol Frontend Development Plan
 
 ## Overview
-Based on GiveHope patterns, adapted for MorphImpact's DeFi NGO staking platform. Focus on NGO selection, staking with yield contribution, and portfolio tracking.
+Based on GiveHope patterns, adapted for GIVE Protocol’s no-loss giving. Focus on NGO discovery, ERC-4626 deposit/withdraw UX, harvest/donation visibility.
 
 ## Architecture
-- **Framework**: React + TypeScript + Vite (migrated from NextJS)
+- **Framework**: React + TypeScript + Vite/NextJS
 - **Web3**: Wagmi v2 + RainbowKit v2 + Viem
 - **Styling**: Tailwind CSS
 - **State**: React Query for server state, local state for UI
 - **Routing**: React Router v6
 
 ## Contract Integration Strategy
-1. **NGORegistry**: Display and select verified NGOs
-2. **MorphImpactStaking**: Core staking functionality
-3. **YieldDistributor**: Track yield distributions
-4. **MockYieldVault**: Simulate yield generation
-5. **MockUSDC/MockWETH**: Token interactions
+1. **GiveVault4626**: ERC-4626 deposit/withdraw + previews
+2. **NGORegistry**: Display and validate approved NGOs
+3. **DonationRouter**: Show DonationPaid events and NGO receipts
+4. **StrategyManager**: Admin/ops panel (gated) for adapter/cash buffer
 
 ## Page Structure
 
@@ -33,32 +32,27 @@ Based on GiveHope patterns, adapted for MorphImpact's DeFi NGO staking platform.
 - NGO detail modal/page
 - Connect wallet CTA for non-connected users
 
-### 3. Stake Page (`/stake/:ngoId`) - Core Functionality
+### 3. Deposit Page (`/deposit`) - Core Functionality
 **Components:**
-- NGO details header
-- Token selection (USDC/WETH)
+- NGO selection (single NGO for v0.1)
+- Asset selection (per vault; USDC v0.1)
 - Amount input with balance check
-- Yield contribution slider (50%/75%/100%)
-- Lock period selection (6/12/24 months)
-- Estimated yield preview
-- Stake confirmation modal
+- ERC-4626 previews (shares, assets)
+- Deposit confirmation modal
 
 ### 4. Portfolio (`/portfolio`) - User Dashboard
 **Components:**
-- Active stakes overview
-- Total value locked
-- Yield generated for NGOs
-- Withdrawal countdown timers
+- Vault position overview (shares, estimated assets)
+- Total donated (from events)
+- Recent harvests/donations
 - Transaction history
-- NGO impact metrics
 
 ### 5. NGO Details (`/ngo/:id`) - NGO Information
 **Components:**
 - NGO profile with verification status
-- Current active stakes supporting this NGO
-- Total yield received
+- Total donations received (on-chain)
 - Impact stories/metrics
-- Stake button
+- Deposit button
 
 ## Component Structure
 
@@ -82,12 +76,13 @@ Based on GiveHope patterns, adapted for MorphImpact's DeFi NGO staking platform.
 - `BalanceDisplay.tsx` - Token balances
 - `TransactionStatus.tsx` - Transaction feedback
 - `ApproveToken.tsx` - Token approval flow
+- `VaultPreviews.tsx` - ERC-4626 preview helpers
 
 ### Feature Components
 - `NGOCard.tsx` - NGO display card
-- `StakingForm.tsx` - Main staking interface
-- `StakeSummary.tsx` - Stake details display
-- `YieldCalculator.tsx` - Yield estimation
+- `DepositForm.tsx` - ERC-4626 deposit interface
+- `WithdrawForm.tsx` - ERC-4626 withdraw interface
+- `DonationFeed.tsx` - DonationPaid events
 - `ImpactMetrics.tsx` - NGO impact display
 
 ## Data Flow
@@ -97,12 +92,12 @@ Based on GiveHope patterns, adapted for MorphImpact's DeFi NGO staking platform.
 - **Local**: Form states, selected NGO, amounts
 - **Server**: NGO data, user stakes, token balances
 
-### API Endpoints (via contracts)
+### Contract Reads
 - `getNGOs()` - Fetch all NGOs
 - `getNGO(id)` - Get specific NGO
-- `getUserStakes(address)` - User's active stakes
-- `getStakeDetails(id)` - Specific stake info
-- `getYieldGenerated(ngoId)` - NGO yield metrics
+- `balanceOf(address)` - User shares (vault)
+- `previewDeposit/previewRedeem` - ERC-4626 previews
+- `DonationPaid` events - NGO donation metrics
 
 ## Styling Strategy
 - Use GiveHope's Tailwind patterns
@@ -121,8 +116,7 @@ Based on GiveHope patterns, adapted for MorphImpact's DeFi NGO staking platform.
 ## Testing Strategy
 - Run `pnpm dev` after each major component
 - Test wallet connection flow
-- Test staking with mock tokens
-- Test withdrawal countdowns
+- Test deposit/withdraw with mock tokens
 - Test error states
 
 ## Development Phases
@@ -139,12 +133,12 @@ Based on GiveHope patterns, adapted for MorphImpact's DeFi NGO staking platform.
 3. NGO detail view
 4. Test with real NGO data
 
-### Phase 3: Staking Interface (60 min)
-1. Staking form with validation
-2. Token selection and approval
-3. Yield contribution slider
-4. Lock period selection
-5. Stake confirmation
+### Phase 3: Deposit/Withdraw Interface (60 min)
+1. Deposit form with validation
+2. Token approval flow
+3. ERC-4626 previews
+4. Withdraw form and shares view
+5. Confirmations and toasts
 
 ### Phase 4: Portfolio (45 min)
 1. User dashboard layout
@@ -172,8 +166,7 @@ pnpm run type-check
 
 ## Contract Addresses Update
 Update these in `frontend/src/config/contracts.ts`:
-- NGORegistry: 0x724dc0c1AE0d8559C48D0325Ff4cC8F45FE703De
-- MorphImpactStaking: 0xE05473424Df537c9934748890d3D8A5b549da1C0
-- YieldDistributor: 0x26C19066b8492D642aDBaFD3C24f104fCeb14DA9
-- MockUSDC: 0x44F38B49ddaAE53751BEEb32Eb3b958d950B26e6
-- MockWETH: 0x81F5c69b5312aD339144489f2ea5129523437bdC
+- GiveVault4626 (USDC): 0x...
+- StrategyManager: 0x...
+- NGORegistry: 0x...
+- DonationRouter: 0x...

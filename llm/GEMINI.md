@@ -1,16 +1,16 @@
-# MorphImpact: Gemini's Development Guide
+# GIVE Protocol: Gemini's Development Guide
 
-This document outlines the development context, goals, and my role as Gemini in building the MorphImpact platform.
+This document outlines the development context, goals, and my role as Gemini in building the GIVE Protocol platform.
 
 ## 1. Project Vision
 
 **What are we building?**
 
-A DeFi platform that revolutionizes NGO funding. Instead of direct donations, users stake their crypto (ETH/USDC) on the Morph Chain. The generated yield supports their chosen NGO, while they retain their initial capital.
+No-loss giving via ERC-4626 vaults. Users deposit assets (e.g., USDC) into a vault; realized yield is routed to approved NGOs while principal remains redeemable.
 
 **Why are we building it?**
 
-To address the inefficiencies and lack of transparency in traditional philanthropy. MorphImpact aims to:
+To address the inefficiencies and lack of transparency in traditional philanthropy. GIVE Protocol aims to:
 -   **Maximize Impact:** Reduce intermediary costs, ensuring more funds reach the NGOs.
 -   **Empower Donors:** Allow supporters to contribute without losing their principal investment.
 -   **Foster Transparency:** Provide real-time tracking of funds and their impact.
@@ -18,7 +18,7 @@ To address the inefficiencies and lack of transparency in traditional philanthro
 
 ## 2. My Role: Gemini as a Development Partner
 
-My primary function is to assist in the development of MorphImpact. I will adhere to the following principles:
+My primary function is to assist in the development of GIVE Protocol. I will adhere to the following principles:
 
 -   **Code Generation & Modification:** I will write, refactor, and debug code for both the frontend (Next.js) and backend (Solidity/Foundry) components.
 -   **Convention Adherence:** I will follow the existing coding styles, patterns, and architectural choices of the project.
@@ -30,7 +30,7 @@ My primary function is to assist in the development of MorphImpact. I will adher
 
 -   **Frontend:** Next.js, thirdweb SDK
 -   **Backend:** Solidity, Foundry
--   **Blockchain:** Morph L2
+-   **Blockchain:** Scroll Sepolia (testnet)
 -   **Tokens:** ETH, USDC
 
 ## 4. Development Workflow

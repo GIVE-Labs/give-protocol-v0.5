@@ -1,6 +1,6 @@
-# MorphImpact
+# GIVE Protocol
 
-A DeFi platform that lets you support NGOs by staking crypto instead of donating. You keep your principal, they get the yield.
+No-loss giving built on ERC-4626 vaults. Users deposit an asset, keep their principal redeemable, and route realized yield to approved NGOs.
 
 ## The Problem
 
@@ -12,20 +12,20 @@ Traditional NGO donations have issues:
 
 ## How It Works
 
-Instead of giving money away, you stake ETH/USDC on Morph Chain. The yield goes to your chosen NGO, and you get your principal back after the lock period.
+Users deposit into an ERC-4626 vault (e.g., USDC vault). The vault invests via a pluggable adapter (e.g., Aave). Principal stays redeemable as vault shares track totalAssets; only realized profit is harvested and routed to NGOs via a Donation Router.
 
-**Example:**
-- Stake 1 ETH for a verified education NGO
-- Choose 75% yield contribution (keep 25%)
-- 12-month lock period
-- NGO gets ~0.075 ETH in yield, you get 1 ETH back + 0.025 ETH
+Example:
+- Deposit 1,000 USDC into the USDC GiveVault4626
+- Vault keeps a cash buffer and supplies excess to Aave via adapter
+- Periodically, `harvest()` realizes profit and donates it to the current NGO
+- You can withdraw your principal (subject to available liquidity)
 
 ## Quick Start
 
 ### Prerequisites
 - Node.js 18+
 - Foundry
-- MetaMask with Morph Chain
+- Wallet with Scroll Sepolia configured
 
 ### Setup
 ```bash
@@ -34,7 +34,7 @@ cd frontend && pnpm install
 cd ../backend && forge install
 
 # Configure
-# Copy .env.example to .env.local and add your thirdweb client ID
+# Copy .env.example to .env.local and add required keys
 
 # Run
 cd frontend && pnpm dev
@@ -42,34 +42,34 @@ cd frontend && pnpm dev
 
 ## Tech Stack
 
-- **Frontend**: Next.js + thirdweb SDK
-- **Contracts**: Foundry + Solidity
-- **Chain**: Morph L2
-- **Tokens**: ETH, USDC
+- Frontend: Next.js + TypeScript + TailwindCSS
+- Contracts: Foundry + Solidity (ERC-4626 vault, adapters, registry/router)
+- Chain: Scroll Sepolia (test/deploy targets configurable)
+- Tokens: Asset-specific vaults (e.g., USDC, wstETH)
 
 ## Project Structure
 
 ```
-morphimpact/
-├── frontend/          # Next.js web app
-├── backend/           # Foundry contracts
-├── docs/              # Documentation
-└── llm/               # Development notes
+.
+├── frontend/          # Next.js web app (TypeScript, TailwindCSS)
+├── backend/           # Foundry contracts (Solidity)
+├── docs/              # Documentation & design notes
+├── llm/               # AI collaboration & prompts
+└── README.md          # Quick start & overview
 ```
 
 ## Key Features
 
 ### For Supporters
-- Browse verified NGOs by cause/location
-- Stake crypto with configurable yield rates
-- Track real-time impact
-- Withdraw principal after lock period
+- Deposit into simple ERC-4626 vault interface
+- Keep principal redeemable; donate only yield
+- Transparent harvest/donation events
+- Withdraw anytime within liquidity constraints
 
 ### For NGOs
-- Register and get verified
-- Receive continuous yield funding
-- Build supporter communities
-- Transparent reporting
+- Apply and get approved in the NGO Registry
+- Receive ongoing yield routed by Donation Router
+- Transparent on-chain donation receipts
 
 ## Development
 
@@ -90,24 +90,24 @@ pnpm build         # Build for production
 
 ## Current Status
 
-- ✅ Frontend setup with thirdweb
-- 🔄 Smart contracts in development
-- 🎯 Morph testnet deployment planned
+- ✅ Docs updated for GIVE Protocol architecture
+- 🔄 Implementing v0.1: GiveVault4626 + Aave adapter + Registry/Router
+- 🎯 Testnet deployment plan after unit/fork tests
 
 ## Getting Started
 
 1. Clone the repo
 2. Install dependencies: `pnpm install`
-3. Add your thirdweb client ID to `.env.local`
+3. Configure environment: `.env.local` for frontend as needed
 4. Start the dev server: `pnpm dev`
 
 ## Contributing
 
-1. Read docs in `/llm/` for development guidelines
+1. Read docs in `/docs/SystemRequirements.md` for architecture
 2. Write tests first
-3. Follow the established patterns
+3. Follow repo guidelines in `AGENTS.md`
 4. Submit PRs with clear descriptions
 
 ---
 
-Built for the Morph Chain Hackathon 2025
+Target network: Scroll Sepolia — GIVE Protocol MVP

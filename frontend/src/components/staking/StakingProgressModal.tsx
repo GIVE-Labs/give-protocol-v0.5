@@ -85,7 +85,7 @@ export default function StakingProgressModal({
           <div className="bg-gray-50 rounded-lg p-3 mb-4">
             <p className="text-xs text-gray-600 mb-1">Transaction Hash:</p>
             <a 
-              href={`https://explorer-holesky.morphl2.io/tx/${txHash}`}
+              href={`${SCROLL_SEPOLIA.blockExplorers.default.url}/tx/${txHash}`}
               target="_blank"
               rel="noopener noreferrer"
               className="text-xs text-purple-600 hover:underline break-all"
@@ -118,3 +118,4 @@ export default function StakingProgressModal({
     </div>
   )
 }
+import { SCROLL_SEPOLIA } from '../../config/contracts'
