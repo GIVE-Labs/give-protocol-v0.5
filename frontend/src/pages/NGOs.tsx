@@ -2,11 +2,11 @@ import { useAccount, useReadContract } from 'wagmi';
 import { useNavigate } from 'react-router-dom';
 import { CONTRACT_ADDRESSES } from '../config/contracts';
 import { NGO_REGISTRY_ABI } from '../abis/NGORegistry';
-
 import { formatUnits } from 'viem';
-import { keccak256, toBytes } from 'viem';
+import { motion } from 'framer-motion';
+import { Heart, MapPin, Users, TrendingUp, Search } from 'lucide-react';
 
-function CampaignCard({ address }: { address: `0x${string}` }) {
+function CampaignCard({ address, index }: { address: `0x${string}`, index: number }) {
   const navigate = useNavigate();
   
   const { data: ngoInfo, isLoading } = useReadContract({
@@ -16,22 +16,42 @@ function CampaignCard({ address }: { address: `0x${string}` }) {
     args: [address],
   });
 
-  // Removed staking contract call - no longer using MORPH_IMPACT_STAKING
-  const totalStaked = BigInt(0);
+  // Using local images from assets folder
+  const campaignImages = [
+    '/src/assets/IMG_4241.jpg',
+    '/src/assets/IMG_5543.jpg',
+    '/src/assets/IMG_5550.jpg',
+    '/src/assets/IMG_4241.jpg',
+    '/src/assets/IMG_5543.jpg',
+    '/src/assets/IMG_5550.jpg'
+  ];
 
-  // Calculate current APY (this would typically come from the vault)
-  const calculateAPY = (): number => {
-    const baseAPY = 5.0; // 5% base APY
-    const lockMultiplier = 1.2; // 12 month default
-    return baseAPY * lockMultiplier;
-  };
+  const mockProgress = [65, 78, 45, 89, 34, 92][index % 6];
+  const mockRaised = [12500, 8900, 3400, 15600, 2100, 18900][index % 6];
+  const mockTarget = [20000, 12000, 8000, 18000, 6000, 22000][index % 6];
+  const mockSupporters = [234, 156, 89, 445, 67, 523][index % 6];
 
-  const handleStakeClick = () => {
+  const handleDonateClick = () => {
     navigate(`/campaign/${address}`);
   };
 
   if (isLoading) {
-    return <div className="p-6 rounded-lg border bg-white animate-pulse h-64" />;
+    return (
+      <motion.div 
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: index * 0.1 }}
+        className="bg-white rounded-xl shadow-sm border overflow-hidden animate-pulse"
+      >
+        <div className="h-48 bg-gray-200" />
+        <div className="p-6">
+          <div className="h-4 bg-gray-200 rounded mb-2" />
+          <div className="h-3 bg-gray-200 rounded mb-4" />
+          <div className="h-2 bg-gray-200 rounded mb-4" />
+          <div className="h-8 bg-gray-200 rounded" />
+        </div>
+      </motion.div>
+    );
   }
 
   if (!ngoInfo) {
@@ -39,123 +59,244 @@ function CampaignCard({ address }: { address: `0x${string}` }) {
   }
 
   const name = (ngoInfo as any)?.name || 'Unknown Campaign';
-    const description = (ngoInfo as any)?.description || 'No description available';
-    const isActive = (ngoInfo as any)?.isActive || false;
-  const currentAPY = calculateAPY();
+  const description = (ngoInfo as any)?.description || 'Help us make a difference in the world';
+  const isActive = (ngoInfo as any)?.isActive || false;
 
   return (
-    <div className="bg-white rounded-lg border hover:shadow-lg transition-all duration-200 cursor-pointer group"
-         onClick={handleStakeClick}>
-      <div className="p-6">
-        <div className="flex justify-between items-start mb-4">
-          <h3 className="font-bold text-xl text-gray-900 group-hover:text-blue-600 transition-colors">
-            {name}
-          </h3>
-          <span className={`px-3 py-1 text-xs rounded-full font-medium ${
-            isActive ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+    <motion.div 
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay: index * 0.1 }}
+      className="bg-white rounded-xl shadow-sm border overflow-hidden hover:shadow-lg transition-all duration-300 cursor-pointer group"
+      onClick={handleDonateClick}
+    >
+      {/* Campaign Image */}
+      <div className="relative h-48 overflow-hidden">
+        <img 
+          src={campaignImages[index % campaignImages.length]} 
+          alt={name}
+          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+        />
+        <div className="absolute top-3 right-3">
+          <span className={`px-2 py-1 text-xs rounded-full font-medium backdrop-blur-sm ${
+            isActive ? 'bg-green-500/90 text-white' : 'bg-red-500/90 text-white'
           }`}>
             {isActive ? 'Active' : 'Inactive'}
           </span>
         </div>
-        
-        <p className="text-gray-600 text-sm mb-4 line-clamp-2">{description}</p>
-        
-        {/* Campaign Stats */}
-        <div className="grid grid-cols-2 gap-4 mb-4">
-          <div className="bg-blue-50 p-3 rounded-lg">
-            <div className="text-xs text-blue-600 font-medium">Current APY</div>
-            <div className="text-lg font-bold text-blue-700">{currentAPY.toFixed(1)}%</div>
+        <div className="absolute bottom-3 left-3">
+          <div className="flex items-center text-white text-xs bg-black/50 backdrop-blur-sm px-2 py-1 rounded-full">
+            <MapPin className="w-3 h-3 mr-1" />
+            Global Impact
           </div>
-          <div className="bg-green-50 p-3 rounded-lg">
-            <div className="text-xs text-green-600 font-medium">Total Staked</div>
-            <div className="text-lg font-bold text-green-700">
-              {totalStaked ? formatUnits(totalStaked, 18).slice(0, 6) : '0'} ETH
+        </div>
+      </div>
+
+      {/* Campaign Content */}
+      <div className="p-6">
+        <h3 className="font-bold text-lg text-gray-900 mb-2 group-hover:text-emerald-600 transition-colors line-clamp-1 font-unbounded">
+          {name}
+        </h3>
+        
+        <p className="text-gray-600 text-sm mb-4 line-clamp-2 leading-relaxed">
+          {description}
+        </p>
+        
+        {/* Progress Bar */}
+        <div className="mb-4">
+          <div className="flex justify-between items-center mb-2">
+            <span className="text-sm font-semibold text-gray-900">
+              ${mockRaised.toLocaleString()} raised
+            </span>
+            <span className="text-sm text-gray-500">
+              {mockProgress}%
+            </span>
+          </div>
+          <div className="w-full bg-gray-200 rounded-full h-2">
+            <div 
+              className="bg-gradient-to-r from-emerald-500 to-teal-500 h-2 rounded-full transition-all duration-500"
+              style={{ width: `${mockProgress}%` }}
+            />
+          </div>
+          <div className="flex justify-between items-center mt-2 text-xs text-gray-500">
+            <span>${mockTarget.toLocaleString()} goal</span>
+            <div className="flex items-center">
+              <Users className="w-3 h-3 mr-1" />
+              {mockSupporters} supporters
             </div>
           </div>
         </div>
         
-
-        
-        <div className="flex justify-between items-center">
-          <div className="text-xs text-gray-500">
-            {address.slice(0, 6)}...{address.slice(-4)}
-          </div>
-          <button className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium group-hover:bg-blue-700">
-            Stake Now →
-          </button>
-        </div>
+        {/* Donate Button */}
+        <button className="w-full bg-gradient-to-r from-emerald-500 to-teal-500 text-white py-3 px-4 rounded-lg hover:from-emerald-600 hover:to-teal-600 transition-all duration-200 font-semibold text-sm group-hover:shadow-lg flex items-center justify-center">
+          <Heart className="w-4 h-4 mr-2" />
+          Support This Cause
+        </button>
       </div>
-    </div>
+    </motion.div>
   );
 }
 
 export default function NGOsPage() {
-  useAccount();
-  const NGO_MANAGER_ROLE = keccak256(toBytes('NGO_MANAGER_ROLE')) as `0x${string}`;
-  const { address } = useAccount();
-
   const { data: approvedNGOs, isLoading: loadingList } = useReadContract({
     address: CONTRACT_ADDRESSES.NGO_REGISTRY as `0x${string}`,
     abi: NGO_REGISTRY_ABI,
     functionName: 'getApprovedNGOs',
   });
 
-  const { data: stats } = useReadContract({
-    address: CONTRACT_ADDRESSES.NGO_REGISTRY as `0x${string}`,
-    abi: NGO_REGISTRY_ABI,
-    functionName: 'getRegistryStats',
-  });
-
-  useReadContract({
-    address: CONTRACT_ADDRESSES.NGO_REGISTRY as `0x${string}`,
-    abi: NGO_REGISTRY_ABI,
-    functionName: 'hasRole',
-    args: address ? [NGO_MANAGER_ROLE, address] : undefined,
-    query: { enabled: !!address },
-  });
-
-  const registryStats = stats as readonly [bigint, `0x${string}`, bigint] | undefined;
-  const totalApproved = registryStats ? registryStats[0] : 0n;
-  const currentNGO = registryStats ? registryStats[1] : undefined;
-  const totalDonations = registryStats ? registryStats[2] : 0n;
-
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
-      <div className="mb-6">
-        <h1 className="text-3xl font-bold">Discover Campaigns</h1>
-        <p className="text-gray-600 mt-1">Stake your assets and generate yield for impactful causes</p>
+    <div className="min-h-screen bg-gradient-to-br from-emerald-50 via-cyan-50 to-teal-50 relative overflow-hidden">
+      {/* Animated Background Elements */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        <motion.div 
+          className="absolute top-20 left-10 w-32 h-32 bg-gradient-to-r from-emerald-200/30 to-cyan-200/30 rounded-full blur-xl"
+          animate={{ 
+            scale: [1, 1.2, 1],
+            rotate: [0, 180, 360]
+          }}
+          transition={{
+            duration: 20,
+            repeat: Infinity,
+            ease: "linear"
+          }}
+        />
+        <motion.div 
+          className="absolute top-40 right-20 w-24 h-24 bg-gradient-to-r from-teal-200/30 to-blue-200/30 rounded-full blur-xl"
+          animate={{ 
+            scale: [1.2, 1, 1.2],
+            rotate: [360, 180, 0]
+          }}
+          transition={{
+            duration: 15,
+            repeat: Infinity,
+            ease: "linear"
+          }}
+        />
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-        <div className="bg-white rounded-lg border p-4">
-          <div className="text-sm text-gray-500">Approved NGOs</div>
-          <div className="text-2xl font-semibold">{totalApproved?.toString?.() || '0'}</div>
-        </div>
-        <div className="bg-white rounded-lg border p-4">
-          <div className="text-sm text-gray-500">Current NGO</div>
-          <div className="text-sm font-mono text-gray-700">{currentNGO ? `${currentNGO.slice(0,6)}…${currentNGO.slice(-4)}` : '—'}</div>
-        </div>
-        <div className="bg-white rounded-lg border p-4">
-          <div className="text-sm text-gray-500">Total Donated</div>
-          <div className="text-2xl font-semibold">{formatUnits(totalDonations, 6)} USDC</div>
+      {/* Hero Section */}
+      <div className="bg-gradient-to-r from-emerald-600 via-cyan-600 to-teal-600 text-white relative z-10">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
+          <motion.div 
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="text-center"
+          >
+            <h1 className="text-4xl md:text-5xl font-bold mb-4 font-unbounded">
+              Discover Amazing Causes
+            </h1>
+            <p className="text-xl text-emerald-100 mb-8 max-w-2xl mx-auto font-medium font-unbounded">
+              Support impactful campaigns and help make a difference in the world. Every contribution matters.
+            </p>
+            
+            {/* Search Bar */}
+            <div className="max-w-md mx-auto relative">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+                <input 
+                  type="text" 
+                  placeholder="Search campaigns..."
+                  className="w-full pl-10 pr-4 py-3 rounded-2xl text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-emerald-300 shadow-lg bg-white/90 backdrop-blur-sm"
+                />
+              </div>
+            </div>
+          </motion.div>
         </div>
       </div>
 
-      {loadingList ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {Array.from({ length: 6 }).map((_, i) => (
-            <div key={i} className="p-5 rounded-lg border bg-white animate-pulse h-32" />
+      {/* Campaigns Grid */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+        {/* Categories Filter */}
+        <motion.div 
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.2 }}
+          className="flex flex-wrap gap-3 mb-8 justify-center"
+        >
+          {['All Causes', 'Education', 'Healthcare', 'Environment', 'Poverty', 'Emergency'].map((category, index) => (
+            <button 
+              key={category}
+              className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${
+                index === 0 
+                  ? 'bg-emerald-500 text-white shadow-lg' 
+                  : 'bg-white text-gray-600 border border-gray-200 hover:border-emerald-300 hover:text-emerald-600'
+              }`}
+            >
+              {category}
+            </button>
           ))}
-        </div>
-      ) : approvedNGOs && (approvedNGOs as string[]).length > 0 ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {(approvedNGOs as `0x${string}`[]).map((addr) => (
-            <CampaignCard key={addr} address={addr} />
-          ))}
-        </div>
-      ) : (
-        <div className="bg-white rounded-lg border p-8 text-center text-gray-600">No approved NGOs found.</div>
-      )}
+        </motion.div>
+
+        {/* Featured Campaign Banner */}
+        {/* <motion.div 
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.3 }}
+          className="bg-gradient-to-r from-blue-500 to-purple-600 rounded-2xl p-8 mb-12 text-white relative overflow-hidden"
+        >
+          <div className="relative z-10">
+            <div className="flex items-center mb-4">
+              <TrendingUp className="w-6 h-6 mr-2" />
+              <span className="text-sm font-semibold bg-white/20 px-3 py-1 rounded-full">Featured Campaign</span>
+            </div>
+            <h2 className="text-3xl font-bold mb-2">Emergency Relief Fund</h2>
+            <p className="text-blue-100 mb-4 max-w-2xl">Help provide immediate assistance to communities affected by natural disasters worldwide.</p>
+            <div className="flex items-center space-x-6">
+              <div>
+                <div className="text-2xl font-bold">$45,230</div>
+                <div className="text-blue-200 text-sm">raised of $60,000</div>
+              </div>
+              <div>
+                <div className="text-2xl font-bold">1,234</div>
+                <div className="text-blue-200 text-sm">supporters</div>
+              </div>
+            </div>
+          </div>
+          <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full -mr-32 -mt-32" />
+          <div className="absolute bottom-0 right-0 w-48 h-48 bg-white/5 rounded-full -mr-24 -mb-24" />
+        </motion.div> */}
+
+        {/* Campaigns Grid */}
+        {loadingList ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <motion.div 
+                key={i}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: i * 0.1 }}
+                className="bg-white rounded-xl shadow-sm border overflow-hidden animate-pulse"
+              >
+                <div className="h-48 bg-gray-200" />
+                <div className="p-6">
+                  <div className="h-4 bg-gray-200 rounded mb-2" />
+                  <div className="h-3 bg-gray-200 rounded mb-4" />
+                  <div className="h-2 bg-gray-200 rounded mb-4" />
+                  <div className="h-8 bg-gray-200 rounded" />
+                </div>
+              </motion.div>
+            ))}
+          </div>
+        ) : approvedNGOs && (approvedNGOs as string[]).length > 0 ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+            {(approvedNGOs as `0x${string}`[]).map((addr, index) => (
+              <CampaignCard key={addr} address={addr} index={index} />
+            ))}
+          </div>
+        ) : (
+          <motion.div 
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="bg-white rounded-xl border p-12 text-center"
+          >
+            <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <Heart className="w-8 h-8 text-gray-400" />
+            </div>
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">No campaigns found</h3>
+            <p className="text-gray-600">Check back soon for new campaigns to support!</p>
+          </motion.div>
+        )}
+      </div>
     </div>
   );
 }

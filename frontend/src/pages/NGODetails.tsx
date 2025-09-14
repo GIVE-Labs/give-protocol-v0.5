@@ -206,17 +206,24 @@ export default function NGODetails() {
   if (ngoError && !ngo) return <div className="text-center py-12">Error loading campaign</div>;
   
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gradient-to-br from-emerald-50 via-cyan-50 to-teal-50 relative overflow-hidden">
+      {/* Animated Background Elements */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute top-20 left-10 w-32 h-32 bg-gradient-to-r from-emerald-200/30 to-cyan-200/30 rounded-full blur-xl" />
+        <div className="absolute top-40 right-20 w-24 h-24 bg-gradient-to-r from-teal-200/30 to-blue-200/30 rounded-full blur-xl" />
+        <div className="absolute bottom-20 left-1/3 w-40 h-40 bg-gradient-to-r from-blue-200/20 to-purple-200/20 rounded-full blur-2xl" />
+      </div>
+      
       {/* Hero Section */}
-      <div className="relative h-96 bg-gradient-to-r from-blue-600 to-purple-600">
+      <div className="relative h-96 bg-gradient-to-r from-emerald-600 via-teal-600 to-cyan-600">
         <img 
           src={displayNgo.logoURI} 
           alt={displayNgo.name}
           className="w-full h-full object-cover opacity-20"
         />
-        <div className="absolute inset-0 bg-gradient-to-r from-blue-600/80 to-purple-600/80" />
+        <div className="absolute inset-0 bg-gradient-to-r from-emerald-600/80 via-teal-600/80 to-cyan-600/80" />
         <div className="absolute top-6 left-6">
-          <span className="bg-yellow-100 text-yellow-800 px-3 py-1 rounded-full text-sm font-medium">
+          <span className="bg-emerald-100 text-emerald-800 px-3 py-1 rounded-full text-sm font-medium font-unbounded">
             {displayNgo.category}
           </span>
         </div>
@@ -225,11 +232,12 @@ export default function NGODetails() {
             <img 
               src={displayNgo.logoURI} 
               alt={displayNgo.name}
-              className="w-16 h-16 rounded-lg object-cover border-2 border-white"
+              className="w-16 h-16 rounded-lg object-cover border-2 border-white shadow-lg"
             />
             <div>
-              <div className="flex items-center space-x-2 mt-1">
-                <span className="bg-green-100 text-green-800 px-2 py-1 rounded-full text-xs font-medium flex items-center">
+              <h1 className="text-3xl font-bold font-unbounded mb-2">{displayNgo.name}</h1>
+              <div className="flex items-center space-x-2">
+                <span className="bg-emerald-100 text-emerald-800 px-2 py-1 rounded-full text-xs font-medium flex items-center">
                   <svg className="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 20 20">
                     <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
                   </svg>
@@ -238,17 +246,17 @@ export default function NGODetails() {
               </div>
             </div>
           </div>
-          <p className="text-xl opacity-90 max-w-2xl">{displayNgo.description}</p>
+          <p className="text-xl opacity-90 max-w-2xl font-medium">{displayNgo.description}</p>
         </div>
       </div>
       
       {/* Main Content */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 relative z-10">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Left Column - Campaign Info */}
           <div className="lg:col-span-2">
             {/* Progress Section */}
-            <div className="bg-white rounded-xl shadow-sm p-6 mb-6">
+            <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-xl border border-white/20 p-6 mb-6">
               <div className="flex justify-between items-start mb-4">
                 <div>
                   <h2 className="text-3xl font-bold text-gray-900">USD {currentStaked.toLocaleString()}</h2>
@@ -274,16 +282,16 @@ export default function NGODetails() {
             </div>
             
             {/* Tabs */}
-            <div className="bg-white rounded-xl shadow-sm">
+            <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-xl border border-white/20">
               <div className="border-b border-gray-200">
                 <nav className="flex space-x-8 px-6">
                   {['overview', 'updates', 'comments', 'backers'].map((tab) => (
                     <button
                       key={tab}
                       onClick={() => setActiveTab(tab)}
-                      className={`py-4 px-1 border-b-2 font-medium text-sm capitalize transition-colors ${
+                      className={`py-4 px-1 border-b-2 font-medium text-sm capitalize transition-colors font-unbounded ${
                         activeTab === tab
-                          ? 'border-purple-500 text-purple-600'
+                          ? 'border-emerald-500 text-emerald-600'
                           : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                       }`}
                     >
@@ -298,23 +306,23 @@ export default function NGODetails() {
                 {activeTab === 'overview' && (
                   <div className="space-y-6">
                     <div>
-                      <h3 className="text-lg font-semibold text-gray-900 mb-3">About This Campaign</h3>
-                      <p className="text-gray-700 leading-relaxed mb-4">
+                      <h3 className="text-lg font-semibold text-gray-900 mb-3 font-unbounded">About This Campaign</h3>
+                      <p className="text-gray-700 leading-relaxed mb-4 font-medium">
                         {displayNgo.name} is dedicated to creating sustainable impact in {displayNgo.location.toLowerCase()}. 
                         Through innovative programs and community-driven solutions, we work tirelessly to address 
                         critical social issues and create lasting positive change.
                       </p>
-                      <p className="text-gray-700 leading-relaxed">
+                      <p className="text-gray-700 leading-relaxed font-medium">
                         Our mission focuses on empowering communities through education, providing access to quality 
                         learning opportunities, and building sustainable futures for the next generation.
                       </p>
                     </div>
                     
                     <div>
-                      <h3 className="text-lg font-semibold text-gray-900 mb-3">Focus Areas</h3>
+                      <h3 className="text-lg font-semibold text-gray-900 mb-3 font-unbounded">Focus Areas</h3>
                       <div className="flex flex-wrap gap-2">
                         {displayNgo.causes.map((cause: string) => (
-                          <span key={cause} className="bg-purple-100 text-purple-800 px-3 py-1 rounded-full text-sm">
+                          <span key={cause} className="bg-gradient-to-r from-emerald-100 to-teal-100 text-emerald-800 px-3 py-1 rounded-full text-sm font-medium">
                             {cause}
                           </span>
                         ))}
@@ -346,8 +354,8 @@ export default function NGODetails() {
           
           {/* Right Column - Staking Form */}
           <div className="lg:col-span-1">
-            <div className="bg-white rounded-xl shadow-sm p-6 sticky top-8">
-              <h3 className="text-xl font-bold text-gray-900 mb-6">Stake & Support</h3>
+            <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-xl border border-white/20 p-6 sticky top-8">
+              <h3 className="text-xl font-bold text-gray-900 mb-6 font-unbounded">Stake & Support</h3>
               
               {/* Token Selection */}
               <div className="mb-6">
@@ -359,7 +367,7 @@ export default function NGODetails() {
                       onClick={() => setSelectedToken(token)}
                       className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
                         selectedToken === token
-                          ? 'bg-purple-600 text-white'
+                          ? 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-lg'
                           : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                       }`}
                     >
@@ -383,12 +391,12 @@ export default function NGODetails() {
                     value={stakeAmount}
                     onChange={(e) => setStakeAmount(e.target.value)}
                     placeholder={`Enter amount (${selectedToken})`}
-                    className="w-full px-4 py-3 pr-16 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                    className="w-full px-4 py-3 pr-16 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent font-medium"
                     step="any"
                   />
                   <button
                     onClick={() => setStakeAmount(formattedBalance)}
-                    className="absolute right-2 top-1/2 transform -translate-y-1/2 px-3 py-1 text-sm font-medium text-purple-600 bg-purple-100 rounded hover:bg-purple-200 transition-colors"
+                    className="absolute right-2 top-1/2 transform -translate-y-1/2 px-3 py-1 text-sm font-medium text-emerald-600 bg-emerald-100 rounded hover:bg-emerald-200 transition-colors"
                   >
                     MAX
                   </button>
@@ -409,7 +417,7 @@ export default function NGODetails() {
                       onClick={() => setLockPeriod(period.value)}
                       className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
                         lockPeriod === period.value
-                          ? 'bg-purple-600 text-white'
+                          ? 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-lg'
                           : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                       }`}
                     >
@@ -429,7 +437,7 @@ export default function NGODetails() {
                       onClick={() => setYieldSharingRatio(ratio)}
                       className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
                         yieldSharingRatio === ratio
-                          ? 'bg-green-600 text-white'
+                          ? 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-lg'
                           : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                       }`}
                     >
@@ -441,8 +449,8 @@ export default function NGODetails() {
               
               {/* Yield Estimation */}
               {stakeAmount && (
-                <div className="bg-blue-50 rounded-lg p-4 mb-6">
-                  <h4 className="font-medium text-gray-900 mb-3">Yield Estimation</h4>
+                <div className="bg-gradient-to-r from-emerald-50 to-teal-50 rounded-lg p-4 mb-6 border border-emerald-200">
+                  <h4 className="font-medium text-gray-900 mb-3 font-unbounded">Yield Estimation</h4>
                   <div className="space-y-2 text-sm">
                     <div className="flex justify-between">
                       <span className="text-gray-600">Stake Amount:</span>
@@ -461,11 +469,11 @@ export default function NGODetails() {
                       <span className="font-medium">{estimatedYield.toFixed(4)} {selectedToken}</span>
                     </div>
                     <div className="border-t pt-2 mt-2">
-                      <div className="flex justify-between text-green-600">
+                      <div className="flex justify-between text-emerald-600">
                         <span>To NGO ({yieldSharingRatio}):</span>
                         <span className="font-medium">{yieldToNgo.toFixed(4)} {selectedToken}</span>
                       </div>
-                      <div className="flex justify-between text-blue-600">
+                      <div className="flex justify-between text-teal-600">
                         <span>To You ({100 - parseInt(yieldSharingRatio)}%):</span>
                         <span className="font-medium">{yieldToUser.toFixed(4)} {selectedToken}</span>
                       </div>
@@ -475,7 +483,7 @@ export default function NGODetails() {
                       <span>{(amountToStake + yieldToUser).toFixed(4)} {selectedToken}</span>
                     </div>
                   </div>
-                  <p className="text-xs text-blue-600 mt-2">
+                  <p className="text-xs text-emerald-600 mt-2 font-medium">
                     This is an estimate based on current APY rates. Actual yields may vary.
                   </p>
                 </div>
@@ -485,7 +493,7 @@ export default function NGODetails() {
               <button
                 onClick={handlePrimaryAction}
                 disabled={!stakeAmount || parseFloat(stakeAmount) <= 0 || isLoading || !userAddress}
-                className="w-full bg-green-600 text-white py-3 px-4 rounded-lg font-semibold hover:bg-green-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
+                className="w-full bg-gradient-to-r from-emerald-600 to-teal-600 text-white py-3 px-4 rounded-lg font-semibold hover:from-emerald-700 hover:to-teal-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-all duration-200 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 font-unbounded"
               >
                 {buttonText}
               </button>

@@ -43,11 +43,18 @@ export default function CreateNGO() {
   }
 
   return (
-    <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold">Register New NGO</h1>
-        <p className="text-gray-600 mt-1">Submit NGO details. Only admins can approve on-chain.</p>
+    <div className="min-h-screen bg-gradient-to-br from-emerald-50 via-cyan-50 to-teal-50 relative overflow-hidden">
+      {/* Animated Background Elements */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute top-20 left-10 w-32 h-32 bg-gradient-to-r from-emerald-200/30 to-cyan-200/30 rounded-full blur-xl" />
+        <div className="absolute top-40 right-20 w-24 h-24 bg-gradient-to-r from-teal-200/30 to-blue-200/30 rounded-full blur-xl" />
       </div>
+      
+      <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-12 relative z-10">
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold font-unbounded text-gray-900">Register New NGO</h1>
+          <p className="text-gray-600 mt-1 font-medium font-unbounded">Submit NGO details. Only admins can approve on-chain.</p>
+        </div>
 
       <form onSubmit={onSubmit} className="bg-white rounded-lg border p-6 space-y-5">
         <div>
@@ -118,6 +125,7 @@ export default function CreateNGO() {
           </ul>
         </div>
       )}
+      </div>
     </div>
   )
 }

@@ -22,6 +22,7 @@ export default function CampaignStaking() {
   const [selectedToken, setSelectedToken] = useState<string>(CONTRACT_ADDRESSES.TOKENS.USDC);
   const [activeTab, setActiveTab] = useState<'details' | 'donate'>('donate');
   const [isTokenDropdownOpen, setIsTokenDropdownOpen] = useState(false);
+  const [showFullDescription, setShowFullDescription] = useState(false);
 
   const tokens = [
     { symbol: 'USDC', address: CONTRACT_ADDRESSES.TOKENS.USDC, icon: '💵' },
@@ -316,7 +317,18 @@ export default function CampaignStaking() {
                   </div>
                   </div>
                 </div>
-                <p className="text-gray-700 mb-8 text-md leading-relaxed text-justify">{ngo.description}</p>
+                <div className="mb-8">
+                  <p className="text-gray-700 text-md leading-relaxed text-justify">
+                    {showFullDescription ? ngo.description : `${ngo.description.slice(0, 150)}...`}
+                  </p>
+                  <motion.button
+                    onClick={() => setShowFullDescription(!showFullDescription)}
+                    className="text-emerald-600 hover:text-emerald-700 text-sm font-medium mt-2 transition-colors"
+                    whileHover={{ scale: 1.02 }}
+                  >
+                    {showFullDescription ? 'Show Less' : 'Read More'}
+                  </motion.button>
+                </div>
 
                 {/* Campaign Stats */}
               </div>
@@ -491,14 +503,14 @@ export default function CampaignStaking() {
                      <div className="mb-4">
                        <label className="block text-xs font-semibold text-gray-700 mb-2">Stake Amount:</label>
                        <div className="relative">
-                         <motion.input
-                           type="number"
-                           value={stakeAmount}
-                           onChange={(e) => setStakeAmount(e.target.value)}
-                           className="w-full px-3 py-2 pr-20 text-base font-bold border-2 border-emerald-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 bg-white/80 backdrop-blur-sm transition-all"
-                           placeholder="1200"
-                           whileFocus={{ scale: 1.02 }}
-                         />
+                        <motion.input
+                          type="number"
+                          value={stakeAmount}
+                          onChange={(e) => setStakeAmount(e.target.value)}
+                          className="w-full px-4 py-2 text-base font-bold border-2 border-emerald-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 bg-white/80 backdrop-blur-sm transition-all [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                          placeholder="1200"
+                          whileFocus={{ scale: 1.02 }}
+                        />
                          
                          {/* Token Dropdown */}
                          <div className="absolute right-2 top-1/2 transform -translate-y-1/2">

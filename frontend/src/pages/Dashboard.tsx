@@ -69,32 +69,44 @@ export default function Dashboard() {
 
   if (!address) {
     return (
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-        <div className="text-center">
-          <h1 className="text-4xl font-bold text-gray-900 mb-4">Connect Your Wallet</h1>
-          <p className="text-xl text-gray-600">Please connect your wallet to view your portfolio</p>
+      <div className="min-h-screen bg-gradient-to-br from-emerald-50 via-cyan-50 to-teal-50 relative overflow-hidden">
+        <div className="absolute inset-0 overflow-hidden pointer-events-none">
+          <div className="absolute top-20 left-10 w-32 h-32 bg-gradient-to-r from-emerald-200/30 to-cyan-200/30 rounded-full blur-xl" />
+        </div>
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 relative z-10">
+          <div className="text-center">
+            <h1 className="text-4xl font-bold text-gray-900 mb-4 font-unbounded">Connect Your Wallet</h1>
+            <p className="text-xl text-gray-600 font-medium font-unbounded">Please connect your wallet to view your portfolio</p>
+          </div>
         </div>
       </div>
     )
   }
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-      <div className="mb-8">
-        <h1 className="text-4xl font-bold text-gray-900 mb-4">Portfolio Dashboard</h1>
-        <p className="text-xl text-gray-600">Track your staking positions and impact</p>
+    <div className="min-h-screen bg-gradient-to-br from-emerald-50 via-cyan-50 to-teal-50 relative overflow-hidden">
+      {/* Animated Background Elements */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute top-20 left-10 w-32 h-32 bg-gradient-to-r from-emerald-200/30 to-cyan-200/30 rounded-full blur-xl" />
+        <div className="absolute top-40 right-20 w-24 h-24 bg-gradient-to-r from-teal-200/30 to-blue-200/30 rounded-full blur-xl" />
       </div>
+      
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 relative z-10">
+        <div className="mb-8">
+          <h1 className="text-4xl font-bold text-gray-900 mb-4 font-unbounded">Portfolio Dashboard</h1>
+          <p className="text-xl text-gray-600 font-medium font-unbounded">Track your staking positions and impact</p>
+        </div>
 
-      <DashboardStats
-        totalStaked={`${totalStaked} ETH`}
-        totalYield={`${totalYield} ETH`}
-        activeNGOs={activeNGOs}
-        totalDonated={`${totalDonated} ETH`}
-      />
+         <DashboardStats
+           totalStaked={`${totalStaked} ETH`}
+           totalYield={`${totalYield} ETH`}
+           activeNGOs={activeNGOs}
+           totalDonated={`${totalDonated} ETH`}
+         />
 
-      <div className="mb-8">
-        <h2 className="text-2xl font-bold text-gray-900 mb-6">Your Stakes</h2>
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+         <div className="mb-8">
+           <h2 className="text-2xl font-bold text-gray-900 mb-6 font-unbounded">Your Stakes</h2>
+           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {portfolioData.length > 0 ? (
             portfolioData.map((stake, index) => {
               const ngo = mockNGOs.find(n => n.ngoAddress === stake.ngoAddress)
@@ -115,15 +127,16 @@ export default function Dashboard() {
                 <p className="text-gray-500 mb-4">You haven't made any stakes yet</p>
                 <a
                   href="/discover"
-                  className="inline-block bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors"
+                  className="inline-block bg-gradient-to-r from-emerald-600 via-cyan-600 to-teal-600 text-white px-8 py-4 rounded-2xl font-bold hover:from-emerald-700 hover:via-cyan-700 hover:to-teal-700 transition-all duration-300 shadow-lg hover:shadow-emerald-500/25"
                 >
                   Discover NGOs to Support
                 </a>
               </div>
             </div>
           )}
-        </div>
-      </div>
-    </div>
-  )
+           </div>
+         </div>
+       </div>
+     </div>
+   )
 }
