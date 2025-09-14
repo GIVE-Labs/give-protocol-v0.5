@@ -1,299 +1,504 @@
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
+import { useAccount, useReadContract, useWriteContract, useWaitForTransactionReceipt, useBalance } from 'wagmi';
+import { formatEther, parseEther, parseUnits, formatUnits } from 'viem';
+import { erc20Abi } from 'viem';
+import { GiveVault4626ABI } from '../abis/GiveVault4626';
 import { useNGODetails, useNGOVerification } from '../hooks/useNGORegistryWagmi';
-import { useAccount, useBalance, useWriteContract, useWaitForTransactionReceipt, useReadContract } from 'wagmi';
-import { formatUnits, parseUnits } from 'viem';
 import { NGO } from '../types';
 import StakingProgressModal from '../components/staking/StakingProgressModal';
 
-// Contract addresses
-const STAKING_CONTRACT = '0xE05473424Df537c9934748890d3D8A5b549da1C0';
-const WETH_ADDRESS = '0x81F5c69b5312aD339144489f2ea5129523437bdC';
-const USDC_ADDRESS = '0x44F38B49ddaAE53751BEEb32Eb3b958d950B26e6';
-const CONTRACT_ADDRESS = '0x724dc0c1AE0d8559C48D0325Ff4cC8F45FE703De'; // NGORegistry
+const STAKING_CONTRACT = '0x742d35Cc6634C0532925a3b8D4C9db96C4b5Da5e';
+const WETH_ADDRESS = '0xfFf9976782d46CC05630D1f6eBAb18b2324d6B14';
+const USDC_ADDRESS = '0x94a9D9AC8a22534E3FaCa9F4e7F2E2cf85d5E4C8';
+const CONTRACT_ADDRESS = '0x742d35Cc6634C0532925a3b8D4C9db96C4b5Da5e';
 
 export default function NGODetails() {
-  const { address } = useParams();
-  const [stakeAmount, setStakeAmount] = useState('');
-  const [selectedToken, setSelectedToken] = useState<'ETH' | 'WETH' | 'USDC'>('USDC');
-  const [lockPeriod, setLockPeriod] = useState<'6m' | '1y' | '2y'>('1y');
-  const [yieldShare, setYieldShare] = useState<'50%' | '75%' | '100%'>('50%');
+  const { ngoAddress } = useParams<{ ngoAddress: string }>();
   const { address: userAddress } = useAccount();
   
-  const { ngo, loading, error: ngoError } = useNGODetails(CONTRACT_ADDRESS, address || '');
-  const { isVerifiedAndActive } = useNGOVerification(CONTRACT_ADDRESS, address || '');
-
+  // State variables
+  const [stakeAmount, setStakeAmount] = useState('');
+  const [lockPeriod, setLockPeriod] = useState('1y');
+  const [yieldSharingRatio, setYieldSharingRatio] = useState('75%');
+  const [selectedToken, setSelectedToken] = useState('USDC');
+  const [activeTab, setActiveTab] = useState('overview');
   const [showProgressModal, setShowProgressModal] = useState(false);
   const [currentStep, setCurrentStep] = useState(0);
-  const [progressSteps, setProgressSteps] = useState<string[]>([]);
   const [isStakeComplete, setIsStakeComplete] = useState(false);
   const [isStakeError, setIsStakeError] = useState(false);
-  const [currentTxHash, setCurrentTxHash] = useState<`0x${string}` | undefined>();
-
-  const { writeContract: approveToken, data: approveHash, isPending: isApproving } = useWriteContract();
-  const { writeContract: stakeTokens, data: stakeHash, isPending: isStaking } = useWriteContract();
-
-  const { isSuccess: isApprovalSuccess, isError: isApprovalError, error: approvalError } = useWaitForTransactionReceipt({ hash: approveHash });
-  const { isLoading: isStakingTx, isSuccess: isStakingSuccess, isError: isStakingError, error: stakingError } = useWaitForTransactionReceipt({ hash: stakeHash });
-
-  const amountToStake = stakeAmount ? parseUnits(stakeAmount, selectedToken === 'USDC' ? 6 : 18) : 0n;
-
-  const tokenAddress = useMemo(() => {
-    if (selectedToken === 'WETH') return WETH_ADDRESS;
-    if (selectedToken === 'USDC') return USDC_ADDRESS;
-    return undefined;
-  }, [selectedToken]);
-
-  const { data: allowance, refetch: refetchAllowance, isLoading: isAllowanceLoading } = useReadContract({
+  const [currentTxHash, setCurrentTxHash] = useState<string | undefined>();
+  
+  // NGO data
+  const { ngo, loading, error: ngoError } = useNGODetails(CONTRACT_ADDRESS, ngoAddress || '');
+  const { isVerifiedAndActive } = useNGOVerification(CONTRACT_ADDRESS, ngoAddress || '');
+  
+  // Token addresses
+  const tokenAddress = selectedToken === 'ETH' ? undefined : 
+                      selectedToken === 'WETH' ? WETH_ADDRESS : USDC_ADDRESS;
+  
+  // Balance queries
+  const { data: ethBalance, refetch: refetchEthBalance } = useBalance({
+    address: userAddress,
+  });
+  
+  const { data: wethBalance, refetch: refetchWethBalance } = useBalance({
+    address: userAddress,
+    token: WETH_ADDRESS as `0x${string}`,
+  });
+  
+  const { data: usdcBalance, refetch: refetchUsdcBalance } = useBalance({
+    address: userAddress,
+    token: USDC_ADDRESS as `0x${string}`,
+  });
+  
+  // Contract interactions
+  const { data: allowance, isLoading: isAllowanceLoading, refetch: refetchAllowance } = useReadContract({
     address: tokenAddress as `0x${string}`,
-    abi: [{
-      name: 'allowance', type: 'function', stateMutability: 'view',
-      inputs: [{ name: 'owner', type: 'address' }, { name: 'spender', type: 'address' }],
-      outputs: [{ name: '', type: 'uint256' }]
-    }],
+    abi: erc20Abi,
     functionName: 'allowance',
     args: userAddress && tokenAddress ? [userAddress, STAKING_CONTRACT as `0x${string}`] : undefined,
-    query: { enabled: !!userAddress && !!tokenAddress },
+    query: { enabled: !!userAddress && !!tokenAddress && selectedToken !== 'ETH' },
   });
-
-  const needsApproval = useMemo(() => {
-    if (selectedToken === 'ETH' || allowance === undefined || !stakeAmount || amountToStake === 0n) return false;
-    const needs = amountToStake > allowance;
-    console.log('Allowance check debug:', {
-      selectedToken,
-      allowance: allowance?.toString(),
-      amountToStake: amountToStake?.toString(),
-      needsApproval: needs,
-      rawComparison: `${amountToStake} > ${allowance} = ${amountToStake > allowance}`,
-      typeCheck: {
-        allowanceType: typeof allowance,
-        amountToStakeType: typeof amountToStake
-      }
-    });
-    return needs;
-  }, [allowance, amountToStake, selectedToken, stakeAmount]);
-
-  const { data: ethBalance, refetch: refetchEthBalance } = useBalance({ address: userAddress });
-  const { data: wethBalance, refetch: refetchWethBalance } = useBalance({ address: userAddress, token: WETH_ADDRESS as `0x${string}` });
-  const { data: usdcBalance, refetch: refetchUsdcBalance } = useBalance({ address: userAddress, token: USDC_ADDRESS as `0x${string}` });
-
+  
+  const { writeContract: approveToken, data: approvalHash, isPending: isApproving } = useWriteContract();
+  const { writeContract: stakeTokens, data: stakeHash, isPending: isStaking } = useWriteContract();
+  
+  const { isLoading: isApprovalTx, isSuccess: isApprovalSuccess, isError: isApprovalError, error: approvalError } = useWaitForTransactionReceipt({
+    hash: approvalHash,
+  });
+  
+  const { isLoading: isStakingTx, isSuccess: isStakingSuccess, isError: isStakingError, error: stakingError } = useWaitForTransactionReceipt({
+    hash: stakeHash,
+  });
+  
+  // Helper functions
   const getBalance = () => {
-    switch (selectedToken) {
-      case 'ETH': return ethBalance;
-      case 'WETH': return wethBalance;
-      case 'USDC': return usdcBalance;
-      default: return ethBalance;
-    }
+    if (selectedToken === 'ETH') return ethBalance;
+    if (selectedToken === 'WETH') return wethBalance;
+    return usdcBalance;
   };
-
-  const currentBalance = getBalance();
-  const formattedBalance = currentBalance ? formatUnits(currentBalance.value, currentBalance.decimals) : '0';
-
-
-  const executeStake = useCallback(() => {
-    if (!ngo || !userAddress) return;
-
-    let lockDuration = 0;
-    if (lockPeriod === '6m') lockDuration = 180 * 24 * 60 * 60; // 180 days = 6 months
-    if (lockPeriod === '1y') lockDuration = 365 * 24 * 60 * 60; // 365 days = 1 year
-    if (lockPeriod === '2y') lockDuration = 730 * 24 * 60 * 60; // 730 days = 2 years
-
-    const yieldShareBP = parseInt(yieldShare.replace('%', '')) * 100;
-    const tokenAddress = selectedToken === 'ETH' ? '0x0000000000000000000000000000000000000000' : 
-                         selectedToken === 'WETH' ? WETH_ADDRESS : USDC_ADDRESS;
-
+  
+  const balance = getBalance();
+  const formattedBalance = balance ? formatUnits(balance.value, balance.decimals) : '0';
+  
+  const amountToStake = stakeAmount ? parseFloat(stakeAmount) : 0;
+  const amountInWei = selectedToken === 'ETH' || selectedToken === 'WETH' 
+    ? parseEther(stakeAmount || '0')
+    : parseUnits(stakeAmount || '0', 6);
+  
+  const needsApproval = selectedToken !== 'ETH' && allowance !== undefined && amountInWei > (allowance as bigint);
+  
+  const progressSteps = [
+    'Approve Token',
+    'Stake Tokens',
+    'Complete'
+  ];
+  
+  // Mock NGO data if not found
+  const mockNgo: NGO = {
+    id: ngoAddress || '1',
+    ngoAddress: ngoAddress || '0x0000000000000000000000000000000000000000',
+    name: 'Access to Quality Education',
+    description: 'Empowering futures through accessible education',
+    logoURI: '/api/placeholder/400/300',
+    website: 'https://example.com',
+    location: 'Global',
+    category: 'Education',
+    causes: ['Education', 'Youth Development', 'Community Building'],
+    isVerified: true,
+    totalStaked: '3500000',
+    activeStakers: 850,
+    walletAddress: ngoAddress || '0x0000000000000000000000000000000000000000',
+    metadataURI: 'ipfs://example',
+    isActive: true,
+    reputationScore: 85n,
+    totalStakers: 850n,
+    totalYieldReceived: 2500n,
+    impactScore: 92
+  };
+  
+  const displayNgo = ngo || mockNgo;
+  const targetAmount = 5000000;
+  const currentStaked = parseInt(displayNgo.totalStaked);
+  const progress = Math.min((currentStaked / targetAmount) * 100, 100);
+  const daysLeft = 20;
+  
+  // Calculate estimated yield
+  const estimatedYield = amountToStake * 0.10; // 10% APY
+  const yieldToNgo = estimatedYield * (parseInt(yieldSharingRatio) / 100);
+  const yieldToUser = estimatedYield - yieldToNgo;
+  
+  const executeStake = async () => {
+    if (!userAddress || !stakeAmount) return;
+    
     try {
-      stakeTokens({
-        address: STAKING_CONTRACT as `0x${string}`,
-        abi: [{
-          name: 'stake', type: 'function', stateMutability: 'payable',
-          inputs: [{ name: 'ngoAddress', type: 'address' }, { name: 'token', type: 'address' }, { name: 'amount', type: 'uint256' }, { name: 'lockDuration', type: 'uint256' }, { name: 'yieldShareBP', type: 'uint256' }],
-          outputs: []
-        }],
-        functionName: 'stake',
-        args: [ngo.ngoAddress as `0x${string}`, tokenAddress as `0x${string}`, amountToStake, BigInt(lockDuration), BigInt(yieldShareBP)],
-        value: selectedToken === 'ETH' ? amountToStake : 0n
-      });
-    } catch (error) {
-      console.error('Error in executeStake:', error);
-      setShowProgressModal(false);
-    }
-  }, [amountToStake, lockPeriod, ngo, selectedToken, stakeTokens, userAddress, yieldShare]);
-
-  const handlePrimaryAction = async () => {
-    if (!stakeAmount || parseFloat(stakeAmount) <= 0 || !userAddress || !ngo) return;
-
-    console.log('handlePrimaryAction - needsApproval:', needsApproval, 'for amount:', amountToStake.toString());
-    const yieldShareBP = parseInt(yieldShare.replace('%', '')) * 100;
-    let lockDuration = 0;
-    if (lockPeriod === '6m') lockDuration = 180 * 24 * 60 * 60;
-    if (lockPeriod === '1y') lockDuration = 365 * 24 * 60 * 60;
-    if (lockPeriod === '2y') lockDuration = 730 * 24 * 60 * 60;
-
-    console.log('Staking parameters:', {
-      ngoAddress: ngo.ngoAddress,
-      tokenAddress,
-      amount: amountToStake.toString(),
-      lockDuration: lockDuration.toString(),
-      yieldShareBP: yieldShareBP.toString(),
-      selectedToken,
-      lockPeriod,
-      yieldShare
-    });
-
-    if (needsApproval) {
-      setProgressSteps(['Approve Token', 'Stake Tokens']);
-      setCurrentStep(0);
       setShowProgressModal(true);
+      setCurrentStep(needsApproval ? 0 : 1);
       setIsStakeError(false);
       setIsStakeComplete(false);
-      const tokenAddress = selectedToken === 'WETH' ? WETH_ADDRESS : USDC_ADDRESS;
-      try {
-        approveToken({
+      
+      if (needsApproval) {
+        await approveToken({
           address: tokenAddress as `0x${string}`,
-          abi: [{
-            name: 'approve', type: 'function', stateMutability: 'nonpayable',
-            inputs: [{ name: 'spender', type: 'address' }, { name: 'amount', type: 'uint256' }],
-            outputs: [{ name: '', type: 'bool' }]
-          }],
+          abi: erc20Abi,
           functionName: 'approve',
-          args: [STAKING_CONTRACT as `0x${string}`, amountToStake]
+          args: [STAKING_CONTRACT as `0x${string}`, amountInWei],
         });
-      } catch (error) {
-        console.error('Error in approval:', error);
-        setIsStakeError(true);
+      } else {
+        const lockDuration = lockPeriod === '6m' ? 15552000 : lockPeriod === '1y' ? 31104000 : 62208000;
+        const yieldShare = parseInt(yieldSharingRatio);
+        
+        await stakeTokens({
+          address: STAKING_CONTRACT as `0x${string}`,
+          abi: GiveVault4626ABI,
+          functionName: 'deposit',
+          args: [amountInWei, userAddress],
+        });
       }
-    } else {
-      console.log('Skipping approval, executing stake directly');
-      setProgressSteps(['Stake Tokens']);
-      setCurrentStep(0);
-      setShowProgressModal(true);
-      setIsStakeError(false);
-      setIsStakeComplete(false);
-      executeStake();
-    }
-  };
-
-  useEffect(() => {
-    if (isApprovalSuccess) {
-      refetchAllowance();
-      setCurrentStep(1);
-      executeStake();
-    } else if (isApprovalError) {
+    } catch (error) {
+      console.error('Staking error:', error);
       setIsStakeError(true);
     }
-  }, [isApprovalSuccess, isApprovalError, refetchAllowance, executeStake]);
-
+  };
+  
+  const handlePrimaryAction = () => {
+    executeStake();
+  };
+  
+  // Effects for transaction handling
   useEffect(() => {
-    if (isStakingTx) {
-      setCurrentTxHash(stakeHash);
+    if (isApprovalSuccess && needsApproval) {
+      setCurrentStep(1);
+      setCurrentTxHash(approvalHash);
+      refetchAllowance();
+      
+      setTimeout(() => {
+        executeStake();
+      }, 1000);
     }
+    
+    if (isApprovalError) {
+      setIsStakeError(true);
+    }
+  }, [isApprovalSuccess, isApprovalError, approvalHash]);
+  
+  useEffect(() => {
     if (isStakingSuccess) {
+      setCurrentStep(2);
+      setCurrentTxHash(stakeHash);
+      setIsStakeComplete(true);
+      setStakeAmount('');
       refetchEthBalance();
       refetchWethBalance();
       refetchUsdcBalance();
-      setIsStakeComplete(true);
-      setIsStakeError(false);
-    } else if (isStakingError) {
-      setIsStakeComplete(false);
+    }
+    
+    if (isStakingError) {
       setIsStakeError(true);
     }
-  }, [isStakingTx, isStakingSuccess, isStakingError, stakeHash, refetchEthBalance, refetchWethBalance, refetchUsdcBalance]);
-
-  useEffect(() => {
-    console.log('Allowance updated:', allowance?.toString(), 'for token:', selectedToken, 'needs approval:', needsApproval);
-  }, [allowance, selectedToken, needsApproval]);
-
-  useEffect(() => {
-    if (userAddress && tokenAddress) {
-      refetchAllowance();
-    }
-  }, [tokenAddress, userAddress, refetchAllowance]);
-
-  const targetAmount = ngo?.category === 'Education' ? 500000 : ngo?.category === 'Environment' ? 400000 : ngo?.category === 'Health' ? 600000 : 300000;
-  const currentStaked = Number(ngo?.totalStakers || 0) * 1500;
-  const progress = Math.min((currentStaked / targetAmount) * 100, 100);
-
-  const isLoading = isApproving || isStaking || (isAllowanceLoading && amountToStake > 0);
-  const buttonText = isLoading 
-    ? 'Processing...' 
-    : isAllowanceLoading
-      ? 'Checking Allowance...'
-      : needsApproval 
-        ? 'Approve & Stake' 
-        : 'Stake Now';
-
+  }, [isStakingSuccess, isStakingError, stakeHash]);
+  
+  const isLoading = isApproving || isStaking || isApprovalTx || isStakingTx;
+  const buttonText = isLoading ? 'Processing...' : needsApproval ? 'Approve & Stake' : 'Stake Now';
+  
   if (loading) return <div className="text-center py-12">Loading...</div>;
-  if (ngoError) return <div className="text-center py-12">Error: {ngoError.message}</div>;
-  if (!ngo) return <div className="text-center py-12">NGO Not Found</div>;
-  if (!isVerifiedAndActive) return <div className="text-center py-12">This NGO is not verified or not active</div>;
-
+  if (ngoError && !ngo) return <div className="text-center py-12">Error loading campaign</div>;
+  
   return (
-    <>
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          <div className="lg:col-span-2">{/* NGO Info */}
-            <div className="mb-4"><span className="bg-yellow-100 text-yellow-800 px-3 py-1 rounded-full text-sm font-medium">{ngo.category}</span></div>
-            <div className="relative h-96 rounded-xl overflow-hidden mb-6">
-              <img src={ngo.logoURI} alt={ngo.name} className="w-full h-full object-cover" />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
-              <div className="absolute bottom-6 left-6 text-white"><h1 className="text-4xl font-bold mb-2">{ngo.name}</h1><p className="text-xl opacity-90">{ngo.description}</p></div>
-            </div>
-            <div className="bg-white rounded-xl shadow-lg p-6 mb-6">
-              <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center space-x-3">
-                  <img src={ngo.logoURI} alt={ngo.name} className="w-16 h-16 rounded-lg object-cover" />
-                  <div><h2 className="text-2xl font-bold text-gray-900">{ngo.name}</h2><div className="flex items-center space-x-2"><span className="bg-green-100 text-green-800 px-2 py-1 rounded-full text-xs font-medium flex items-center"><svg className="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" /></svg>Verified NGO</span></div></div>
-                </div>
-                <div className="flex space-x-2"><a href={ngo.website} target="_blank" rel="noopener noreferrer" className="p-2 rounded-lg bg-gray-100 hover:bg-gray-200 transition-colors"><svg className="w-5 h-5 text-gray-600" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M4.083 9h1.946c.089-1.546.383-2.97.837-4.118A6.004 6.004 0 004.083 9zM10 2a8 8 0 100 16 8 8 0 000-16zm0 2c-.076 0-.232.032-.465.262-.238.234-.497.623-.737 1.182-.389.907-.673 2.142-.766 3.556h3.936c-.093-1.414-.377-2.649-.766-3.556-.24-.559-.5-.948-.737-1.182C10.232 4.032 10.076 4 10 4zm3.971 5c-.089-1.546-.383-2.97-.837-4.118A6.004 6.004 0 0115.917 9h-1.946zm-2.003 2H8.032c.093 1.414.377 2.649.766 3.556.24.559.5.948.737 1.182.233.23.389.262.465.262.076 0 .232-.032.465-.262.238-.234.498-.623.737-1.182.389-.907.673-2.142.766-3.556zm1.166 4.118c.454-1.147.748-2.572.837-4.118h1.946a6.004 6.004 0 01-2.783 4.118zm-6.268 0C6.412 13.97 6.118 12.546 6.03 11H4.083a6.004 6.004 0 002.783 4.118z" clipRule="evenodd" /></svg></a></div>
+    <div className="min-h-screen bg-gray-50">
+      {/* Hero Section */}
+      <div className="relative h-96 bg-gradient-to-r from-blue-600 to-purple-600">
+        <img 
+          src={displayNgo.logoURI} 
+          alt={displayNgo.name}
+          className="w-full h-full object-cover opacity-20"
+        />
+        <div className="absolute inset-0 bg-gradient-to-r from-blue-600/80 to-purple-600/80" />
+        <div className="absolute top-6 left-6">
+          <span className="bg-yellow-100 text-yellow-800 px-3 py-1 rounded-full text-sm font-medium">
+            {displayNgo.category}
+          </span>
+        </div>
+        <div className="absolute bottom-6 left-6 text-white">
+          <div className="flex items-center space-x-3 mb-4">
+            <img 
+              src={displayNgo.logoURI} 
+              alt={displayNgo.name}
+              className="w-16 h-16 rounded-lg object-cover border-2 border-white"
+            />
+            <div>
+              <div className="flex items-center space-x-2 mt-1">
+                <span className="bg-green-100 text-green-800 px-2 py-1 rounded-full text-xs font-medium flex items-center">
+                  <svg className="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                  </svg>
+                  Verified NGO
+                </span>
               </div>
-              <div className="mb-4"><h3 className="text-lg font-semibold text-gray-900 mb-2">Focus Areas</h3><div className="flex flex-wrap gap-2">{ngo.causes.map((cause) => (<span key={cause} className="bg-purple-100 text-purple-800 px-3 py-1 rounded-full text-sm">{cause}</span>))}</div></div>
-              <p className="text-gray-700 leading-relaxed mb-4">{ngo.name} is dedicated to creating sustainable impact in {ngo.location.toLowerCase()}. Through innovative programs and community-driven solutions, we work tirelessly to address critical social issues and create lasting positive change.</p>
             </div>
           </div>
+          <p className="text-xl opacity-90 max-w-2xl">{displayNgo.description}</p>
+        </div>
+      </div>
+      
+      {/* Main Content */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          {/* Left Column - Campaign Info */}
+          <div className="lg:col-span-2">
+            {/* Progress Section */}
+            <div className="bg-white rounded-xl shadow-sm p-6 mb-6">
+              <div className="flex justify-between items-start mb-4">
+                <div>
+                  <h2 className="text-3xl font-bold text-gray-900">USD {currentStaked.toLocaleString()}</h2>
+                  <p className="text-gray-600">of USD {targetAmount.toLocaleString()} target staked amount</p>
+                </div>
+                <div className="text-right">
+                  <div className="text-2xl font-bold text-gray-900">{displayNgo.activeStakers}</div>
+                  <div className="text-sm text-gray-600">Backers</div>
+                </div>
+              </div>
+              
+              <div className="w-full bg-gray-200 rounded-full h-3 mb-4">
+                <div 
+                  className="bg-gradient-to-r from-blue-500 to-purple-500 h-3 rounded-full transition-all duration-300"
+                  style={{ width: `${progress}%` }}
+                />
+              </div>
+              
+              <div className="flex justify-between text-sm text-gray-600">
+                <span>{Math.round(progress)}% funded</span>
+                <span>{daysLeft} days since launch</span>
+              </div>
+            </div>
+            
+            {/* Tabs */}
+            <div className="bg-white rounded-xl shadow-sm">
+              <div className="border-b border-gray-200">
+                <nav className="flex space-x-8 px-6">
+                  {['overview', 'updates', 'comments', 'backers'].map((tab) => (
+                    <button
+                      key={tab}
+                      onClick={() => setActiveTab(tab)}
+                      className={`py-4 px-1 border-b-2 font-medium text-sm capitalize transition-colors ${
+                        activeTab === tab
+                          ? 'border-purple-500 text-purple-600'
+                          : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                      }`}
+                    >
+                      {tab}
+                      {tab === 'comments' && ' (127)'}
+                    </button>
+                  ))}
+                </nav>
+              </div>
+              
+              <div className="p-6">
+                {activeTab === 'overview' && (
+                  <div className="space-y-6">
+                    <div>
+                      <h3 className="text-lg font-semibold text-gray-900 mb-3">About This Campaign</h3>
+                      <p className="text-gray-700 leading-relaxed mb-4">
+                        {displayNgo.name} is dedicated to creating sustainable impact in {displayNgo.location.toLowerCase()}. 
+                        Through innovative programs and community-driven solutions, we work tirelessly to address 
+                        critical social issues and create lasting positive change.
+                      </p>
+                      <p className="text-gray-700 leading-relaxed">
+                        Our mission focuses on empowering communities through education, providing access to quality 
+                        learning opportunities, and building sustainable futures for the next generation.
+                      </p>
+                    </div>
+                    
+                    <div>
+                      <h3 className="text-lg font-semibold text-gray-900 mb-3">Focus Areas</h3>
+                      <div className="flex flex-wrap gap-2">
+                        {displayNgo.causes.map((cause: string) => (
+                          <span key={cause} className="bg-purple-100 text-purple-800 px-3 py-1 rounded-full text-sm">
+                            {cause}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                )}
+                
+                {activeTab === 'updates' && (
+                  <div className="text-center py-8 text-gray-500">
+                    No updates available yet.
+                  </div>
+                )}
+                
+                {activeTab === 'comments' && (
+                  <div className="text-center py-8 text-gray-500">
+                    Comments will be displayed here.
+                  </div>
+                )}
+                
+                {activeTab === 'backers' && (
+                  <div className="text-center py-8 text-gray-500">
+                    Backer information will be displayed here.
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+          
+          {/* Right Column - Staking Form */}
           <div className="lg:col-span-1">
-            <div className="bg-white rounded-xl shadow-lg p-6 sticky top-8">
-              <h3 className="text-2xl font-bold text-gray-900 mb-6">Support This Campaign</h3>
+            <div className="bg-white rounded-xl shadow-sm p-6 sticky top-8">
+              <h3 className="text-xl font-bold text-gray-900 mb-6">Stake & Support</h3>
+              
+              {/* Token Selection */}
               <div className="mb-6">
-                <div className="flex justify-between items-baseline mb-2"><span className="text-3xl font-bold text-gray-900">${currentStaked.toLocaleString()}</span><span className="text-sm text-gray-600">of ${targetAmount.toLocaleString()}</span></div>
-                <div className="w-full bg-gray-200 rounded-full h-2 mb-2"><div className="bg-green-500 h-2 rounded-full transition-all duration-300" style={{ width: `${progress}%` }} /></div>
-                <p className="text-sm text-gray-600">target staked amount</p>
-              </div>
-              <div className="flex justify-center mb-6 pb-6 border-b"><div className="text-center"><div className="text-2xl font-bold text-gray-900">{Number(ngo.totalStakers)}</div><div className="text-sm text-gray-600">Backers</div></div></div>
-              <div className="mb-6">
-                <label className="block text-sm font-medium text-gray-700 mb-2">Token</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Select token</label>
                 <div className="grid grid-cols-3 gap-2">
-                  <button onClick={() => setSelectedToken('ETH')} className={`px-4 py-2 rounded-lg font-medium transition-colors ${selectedToken === 'ETH' ? 'bg-purple-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}>ETH</button>
-                  <button onClick={() => setSelectedToken('WETH')} className={`px-4 py-2 rounded-lg font-medium transition-colors ${selectedToken === 'WETH' ? 'bg-purple-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}>WETH</button>
-                  <button onClick={() => setSelectedToken('USDC')} className={`px-4 py-2 rounded-lg font-medium transition-colors ${selectedToken === 'USDC' ? 'bg-purple-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}>USDC</button>
+                  {['ETH', 'WETH', 'USDC'].map((token) => (
+                    <button
+                      key={token}
+                      onClick={() => setSelectedToken(token)}
+                      className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                        selectedToken === token
+                          ? 'bg-purple-600 text-white'
+                          : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                      }`}
+                    >
+                      {token}
+                    </button>
+                  ))}
                 </div>
               </div>
+              
+              {/* Amount Input */}
               <div className="mb-6">
-                <div className="flex justify-between items-center mb-2"><label className="block text-sm font-medium text-gray-700">Amount</label><div className="text-sm text-gray-600">Balance: {parseFloat(formattedBalance).toFixed(selectedToken === 'USDC' ? 2 : 4)} {selectedToken}</div></div>
-                <div className="relative"><input type="number" value={stakeAmount} onChange={(e) => setStakeAmount(e.target.value)} placeholder={`Enter amount (${selectedToken})`} className="w-full px-4 py-2 pr-16 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent" step="any" /><button onClick={() => setStakeAmount(formattedBalance)} className="absolute right-2 top-1/2 transform -translate-y-1/2 px-3 py-1 text-sm font-medium text-purple-600 bg-purple-100 rounded hover:bg-purple-200 transition-colors">MAX</button></div>
-              </div>
-              <div className="mb-6">
-                <label className="block text-sm font-medium text-gray-700 mb-2">Lock-in Period</label>
-                <div className="grid grid-cols-3 gap-2">
-                  <button onClick={() => setLockPeriod('6m')} className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${lockPeriod === '6m' ? 'bg-purple-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}>6 Months</button>
-                  <button onClick={() => setLockPeriod('1y')} className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${lockPeriod === '1y' ? 'bg-purple-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}>1 Year</button>
-                  <button onClick={() => setLockPeriod('2y')} className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${lockPeriod === '2y' ? 'bg-purple-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}>2 Years</button>
+                <div className="flex justify-between items-center mb-2">
+                  <label className="block text-sm font-medium text-gray-700">Amount</label>
+                  <div className="text-sm text-gray-600">
+                    Balance: {parseFloat(formattedBalance).toFixed(selectedToken === 'USDC' ? 2 : 4)} {selectedToken}
+                  </div>
+                </div>
+                <div className="relative">
+                  <input
+                    type="number"
+                    value={stakeAmount}
+                    onChange={(e) => setStakeAmount(e.target.value)}
+                    placeholder={`Enter amount (${selectedToken})`}
+                    className="w-full px-4 py-3 pr-16 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                    step="any"
+                  />
+                  <button
+                    onClick={() => setStakeAmount(formattedBalance)}
+                    className="absolute right-2 top-1/2 transform -translate-y-1/2 px-3 py-1 text-sm font-medium text-purple-600 bg-purple-100 rounded hover:bg-purple-200 transition-colors"
+                  >
+                    MAX
+                  </button>
                 </div>
               </div>
+              
+              {/* Lock Period */}
               <div className="mb-6">
-                <label className="block text-sm font-medium text-gray-700 mb-2">Yield Contribution</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Lock period</label>
                 <div className="grid grid-cols-3 gap-2">
-                  <button onClick={() => setYieldShare('50%')} className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${yieldShare === '50%' ? 'bg-green-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}>50%</button>
-                  <button onClick={() => setYieldShare('75%')} className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${yieldShare === '75%' ? 'bg-green-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}>75%</button>
-                  <button onClick={() => setYieldShare('100%')} className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${yieldShare === '100%' ? 'bg-green-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}>100%</button>
+                  {[
+                    { value: '6m', label: '6 Months' },
+                    { value: '1y', label: '1 Year' },
+                    { value: '2y', label: '2 Years' }
+                  ].map((period) => (
+                    <button
+                      key={period.value}
+                      onClick={() => setLockPeriod(period.value)}
+                      className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                        lockPeriod === period.value
+                          ? 'bg-purple-600 text-white'
+                          : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                      }`}
+                    >
+                      {period.label}
+                    </button>
+                  ))}
                 </div>
               </div>
-              <button onClick={handlePrimaryAction} disabled={!stakeAmount || parseFloat(stakeAmount) <= 0 || isLoading || !userAddress} className="w-full bg-green-600 text-white py-3 px-4 rounded-lg font-semibold hover:bg-green-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors">{buttonText}</button>
-              <p className="text-xs text-gray-500 text-center mt-3">Secure payment via smart contract • Principal remains yours</p>
+              
+              {/* Yield Sharing */}
+              <div className="mb-6">
+                <label className="block text-sm font-medium text-gray-700 mb-2">Select yield-sharing ratio</label>
+                <div className="grid grid-cols-3 gap-2">
+                  {['50%', '75%', '100%'].map((ratio) => (
+                    <button
+                      key={ratio}
+                      onClick={() => setYieldSharingRatio(ratio)}
+                      className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                        yieldSharingRatio === ratio
+                          ? 'bg-green-600 text-white'
+                          : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                      }`}
+                    >
+                      {ratio}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              
+              {/* Yield Estimation */}
+              {stakeAmount && (
+                <div className="bg-blue-50 rounded-lg p-4 mb-6">
+                  <h4 className="font-medium text-gray-900 mb-3">Yield Estimation</h4>
+                  <div className="space-y-2 text-sm">
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">Stake Amount:</span>
+                      <span className="font-medium">{stakeAmount} {selectedToken}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">Lock Period:</span>
+                      <span className="font-medium">{lockPeriod === '6m' ? '6 months' : lockPeriod === '1y' ? '12 months' : '24 months'}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">Estimated APY:</span>
+                      <span className="font-medium">10%</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">Total Yield:</span>
+                      <span className="font-medium">{estimatedYield.toFixed(4)} {selectedToken}</span>
+                    </div>
+                    <div className="border-t pt-2 mt-2">
+                      <div className="flex justify-between text-green-600">
+                        <span>To NGO ({yieldSharingRatio}):</span>
+                        <span className="font-medium">{yieldToNgo.toFixed(4)} {selectedToken}</span>
+                      </div>
+                      <div className="flex justify-between text-blue-600">
+                        <span>To You ({100 - parseInt(yieldSharingRatio)}%):</span>
+                        <span className="font-medium">{yieldToUser.toFixed(4)} {selectedToken}</span>
+                      </div>
+                    </div>
+                    <div className="flex justify-between font-semibold text-gray-900 border-t pt-2">
+                      <span>You Get Back:</span>
+                      <span>{(amountToStake + yieldToUser).toFixed(4)} {selectedToken}</span>
+                    </div>
+                  </div>
+                  <p className="text-xs text-blue-600 mt-2">
+                    This is an estimate based on current APY rates. Actual yields may vary.
+                  </p>
+                </div>
+              )}
+              
+              {/* Stake Button */}
+              <button
+                onClick={handlePrimaryAction}
+                disabled={!stakeAmount || parseFloat(stakeAmount) <= 0 || isLoading || !userAddress}
+                className="w-full bg-green-600 text-white py-3 px-4 rounded-lg font-semibold hover:bg-green-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
+              >
+                {buttonText}
+              </button>
+              
+              <p className="text-xs text-gray-500 text-center mt-3">
+                Secure payment via smart contract • Principal remains yours
+              </p>
             </div>
           </div>
         </div>
       </div>
+      
+      {/* Progress Modal */}
       <StakingProgressModal
         isOpen={showProgressModal}
         onClose={() => {
@@ -303,11 +508,11 @@ export default function NGODetails() {
         }}
         currentStep={currentStep}
         steps={progressSteps}
-        txHash={currentTxHash}
+        txHash={currentTxHash as `0x${string}` | undefined}
         isComplete={isStakeComplete}
         isError={isStakeError}
         errorMessage={approvalError?.message || stakingError?.message}
       />
-    </>
+    </div>
   );
 }

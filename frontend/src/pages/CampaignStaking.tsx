@@ -1,30 +1,35 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { useAccount, useReadContract } from 'wagmi';
-import { formatUnits, parseEther } from 'viem';
+import { useAccount, useReadContract, useWriteContract, useWaitForTransactionReceipt, useBalance } from 'wagmi';
+import { formatUnits, parseEther, formatEther } from 'viem';
+import { motion } from 'framer-motion';
+import { ArrowLeft, Heart, Share2, Twitter, Facebook, Linkedin, TrendingUp, Users, DollarSign, PieChart, Info, Gift, ExternalLink, MapPin, Calendar, Award, ChevronDown } from 'lucide-react';
 import { NGO_REGISTRY_ABI } from '../abis/NGORegistry';
+import { GiveVault4626ABI } from '../abis/GiveVault4626';
+import { erc20Abi } from '../abis/erc20';
 
 import { CONTRACT_ADDRESSES } from '../config/contracts';
 import { NGO } from '../types';
-import StakingForm from '../components/staking/StakingForm';
 import Button from '../components/ui/Button';
-
-interface CampaignStats {
-  totalStaked: bigint;
-  currentAPY: number;
-  estimatedYield: number;
-  lockPeriods: number[];
-  supportedTokens: string[];
-}
 
 export default function CampaignStaking() {
   const { ngoAddress } = useParams<{ ngoAddress: string }>();
   const navigate = useNavigate();
   const { address } = useAccount();
-  const [showStakingForm, setShowStakingForm] = useState(false);
-  const [selectedAmount, setSelectedAmount] = useState('');
-  const [selectedLockPeriod, setSelectedLockPeriod] = useState(12);
-  const [selectedContributionRate, setSelectedContributionRate] = useState(75);
+  const [stakeAmount, setStakeAmount] = useState('1200');
+  const [lockPeriod, setLockPeriod] = useState(12);
+  const [yieldSharingRatio, setYieldSharingRatio] = useState(75);
+  const [selectedToken, setSelectedToken] = useState<string>(CONTRACT_ADDRESSES.TOKENS.USDC);
+  const [activeTab, setActiveTab] = useState<'details' | 'donate'>('donate');
+  const [isTokenDropdownOpen, setIsTokenDropdownOpen] = useState(false);
+
+  const tokens = [
+    { symbol: 'USDC', address: CONTRACT_ADDRESSES.TOKENS.USDC, icon: '💵' },
+    { symbol: 'ETH', address: CONTRACT_ADDRESSES.TOKENS.ETH, icon: '⟠' },
+    { symbol: 'WETH', address: CONTRACT_ADDRESSES.TOKENS.WETH, icon: '🔄' }
+  ];
+
+  const selectedTokenInfo = tokens.find(token => token.address === selectedToken) || tokens[0];
 
   // Fetch NGO information
   const { data: ngoInfo, isLoading: loadingNGO } = useReadContract({
@@ -37,258 +42,638 @@ export default function CampaignStaking() {
     },
   });
 
-  // Removed staking contract call - no longer using MORPH_IMPACT_STAKING
-  const totalStaked = BigInt(0);
+  // Get user's token balance
+  const { data: tokenBalance } = useBalance({
+    address: address,
+    token: selectedToken as `0x${string}`,
+    query: {
+      enabled: !!address,
+    },
+  });
 
-  // Calculate APY and yield estimates
-  const calculateAPY = (lockPeriod: number): number => {
-    // Base APY calculation - this would typically come from the vault/adapter
-    const baseAPY = 5.0; // 5% base APY
-    const lockMultiplier = lockPeriod === 6 ? 1.0 : lockPeriod === 12 ? 1.2 : 1.5;
-    return baseAPY * lockMultiplier;
-  };
+  // Get vault total assets for target calculation
+  const { data: vaultTotalAssets } = useReadContract({
+    address: CONTRACT_ADDRESSES.VAULT,
+    abi: GiveVault4626ABI,
+    functionName: 'totalAssets',
+  });
 
-  const calculateEstimatedYield = (amount: string, lockPeriod: number, contributionRate: number) => {
-    if (!amount || parseFloat(amount) <= 0) return { userYield: 0, ngoYield: 0, totalYield: 0 };
-    
-    const principal = parseFloat(amount);
-    const apy = calculateAPY(lockPeriod);
-    const totalYield = principal * (apy / 100) * (lockPeriod / 12);
-    const ngoYield = totalYield * (contributionRate / 100);
-    const userYield = totalYield - ngoYield;
-    
-    return { userYield, ngoYield, totalYield };
-  };
+  // Contract interactions
+  const { writeContract: approveToken, data: approveHash, isPending: isApproving } = useWriteContract();
+  const { writeContract: depositToVault, data: depositHash, isPending: isDepositing } = useWriteContract();
+  const { isLoading: isApprovingTx, isSuccess: isApprovalSuccess } = useWaitForTransactionReceipt({ hash: approveHash });
+  const { isLoading: isDepositingTx, isSuccess: isDepositSuccess } = useWaitForTransactionReceipt({ hash: depositHash });
 
-  const currentAPY = calculateAPY(selectedLockPeriod);
-  const yieldEstimate = calculateEstimatedYield(selectedAmount, selectedLockPeriod, selectedContributionRate);
+  // Calculate values
+  const stakeAmountWei = parseEther(stakeAmount || '0');
+  const targetStakedAmount = BigInt(5000000); // 5M USDC target from mockup
+  const currentStakedAmount = BigInt(3500000); // 3.5M USDC current from mockup
+  const estimatedAPY = lockPeriod === 6 ? 8 : lockPeriod === 12 ? 10 : 12;
+  const totalYield = (parseFloat(stakeAmount || '0') * estimatedAPY / 100 * lockPeriod / 12);
+  const ngoShare = totalYield * (yieldSharingRatio / 100);
+  const userShare = totalYield * ((100 - yieldSharingRatio) / 100);
+  const userGetBack = parseFloat(stakeAmount || '0') + userShare;
+  
+  // Dashboard metrics
+  const totalStaked = 350000;
+  const currentYield = 10.5;
+  const totalStakers = 850;
+  const avgLockPeriod = 14.3;
 
-  if (loadingNGO) {
-    return (
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-        <div className="animate-pulse">
-          <div className="h-8 bg-gray-200 rounded w-1/3 mb-4"></div>
-          <div className="h-64 bg-gray-200 rounded mb-6"></div>
-          <div className="h-96 bg-gray-200 rounded"></div>
-        </div>
-      </div>
-    );
-  }
-
-  if (!ngoInfo) {
-    return (
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-        <div className="text-center">
-          <h1 className="text-2xl font-bold text-gray-900 mb-4">Campaign Not Found</h1>
-          <p className="text-gray-600 mb-6">The requested campaign could not be found.</p>
-          <Button onClick={() => navigate('/discover')} variant="primary">
-            Back to Discover
-          </Button>
-        </div>
-      </div>
-    );
-  }
-
-  const name = (ngoInfo as any)?.name || 'Unknown Campaign';
-  const description = (ngoInfo as any)?.description || 'No description available';
-  const isActive = (ngoInfo as any)?.isActive || false;
-  const ngo: NGO = {
-    ngoAddress: ngoAddress as `0x${string}`,
-    name,
-    description,
-    website: (ngoInfo as any)?.website || '',
-    logoURI: '',
-    walletAddress: ngoAddress as `0x${string}`,
-    causes: [],
+  const ngo: NGO = ngoInfo ? {
+    ngoAddress: ngoAddress!,
+    name: ngoInfo.name || 'Global Education Fund',
+    description: ngoInfo.description || 'Empowering futures through accessible education',
+    website: '',
+    logoURI: '/api/placeholder/40/40',
+    walletAddress: ngoAddress!,
+    causes: ['Education'],
     metadataURI: '',
-    isVerified: false,
-    isActive,
+    isVerified: true,
+    isActive: ngoInfo.isActive || true,
     reputationScore: BigInt(0),
-    totalStakers: BigInt(0),
+    totalStakers: BigInt(850),
     totalYieldReceived: BigInt(0),
-    id: ngoAddress || '',
+    id: ngoAddress!,
     location: '',
-    category: '',
-    totalStaked: '0',
-    activeStakers: 0,
-    impactScore: 0,
+    category: 'Education',
+    totalStaked: '3500000',
+    activeStakers: 850,
+    impactScore: 95
+  } : {
+    ngoAddress: ngoAddress!,
+    name: 'Global Education Fund',
+    description: 'Empowering futures through accessible education',
+    website: '',
+    logoURI: '/api/placeholder/40/40',
+    walletAddress: ngoAddress!,
+    causes: ['Education'],
+    metadataURI: '',
+    isVerified: true,
+    isActive: true,
+    reputationScore: BigInt(0),
+    totalStakers: BigInt(850),
+    totalYieldReceived: BigInt(0),
+    id: ngoAddress!,
+    location: '',
+    category: 'Education',
+    totalStaked: '3500000',
+    activeStakers: 850,
+    impactScore: 95
   };
+
+  const handleStake = async () => {
+    if (!address || !stakeAmount) return;
+
+    try {
+      // First approve the vault to spend tokens
+      await approveToken({
+        address: selectedToken as `0x${string}`,
+        abi: erc20Abi,
+        functionName: 'approve',
+        args: [CONTRACT_ADDRESSES.VAULT, stakeAmountWei],
+      });
+    } catch (error) {
+      console.error('Approval failed:', error);
+    }
+  };
+
+  // Auto-deposit after approval
+  useEffect(() => {
+    if (isApprovalSuccess && !isDepositing && !isDepositingTx) {
+      depositToVault({
+        address: CONTRACT_ADDRESSES.VAULT,
+        abi: GiveVault4626ABI,
+        functionName: 'deposit',
+        args: [stakeAmountWei, address!],
+      });
+    }
+  }, [isApprovalSuccess, isDepositing, isDepositingTx, depositToVault, stakeAmountWei, address]);
+
+  const isLoading = isApproving || isDepositing || isApprovingTx || isDepositingTx;
 
   return (
-    <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+    <div className="min-h-screen bg-gradient-to-br from-emerald-50 via-cyan-50 to-teal-50 relative overflow-hidden">
+      {/* Animated Background Elements */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        <motion.div 
+          className="absolute top-20 left-10 w-32 h-32 bg-gradient-to-r from-emerald-200/30 to-cyan-200/30 rounded-full blur-xl"
+          animate={{ 
+            scale: [1, 1.2, 1],
+            rotate: [0, 180, 360]
+          }}
+          transition={{
+            duration: 20,
+            repeat: Infinity,
+            ease: "linear"
+          }}
+        />
+        <motion.div 
+          className="absolute top-40 right-20 w-24 h-24 bg-gradient-to-r from-teal-200/30 to-blue-200/30 rounded-full blur-xl"
+          animate={{ 
+            scale: [1.2, 1, 1.2],
+            rotate: [360, 180, 0]
+          }}
+          transition={{
+            duration: 15,
+            repeat: Infinity,
+            ease: "linear"
+          }}
+        />
+        <motion.div 
+          className="absolute bottom-20 left-1/3 w-40 h-40 bg-gradient-to-r from-cyan-200/20 to-emerald-200/20 rounded-full blur-2xl"
+          animate={{ 
+            scale: [1, 1.3, 1],
+            x: [-20, 20, -20]
+          }}
+          transition={{
+            duration: 25,
+            repeat: Infinity,
+            ease: "easeInOut"
+          }}
+        />
+      </div>
+
       {/* Header */}
-      <div className="mb-8">
-        <button
-          onClick={() => navigate('/discover')}
-          className="flex items-center text-blue-600 hover:text-blue-800 mb-4"
-        >
-          Back to Discover
-        </button>
-        <h1 className="text-4xl font-bold text-gray-900 mb-2">{name}</h1>
-        <p className="text-xl text-gray-600">{description}</p>
-
-      </div>
-
-      {/* Campaign Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-        <div className="bg-white rounded-lg border p-6">
-          <div className="text-sm text-gray-500 mb-1">Total Staked</div>
-          <div className="text-2xl font-bold text-gray-900">
-            {totalStaked ? formatUnits(totalStaked, 18) : '0'} ETH
-          </div>
-        </div>
-        <div className="bg-white rounded-lg border p-6">
-          <div className="text-sm text-gray-500 mb-1">Current APY</div>
-          <div className="text-2xl font-bold text-green-600">
-            {currentAPY.toFixed(1)}%
-          </div>
-        </div>
-        <div className="bg-white rounded-lg border p-6">
-          <div className="text-sm text-gray-500 mb-1">Lock Period</div>
-          <div className="text-2xl font-bold text-gray-900">
-            {selectedLockPeriod} months
+      <div className="bg-white/80 backdrop-blur-sm border-b border-white/50 relative z-10">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center justify-between h-16">
+            <motion.button
+              onClick={() => navigate(-1)}
+              className="flex items-center text-gray-600 hover:text-emerald-600 transition-colors"
+              whileHover={{ x: -5 }}
+              whileTap={{ scale: 0.95 }}
+            >
+              <ArrowLeft className="w-5 h-5 mr-2" />
+              Back
+            </motion.button>
           </div>
         </div>
       </div>
 
-      {/* Staking Interface */}
-      <div className="bg-white rounded-lg border p-8">
-        <h2 className="text-2xl font-bold text-gray-900 mb-6">Stake for Impact</h2>
-        
-        {/* Amount Input */}
-        <div className="mb-6">
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Stake Amount (ETH)
-          </label>
-          <input
-            type="number"
-            value={selectedAmount}
-            onChange={(e) => setSelectedAmount(e.target.value)}
-            placeholder="0.0"
-            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-lg"
-          />
-        </div>
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 relative z-10">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          {/* Left Column - Campaign Info */}
+          <div className="lg:col-span-2 space-y-6">
+            <motion.div 
+              className="bg-white/80 backdrop-blur-xl rounded-3xl overflow-hidden shadow-xl border border-white/50"
+              initial={{ opacity: 0, y: 30 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6 }}
+            >
+              {/* Campaign Image */}
+              <div className="relative h-80 overflow-hidden">
+                <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/10 via-cyan-500/10 to-teal-500/10"></div>
+                <div className="absolute top-6 left-6 z-10">
+                  <motion.span 
+                    className="bg-white/90 backdrop-blur-sm text-emerald-700 px-4 py-2 rounded-full text-sm font-semibold shadow-lg border border-emerald-200"
+                    whileHover={{ scale: 1.05 }}
+                  >
+                    {ngo.category}
+                  </motion.span>
+                </div>
+                <div className="absolute top-6 right-6 flex space-x-2 z-10">
+                  <motion.button 
+                    className="p-2 bg-white/90 backdrop-blur-sm rounded-full text-emerald-600 hover:bg-white transition-all shadow-lg border border-emerald-200"
+                    whileHover={{ scale: 1.1, y: -2 }}
+                    whileTap={{ scale: 0.95 }}
+                  >
+                    <Heart className="w-4 h-4" />
+                  </motion.button>
+                  <motion.button 
+                    className="p-2 bg-white/90 backdrop-blur-sm rounded-full text-emerald-600 hover:bg-white transition-all shadow-lg border border-emerald-200"
+                    whileHover={{ scale: 1.1, y: -2 }}
+                    whileTap={{ scale: 0.95 }}
+                  >
+                    <Share2 className="w-4 h-4" />
+                  </motion.button>
+                </div>
+                <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent"></div>
+                <img 
+                  src="/src/assets/IMG_4241.jpg" 
+                  alt="Education Campaign" 
+                  className="w-full h-full object-cover"
+                />
+              </div>
 
-        {/* Lock Period Selection */}
-        <div className="mb-6">
-          <label className="block text-sm font-medium text-gray-700 mb-3">
-            Lock Period
-          </label>
-          <div className="grid grid-cols-3 gap-3">
-            {[6, 12, 24].map((period) => {
-              const apy = calculateAPY(period);
-              return (
+              {/* Campaign Details */}
+              <div className="px-8 pt-8">
+                <div className="flex items-center mb-6">
+                  <motion.div 
+                    className="relative mr-4"
+                    whileHover={{ scale: 1.05 }}
+                  >
+                    <img 
+                      src="/src/assets/IMG_5543.jpg" 
+                      alt={ngo.name} 
+                      className="w-16 h-16 rounded-full object-cover border-3 border-emerald-200 shadow-lg"
+                    />
+                    <div className="absolute -bottom-1 -right-1 w-6 h-6 bg-emerald-500 rounded-full flex items-center justify-center border-2 border-white">
+                      <Award className="w-3 h-3 text-white" />
+                    </div>
+                  </motion.div>
+                  <div>
+                    <h3 className="text-2xl font-bold text-gray-900 font-unbounded mb-1">{ngo.name}</h3>
+                    <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-4 text-sm">
+                      <p className="text-emerald-600 flex items-center font-medium">
+                        <Award className="w-4 h-4 mr-1" />
+                        Verified NGO
+                      </p>
+                    </div>
+                    
+                    {/* Clean Social Media Buttons */}
+                    <div className="flex items-center space-x-2">
+                      <motion.button 
+                        className="p-2 text-gray-400 hover:text-blue-500 transition-colors"
+                        whileHover={{ scale: 1.1, y: -1 }}
+                        whileTap={{ scale: 0.95 }}
+                      >
+                        <Twitter className="w-4 h-4" />
+                      </motion.button>
+                      <motion.button 
+                        className="p-2 text-gray-400 hover:text-blue-600 transition-colors"
+                        whileHover={{ scale: 1.1, y: -1 }}
+                        whileTap={{ scale: 0.95 }}
+                      >
+                        <Facebook className="w-4 h-4" />
+                      </motion.button>
+                      <motion.button 
+                        className="p-2 text-gray-400 hover:text-blue-700 transition-colors"
+                        whileHover={{ scale: 1.1, y: -1 }}
+                        whileTap={{ scale: 0.95 }}
+                      >
+                        <Linkedin className="w-4 h-4" />
+                      </motion.button>
+                      <motion.button 
+                        className="p-2 text-gray-400 hover:text-emerald-600 transition-colors"
+                        whileHover={{ scale: 1.1, y: -1 }}
+                        whileTap={{ scale: 0.95 }}
+                      >
+                        <ExternalLink className="w-4 h-4" />
+                      </motion.button>
+                    </div>
+                  </div>
+                  </div>
+                </div>
+                <p className="text-gray-700 mb-8 text-md leading-relaxed text-justify">{ngo.description}</p>
+
+                {/* Campaign Stats */}
+              </div>
+            </motion.div>
+          </div>
+
+          {/* Right Column - Tabbed Sidebar */}
+          <div className="lg:col-span-1">
+            <motion.div 
+              className="bg-white/80 backdrop-blur-xl rounded-3xl shadow-xl border border-white/50 sticky top-8 overflow-hidden"
+              initial={{ opacity: 0, x: 30 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ duration: 0.6, delay: 0.3 }}
+            >
+              {/* Tab Navigation */}
+              <div className="flex border-b border-gray-200">
                 <button
-                  key={period}
-                  onClick={() => setSelectedLockPeriod(period)}
-                  className={`p-4 border rounded-lg text-center transition-colors ${
-                    selectedLockPeriod === period
-                      ? 'border-blue-500 bg-blue-50 text-blue-700'
-                      : 'border-gray-300 hover:border-gray-400'
+                  onClick={() => setActiveTab('details')}
+                  className={`flex-1 px-4 py-3 text-sm font-medium transition-colors ${
+                    activeTab === 'details'
+                      ? 'text-blue-600 border-b-2 border-blue-600 bg-blue-50'
+                      : 'text-gray-500 hover:text-gray-700'
                   }`}
                 >
-                  <div className="font-semibold">{period} months</div>
-                  <div className="text-sm text-green-600">{apy.toFixed(1)}% APY</div>
+                  <Info className="w-4 h-4 inline mr-2" />
+                  Details
                 </button>
-              );
-            })}
-          </div>
-        </div>
+                <button
+                  onClick={() => setActiveTab('donate')}
+                  className={`flex-1 px-4 py-3 text-sm font-medium transition-colors ${
+                    activeTab === 'donate'
+                      ? 'text-blue-600 border-b-2 border-blue-600 bg-blue-50'
+                      : 'text-gray-500 hover:text-gray-700'
+                  }`}
+                >
+                  <Gift className="w-4 h-4 inline mr-2" />
+                  Donate
+                </button>
+              </div>
 
-        {/* Contribution Rate */}
-        <div className="mb-6">
-          <label className="block text-sm font-medium text-gray-700 mb-3">
-            Yield Contribution to {name}
-          </label>
-          <div className="grid grid-cols-4 gap-3">
-            {[50, 75, 90, 100].map((rate) => (
-              <button
-                key={rate}
-                onClick={() => setSelectedContributionRate(rate)}
-                className={`p-3 border rounded-lg text-center transition-colors ${
-                  selectedContributionRate === rate
-                    ? 'border-blue-500 bg-blue-50 text-blue-700'
-                    : 'border-gray-300 hover:border-gray-400'
-                }`}
+              {/* Tab Content */}
+              <div className="p-6">
+                {activeTab === 'details' && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.3 }}
+                    className="space-y-6"
+                  >
+
+                    {/* Funding Target */}
+                    <div className="bg-gradient-to-br from-emerald-50 via-green-50 to-emerald-100 rounded-2xl p-4 mb-6 border border-emerald-200/50">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <h4 className="font-semibold font-unbounded text-gray-900 mb-1">Funding Target</h4>
+                          <p className="text-xl font-bold bg-gradient-to-r from-emerald-500 to-cyan-500 bg-clip-text text-transparent">$2.5M USD</p>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-sm text-gray-600 font-unbounded mb-1">Progress</p>
+                          <p className="text-lg font-bold text-gray-900">68%</p>
+                        </div>
+                      </div>
+                      <div className="mt-3">
+                        <div className="bg-white/60 rounded-full h-2 overflow-hidden">
+                          <div className="h-full bg-gradient-to-r from-emerald-500 to-cyan-500 rounded-full" style={{width: '68%'}} />
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Dashboard Metrics */}
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="bg-gradient-to-br from-blue-50 via-blue-100 to-blue-200 p-3 rounded-xl border border-blue-300/50 shadow-sm">
+                        <div className="text-base font-bold bg-gradient-to-r from-blue-700 to-blue-600 bg-clip-text text-transparent">${totalStaked.toFixed(2)}</div>
+                        <div className="text-xs text-blue-800 font-medium">Total Staked</div>
+                      </div>
+                      <div className="bg-gradient-to-br from-sky-50 via-sky-100 to-cyan-100 p-3 rounded-xl border border-sky-300/50 shadow-sm">
+                        <div className="text-base font-bold bg-gradient-to-r from-sky-700 to-cyan-600 bg-clip-text text-transparent">{currentYield.toFixed(1)}%</div>
+                        <div className="text-xs text-sky-800 font-medium">Current APY</div>
+                      </div>
+                      <div className="bg-gradient-to-br from-teal-50 via-teal-100 to-emerald-100 p-3 rounded-xl border border-teal-300/50 shadow-sm">
+                        <div className="text-base font-bold bg-gradient-to-r from-teal-700 to-emerald-600 bg-clip-text text-transparent">{totalStakers}</div>
+                        <div className="text-xs text-teal-800 font-medium">Total Stakers</div>
+                      </div>
+                      <div className="bg-gradient-to-br from-emerald-50 via-green-100 to-green-200 p-3 rounded-xl border border-emerald-300/50 shadow-sm">
+                        <div className="text-base font-bold bg-gradient-to-r from-emerald-700 to-green-600 bg-clip-text text-transparent">{avgLockPeriod} Months</div>
+                        <div className="text-xs text-emerald-800 font-medium">Avg Lock Duration</div>
+                      </div>
+                    </div>
+
+                    {/* Compact Asset Distribution */}
+                    <div className="mt-6">
+                      <h5 className="text-xs font-semibold text-gray-900 mb-4 text-center font-unbounded">Asset Distribution</h5>
+                      <div className="flex items-center justify-center mb-12">
+                        <div className="relative w-24 h-24">
+                          <svg className="w-24 h-24 transform -rotate-90" viewBox="0 0 36 36">
+                            <path
+                              d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                              fill="none"
+                              stroke="#f3f4f6"
+                              strokeWidth="3"
+                            />
+                            <path
+                              d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                              fill="none"
+                              stroke="#10b981"
+                              strokeWidth="3"
+                              strokeDasharray="60, 100"
+                              strokeLinecap="round"
+                            />
+                            <path
+                              d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                              fill="none"
+                              stroke="#3b82f6"
+                              strokeWidth="3"
+                              strokeDasharray="25, 100"
+                              strokeDashoffset="-60"
+                              strokeLinecap="round"
+                            />
+                            <path
+                              d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                              fill="none"
+                              stroke="#f59e0b"
+                              strokeWidth="3"
+                              strokeDasharray="15, 100"
+                              strokeDashoffset="-85"
+                              strokeLinecap="round"
+                            />
+                          </svg>
+                          <div className="absolute inset-0 flex items-center justify-center">
+                            <div className="text-center">
+                              <div className="text-xs font-bold text-gray-900">$3.5M</div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between text-xs">
+                          <div className="flex items-center">
+                            <div className="w-2 h-2 bg-emerald-500 rounded-full mr-2"></div>
+                            <span>USDC</span>
+                          </div>
+                          <span className="font-medium">60%</span>
+                        </div>
+                        <div className="flex items-center justify-between text-xs">
+                          <div className="flex items-center">
+                            <div className="w-2 h-2 bg-blue-500 rounded-full mr-2"></div>
+                            <span>ETH</span>
+                          </div>
+                          <span className="font-medium">25%</span>
+                        </div>
+                        <div className="flex items-center justify-between text-xs">
+                          <div className="flex items-center">
+                            <div className="w-2 h-2 bg-amber-500 rounded-full mr-2"></div>
+                            <span>WETH</span>
+                          </div>
+                          <span className="font-medium">15%</span>
+                        </div>
+                      </div>
+                    </div>
+                  </motion.div>
+                )}
+
+                {activeTab === 'donate' && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.3 }}
+                    className="space-y-6"
+                  >
+
+                     {/* Stake Amount Input */}
+                     <div className="mb-4">
+                       <label className="block text-xs font-semibold text-gray-700 mb-2">Stake Amount:</label>
+                       <div className="relative">
+                         <motion.input
+                           type="number"
+                           value={stakeAmount}
+                           onChange={(e) => setStakeAmount(e.target.value)}
+                           className="w-full px-3 py-2 pr-20 text-base font-bold border-2 border-emerald-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 bg-white/80 backdrop-blur-sm transition-all"
+                           placeholder="1200"
+                           whileFocus={{ scale: 1.02 }}
+                         />
+                         
+                         {/* Token Dropdown */}
+                         <div className="absolute right-2 top-1/2 transform -translate-y-1/2">
+                           <div className="relative">
+                             <motion.button
+                                type="button"
+                                onClick={() => setIsTokenDropdownOpen(!isTokenDropdownOpen)}
+                                className="flex items-center space-x-1 py-2.5 pl-2 hover:bg-gray-50 border-l-2 border-emerald-200 transition-all"
+                                whileHover={{ scale: 1.02 }}
+                                whileTap={{ scale: 0.98 }}
+                              >
+                                <span className="text-sm">{selectedTokenInfo.icon}</span>
+                                <span className="text-xs font-semibold text-gray-700">{selectedTokenInfo.symbol}</span>
+                                <ChevronDown className={`w-3 h-3 text-gray-500 transition-transform ${
+                                  isTokenDropdownOpen ? 'rotate-180' : ''
+                                }`} />
+                              </motion.button>
+                              
+                              {/* Dropdown Menu */}
+                              {isTokenDropdownOpen && (
+                                <motion.div
+                                  initial={{ opacity: 0, y: -10 }}
+                                  animate={{ opacity: 1, y: 0 }}
+                                  exit={{ opacity: 0, y: -10 }}
+                                  className="absolute top-full right-0 mt-2 w-36 bg-white border-2 border-emerald-200 rounded-xl shadow-xl z-50 overflow-hidden"
+                                >
+                                  {tokens.map((token, index) => (
+                                    <motion.button
+                                      key={token.symbol}
+                                      onClick={() => {
+                                        setSelectedToken(token.address);
+                                        setIsTokenDropdownOpen(false);
+                                      }}
+                                      className={`w-full flex items-center space-x-3 px-4 py-3 text-left hover:bg-emerald-50 transition-colors border-b border-gray-100 last:border-b-0 ${
+                                        selectedToken === token.address ? 'bg-emerald-50 text-emerald-700' : 'text-gray-700'
+                                      }`}
+                                      whileHover={{ backgroundColor: '#ecfdf5' }}
+                                    >
+                                      <span className="text-base">{token.icon}</span>
+                                      <span className="text-sm font-medium">{token.symbol}</span>
+                                    </motion.button>
+                                  ))}
+                                </motion.div>
+                              )}
+                           </div>
+                         </div>
+                       </div>
+                       {tokenBalance && (
+                         <p className="text-xs text-gray-600 mt-2 font-medium">
+                           Balance: {formatEther(tokenBalance.value)} {tokenBalance.symbol}
+                         </p>
+                       )}
+                     </div>
+
+              {/* Lock Period */}
+              <div className="mb-5">
+                <label className="block text-xs font-semibold text-gray-700 mb-3">Select lock-in period:</label>
+                <div className="grid grid-cols-3 gap-2">
+                  {[6, 12, 24].map((months) => (
+                    <motion.button
+                      key={months}
+                      onClick={() => setLockPeriod(months)}
+                      className={`py-2 px-3 rounded-xl text-xs font-semibold transition-all shadow-lg ${
+                        lockPeriod === months
+                          ? 'bg-gradient-to-r from-emerald-500 to-cyan-500 text-white shadow-emerald-200'
+                          : 'bg-white/80 text-gray-700 hover:bg-emerald-50 border border-emerald-200'
+                      }`}
+                      whileHover={{ scale: 1.05, y: -2 }}
+                      whileTap={{ scale: 0.95 }}
+                    >
+                      {months} Months
+                    </motion.button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Yield Sharing Ratio */}
+              <div className="mb-5">
+                <label className="block text-xs font-semibold text-gray-700 mb-3">Select yield-sharing ratio:</label>
+                <div className="grid grid-cols-3 gap-2">
+                  {[50, 75, 100].map((ratio) => (
+                    <motion.button
+                      key={ratio}
+                      onClick={() => setYieldSharingRatio(ratio)}
+                      className={`py-2 px-3 rounded-xl text-xs font-semibold transition-all shadow-lg ${
+                        yieldSharingRatio === ratio
+                          ? 'bg-gradient-to-r from-emerald-500 to-cyan-500 text-white shadow-emerald-200'
+                          : 'bg-white/80 text-gray-700 hover:bg-emerald-50 border border-emerald-200'
+                      }`}
+                      whileHover={{ scale: 1.05, y: -2 }}
+                      whileTap={{ scale: 0.95 }}
+                    >
+                      {ratio}%
+                    </motion.button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Yield Breakdown */}
+              <motion.div 
+                className="bg-gradient-to-br from-emerald-50 to-cyan-50 rounded-xl p-4 mb-5 border border-emerald-100"
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ duration: 0.5, delay: 0.4 }}
               >
-                <div className="font-semibold">{rate}%</div>
-              </button>
-            ))}
-          </div>
-        </div>
+                <div className="space-y-3">
+                  <div className="flex justify-between items-center">
+                    <span className="text-xs text-gray-600 font-medium">Lock Period:</span>
+                    <span className="font-bold text-emerald-600 text-sm">{lockPeriod} months</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-xs text-gray-600 font-medium">Estimated APY:</span>
+                    <span className="font-bold text-emerald-600 text-sm">{estimatedAPY}%</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-xs text-gray-600 font-medium">Total Yield:</span>
+                    <span className="font-bold text-cyan-600 text-sm">{totalYield.toFixed(4)} USDC</span>
+                  </div>
+                  <div className="border-t border-emerald-200 pt-3">
+                    <div className="flex justify-between items-center text-emerald-600 mb-1">
+                      <span className="text-xs font-medium">To NGO ({yieldSharingRatio}%):</span>
+                      <span className="font-bold text-sm">{ngoShare.toFixed(4)} USDC</span>
+                    </div>
+                    <div className="flex justify-between items-center text-cyan-600">
+                      <span className="text-xs font-medium">To You ({100 - yieldSharingRatio}%):</span>
+                      <span className="font-bold text-sm">{userShare.toFixed(4)} USDC</span>
+                    </div>
+                  </div>
+                  <div className="border-t border-emerald-200 pt-3">
+                    <div className="flex justify-between items-center">
+                      <span className="text-xs font-bold text-gray-700">You Get Back:</span>
+                      <span className="font-bold text-base bg-gradient-to-r from-emerald-600 to-cyan-600 bg-clip-text text-transparent">{userGetBack.toFixed(4)} USDC</span>
+                    </div>
+                  </div>
+                </div>
+              </motion.div>
 
-        {/* Yield Breakdown */}
-        {selectedAmount && parseFloat(selectedAmount) > 0 && (
-          <div className="bg-gradient-to-r from-blue-50 to-green-50 p-6 rounded-lg mb-6">
-            <h3 className="font-semibold text-gray-900 mb-4">Expected Returns</h3>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="text-center">
-                <div className="text-sm text-gray-600">Total Yield</div>
-                <div className="text-xl font-bold text-gray-900">
-                  {yieldEstimate.totalYield.toFixed(4)} ETH
-                </div>
-              </div>
-              <div className="text-center">
-                <div className="text-sm text-gray-600">Your Share</div>
-                <div className="text-xl font-bold text-blue-600">
-                  {yieldEstimate.userYield.toFixed(4)} ETH
-                </div>
-              </div>
-              <div className="text-center">
-                <div className="text-sm text-gray-600">NGO Impact</div>
-                <div className="text-xl font-bold text-green-600">
-                  {yieldEstimate.ngoYield.toFixed(4)} ETH
-                </div>
-              </div>
-            </div>
-            <div className="mt-4 text-center text-sm text-gray-600">
-              You'll receive back: {selectedAmount} ETH (principal) + {yieldEstimate.userYield.toFixed(4)} ETH (yield)
-            </div>
-          </div>
-        )}
+              {/* Stake Button */}
+              <motion.div
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+              >
+                <Button
+                  onClick={handleStake}
+                  disabled={!address || !stakeAmount || isLoading}
+                  className="w-full bg-gradient-to-r from-emerald-500 to-cyan-500 hover:from-emerald-600 hover:to-cyan-600 text-white font-bold py-3 px-4 rounded-xl transition-all shadow-xl hover:shadow-2xl disabled:opacity-50 disabled:cursor-not-allowed text-base"
+                >
+                  {isLoading ? (
+                    <div className="flex items-center justify-center">
+                      <motion.div
+                        className="w-5 h-5 border-2 border-white border-t-transparent rounded-full mr-2"
+                        animate={{ rotate: 360 }}
+                        transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+                      />
+                      Processing...
+                    </div>
+                  ) : (
+                    <div className="flex items-center justify-center">
+                      <Heart className="w-4 h-4 mr-2" />
+                      Stake Now
+                    </div>
+                  )}
+                </Button>
+              </motion.div>
 
-        {/* Stake Button */}
-        <div className="flex justify-center">
-          {address ? (
-            <Button
-              onClick={() => setShowStakingForm(true)}
-              variant="primary"
-              size="lg"
-              disabled={!selectedAmount || parseFloat(selectedAmount) <= 0}
-              className="px-8 py-3"
-            >
-              Stake Now
-            </Button>
-          ) : (
-            <div className="text-center text-gray-600">
-              Please connect your wallet to stake
-            </div>
-          )}
+                       <p className="text-xs text-gray-500 text-center mt-3 font-medium">
+                         🔒 Secure payment via smart contract
+                       </p>
+                  </motion.div>
+                )}
+              </div>
+            </motion.div>
+          </div>
         </div>
       </div>
-
-      {/* Staking Form Modal */}
-      {showStakingForm && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-lg max-w-md w-full max-h-[90vh] overflow-y-auto">
-            <div className="p-6">
-              <div className="flex justify-between items-center mb-4">
-                <h3 className="text-lg font-semibold">Stake for {name}</h3>
-                <button
-                  onClick={() => setShowStakingForm(false)}
-                  className="text-gray-400 hover:text-gray-600"
-                >
-                  ×
-                </button>
-              </div>
-              <StakingForm
-                ngo={ngo}
-                onClose={() => setShowStakingForm(false)}
-              />
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
