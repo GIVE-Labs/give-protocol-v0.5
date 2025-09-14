@@ -24,23 +24,30 @@ contract Deploy is Script {
         // Required env
         string memory account = vm.envString("ACCOUNT");
         address admin = vm.envAddress("ADMIN_ADDRESS");
+        // Asset configuration: allow overriding the asset via ASSET_ADDRESS for multi-asset deployments
+        // Fallback to USDC_ADDRESS for backward compatibility
         address usdc = vm.envAddress("USDC_ADDRESS");
+        address assetAddress = vm.envOr("ASSET_ADDRESS", usdc);
+
+        // Optional naming overrides for the vault
+        string memory assetName = vm.envOr("ASSET_NAME", string("GIVE Vault USDC"));
+        string memory assetSymbol = vm.envOr("ASSET_SYMBOL", string("gvUSDC"));
         address aavePool = vm.envAddress("AAVE_POOL_ADDRESS");
         address feeRecipient = vm.envOr("FEE_RECIPIENT_ADDRESS", admin);
 
         uint256 cashBufferBps = vm.envOr("CASH_BUFFER_BPS", uint256(100)); // 1%
-        uint256 slippageBps   = vm.envOr("SLIPPAGE_BPS", uint256(50));  // 0.5%
-        uint256 maxLossBps    = vm.envOr("MAX_LOSS_BPS", uint256(50));  // 0.5%
-        uint256 feeBps        = vm.envOr("FEE_BPS", uint256(250));      // 2.5%
+        uint256 slippageBps = vm.envOr("SLIPPAGE_BPS", uint256(50)); // 0.5%
+        uint256 maxLossBps = vm.envOr("MAX_LOSS_BPS", uint256(50)); // 0.5%
+        uint256 feeBps = vm.envOr("FEE_BPS", uint256(250)); // 2.5%
 
         vm.startBroadcast();
 
         NGORegistry registry = new NGORegistry(admin);
         DonationRouter router = new DonationRouter(admin, address(registry), feeRecipient, feeBps);
 
-        GiveVault4626 vault = new GiveVault4626(IERC20(usdc), "GIVE Vault USDC", "gvUSDC", admin);
+        GiveVault4626 vault = new GiveVault4626(IERC20(assetAddress), assetName, assetSymbol, admin);
         StrategyManager manager = new StrategyManager(address(vault), admin);
-        AaveAdapter adapter = new AaveAdapter(usdc, address(vault), aavePool, admin);
+        AaveAdapter adapter = new AaveAdapter(assetAddress, address(vault), aavePool, admin);
 
         // Wire roles & params
         registry.grantRole(registry.DONATION_RECORDER_ROLE(), address(router));
@@ -71,4 +78,3 @@ contract Deploy is Script {
         });
     }
 }
-

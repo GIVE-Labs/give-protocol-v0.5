@@ -1,18 +1,17 @@
-import { useAccount, useReadContract } from 'wagmi';
+import { useReadContract } from 'wagmi';
 import { useNavigate } from 'react-router-dom';
 import { CONTRACT_ADDRESSES } from '../config/contracts';
-import { NGO_REGISTRY_ABI } from '../abis/NGORegistry';
-import { formatUnits } from 'viem';
+import { NGORegistryABI } from '../abis/NGORegistry';
 import { motion } from 'framer-motion';
-import { Heart, MapPin, Users, TrendingUp, Search } from 'lucide-react';
+import { Heart, MapPin, Users, Search } from 'lucide-react';
 
 function CampaignCard({ address, index }: { address: `0x${string}`, index: number }) {
   const navigate = useNavigate();
   
   const { data: ngoInfo, isLoading } = useReadContract({
     address: CONTRACT_ADDRESSES.NGO_REGISTRY,
-    abi: NGO_REGISTRY_ABI,
-    functionName: 'getNGOInfo',
+    abi: NGORegistryABI,
+    functionName: 'getNGO',
     args: [address],
   });
 
@@ -140,8 +139,8 @@ function CampaignCard({ address, index }: { address: `0x${string}`, index: numbe
 export default function NGOsPage() {
   const { data: approvedNGOs, isLoading: loadingList } = useReadContract({
     address: CONTRACT_ADDRESSES.NGO_REGISTRY as `0x${string}`,
-    abi: NGO_REGISTRY_ABI,
-    functionName: 'getApprovedNGOs',
+    abi: NGORegistryABI,
+    functionName: 'getAllNGOs',
   });
 
   return (
@@ -277,10 +276,10 @@ export default function NGOsPage() {
               </motion.div>
             ))}
           </div>
-        ) : approvedNGOs && (approvedNGOs as string[]).length > 0 ? (
+        ) : approvedNGOs && (approvedNGOs as any[]).length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {(approvedNGOs as `0x${string}`[]).map((addr, index) => (
-              <CampaignCard key={addr} address={addr} index={index} />
+            {(approvedNGOs as any[]).map((ngo, index) => (
+              <CampaignCard key={ngo.ngoAddress} address={ngo.ngoAddress} index={index} />
             ))}
           </div>
         ) : (

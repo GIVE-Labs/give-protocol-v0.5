@@ -2,13 +2,15 @@ import { useAccount, useReadContract, useWriteContract, useWaitForTransactionRec
 import { useEffect, useMemo, useState } from 'react'
 import { keccak256, toBytes } from 'viem'
 import { CONTRACT_ADDRESSES } from '../config/contracts'
-import { NGO_REGISTRY_ABI } from '../abis/NGORegistry'
+import { NGORegistryABI } from '../abis/NGORegistry'
 
 export default function CreateNGO() {
   const { address, isConnected } = useAccount()
   const [ngoAddress, setNgoAddress] = useState<string>('')
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
+  const [website, setWebsite] = useState('')
+  const [logoUrl, setLogoUrl] = useState('')
 
   const registry = CONTRACT_ADDRESSES.NGO_REGISTRY as `0x${string}`
   const NGO_MANAGER_ROLE = useMemo(() => keccak256(toBytes('NGO_MANAGER_ROLE')), [])
@@ -16,7 +18,7 @@ export default function CreateNGO() {
   // Role check: only managers can add NGOs
   const { data: isManager } = useReadContract({
     address: registry,
-    abi: NGO_REGISTRY_ABI,
+    abi: NGORegistryABI,
     functionName: 'hasRole',
     args: address ? [NGO_MANAGER_ROLE as `0x${string}`, address] : undefined,
     query: { enabled: !!address },
@@ -29,16 +31,16 @@ export default function CreateNGO() {
     if (isConnected && !ngoAddress) setNgoAddress(address!)
   }, [isConnected, address, ngoAddress])
 
-  const canSubmit = !!name && !!description && !!ngoAddress && isManager
+  const canSubmit = !!name && !!description && !!ngoAddress && !!website && !!logoUrl && isManager
 
   const onSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     if (!canSubmit) return
     writeContract({
       address: registry,
-      abi: NGO_REGISTRY_ABI,
+      abi: NGORegistryABI,
       functionName: 'addNGO',
-      args: [ngoAddress as `0x${string}`, name, description],
+      args: [ngoAddress as `0x${string}`, name, description, website, logoUrl],
     })
   }
 
@@ -88,6 +90,26 @@ export default function CreateNGO() {
             rows={4}
           />
         </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">Website URL</label>
+          <input
+            type="url"
+            value={website}
+            onChange={(e) => setWebsite(e.target.value)}
+            placeholder="https://your-ngo-website.org"
+            className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500"
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">Logo URL</label>
+          <input
+            type="url"
+            value={logoUrl}
+            onChange={(e) => setLogoUrl(e.target.value)}
+            placeholder="https://your-logo-url.com/logo.png"
+            className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500"
+          />
+        </div>
 
         <div className="flex items-center justify-between">
           <div className="text-sm text-gray-600">
@@ -122,6 +144,8 @@ export default function CreateNGO() {
             <li>NGO Address: {ngoAddress || '(fill above)'}</li>
             <li>Name: {name || '(fill above)'}</li>
             <li>Description: {description || '(fill above)'}</li>
+            <li>Website: {website || '(fill above)'}</li>
+            <li>Logo URL: {logoUrl || '(fill above)'}</li>
           </ul>
         </div>
       )}

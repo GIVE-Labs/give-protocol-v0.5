@@ -68,7 +68,7 @@ contract VaultRouterTest is Test {
         vault.deposit(amount, user);
         vm.stopPrank();
 
-        (uint256 cashBuffer,, , ,) = vault.getConfiguration();
+        (uint256 cashBuffer,,,,) = vault.getConfiguration();
         uint256 buffer = (amount * cashBuffer) / 10_000;
         assertEq(usdc.balanceOf(address(vault)), buffer);
         assertEq(adapter.invested(), amount - buffer);
@@ -117,11 +117,18 @@ contract VaultRouterTest is Test {
 // Minimal ERC20
 contract MockERC20 is ERC20 {
     uint8 private _decimals;
+
     constructor(string memory name_, string memory symbol_, uint8 d) ERC20(name_, symbol_) {
         _decimals = d;
     }
-    function decimals() public view override returns (uint8) { return _decimals; }
-    function mint(address to, uint256 amount) external { _mint(to, amount); }
+
+    function decimals() public view override returns (uint8) {
+        return _decimals;
+    }
+
+    function mint(address to, uint256 amount) external {
+        _mint(to, amount);
+    }
 }
 
 // IYieldAdapter mock compatible with vault flows
@@ -191,5 +198,7 @@ contract MockAdapter is IYieldAdapter {
     }
 
     // Expose invested for assertions
-    function invested() external view returns (uint256) { return investedAmount; }
+    function invested() external view returns (uint256) {
+        return investedAmount;
+    }
 }

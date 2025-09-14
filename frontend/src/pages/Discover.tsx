@@ -3,41 +3,7 @@ import { NGOCard } from '../components/ngo/NGOCard'
 import { useChainId } from 'wagmi'
 import { useReadContract } from 'wagmi'
 import { NGO } from '../types'
-
-const NGO_REGISTRY_ABI = [
-  {
-    name: 'getNGO',
-    type: 'function',
-    stateMutability: 'view',
-    inputs: [{ name: '_ngoAddress', type: 'address' }],
-    outputs: [{
-      name: '',
-      type: 'tuple',
-      components: [
-        { name: 'name', type: 'string' },
-        { name: 'description', type: 'string' },
-        { name: 'website', type: 'string' },
-        { name: 'logoURI', type: 'string' },
-        { name: 'walletAddress', type: 'address' },
-        { name: 'isVerified', type: 'bool' },
-        { name: 'isActive', type: 'bool' },
-        { name: 'totalYieldReceived', type: 'uint256' },
-        { name: 'activeStakers', type: 'uint256' },
-        { name: 'causes', type: 'string[]' },
-        { name: 'reputationScore', type: 'uint256' },
-        { name: 'registrationTime', type: 'uint256' },
-        { name: 'metadataHash', type: 'string' }
-      ]
-    }]
-  },
-  {
-    name: 'getNGOsByVerification',
-    type: 'function',
-    stateMutability: 'view',
-    inputs: [{ name: '_verified', type: 'bool' }],
-    outputs: [{ name: '', type: 'address[]' }]
-  }
-];
+import { NGORegistryABI } from '../abis/NGORegistry'
 
 const formatNGOData = (address: string, contractData: any) => {
   return {
@@ -72,50 +38,50 @@ export default function Discover() {
     ? '0x724dc0c1AE0d8559C48D0325Ff4cC8F45FE703De' // Morph mainnet
     : '0x724dc0c1AE0d8559C48D0325Ff4cC8F45FE703De' // Morph testnet
   
-  // Fetch verified NGO addresses
-  const { data: verifiedAddresses, isLoading: loadingAddresses } = useReadContract({
+  // Fetch all NGO addresses
+  const { data: allNGOs, refetch } = useReadContract({
     address: contractAddress as `0x${string}`,
-    abi: NGO_REGISTRY_ABI,
-    functionName: 'getNGOsByVerification',
-    args: [true],
+    abi: NGORegistryABI,
+    functionName: 'getAllNGOs',
   });
 
   // Fetch NGO details for each address
-  const [ngos, setNgos] = useState([])
+  const [ngos, setNgos] = useState<NGO[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
 
   useEffect(() => {
     const fetchNGOs = async () => {
-      if (!verifiedAddresses) {
+      if (!allNGOs || !Array.isArray(allNGOs)) {
         setLoading(false)
         return
       }
 
       setLoading(true)
       try {
-        const ngoPromises = verifiedAddresses.map(async (address: string) => {
-          const response = await fetchContractData(contractAddress, address)
+        const ngoPromises = allNGOs.map(async (ngoData: any) => {
+          const address = ngoData.ngoAddress
+          const response = await fetchContractData(address)
           return formatNGOData(address, response)
         })
         
         const ngoData = await Promise.all(ngoPromises)
         setNgos(ngoData.filter(Boolean))
-      } catch (err) {
-        setError(err.message)
+      } catch (err: any) {
+        setError(err?.message || 'An error occurred')
       } finally {
         setLoading(false)
       }
     }
 
     fetchNGOs()
-  }, [verifiedAddresses, contractAddress])
+  }, [allNGOs, contractAddress])
 
   // Helper to fetch contract data
-  const fetchContractData = async (contractAddress: string, ngoAddress: string) => {
+  const fetchContractData = async (ngoAddress: string) => {
     // This would be replaced with actual contract call in production
     // For now, we'll use the mock data structure from deployment
-    const mockNGOs = {
+    const mockNGOs: Record<string, any> = {
       '0x1234567890123456789012345678901234567890': {
         name: 'Education For All',
         description: 'Providing quality education to underprivileged children worldwide through innovative digital learning platforms and community-based programs.',
@@ -163,7 +129,29 @@ export default function Discover() {
       }
     }
     
-    return mockNGOs[ngoAddress] || mockNGOs['0x1234567890123456789012345678901234567890']
+    const ngoData = mockNGOs[ngoAddress];
+    if (!ngoData) {
+      return {
+        name: 'Unknown NGO',
+        description: 'No description available',
+        website: '',
+        logoURI: '',
+        walletAddress: ngoAddress,
+        isVerified: false,
+        isActive: false,
+        totalYieldReceived: 0n,
+        activeStakers: 0n,
+        totalStakers: 0n,
+        causes: ['General'],
+        reputationScore: 0n,
+        metadataHash: '',
+        registrationTime: 0n
+      };
+    }
+    return {
+      ...ngoData,
+      totalStakers: ngoData.activeStakers
+    };
   }
 
   // Get unique causes from NGO data
@@ -233,7 +221,7 @@ export default function Discover() {
         <div className="text-center py-12">
           <p className="text-red-500 text-lg">Error: {error}</p>
           <button 
-            onClick={refetch}
+            onClick={() => refetch && refetch()}
             className="mt-4 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700"
           >
             Retry

@@ -19,3 +19,9 @@ scroll_sepolia = "https://sepolia-rpc.scroll.io"
 scroll_sepolia = { key = "${SCROLLSCAN_API_KEY}", url = "https://api-sepolia.scrollscan.com/api" }
 
 # See more config options https://github.com/foundry-rs/foundry/blob/master/crates/config/README.md#all-options
+
+# Optional alternative profile without Yul IR, in case some deployments were built without it
+[profile.no_ir]
+via_ir = false
+optimizer = true
+optimizer_runs = 200

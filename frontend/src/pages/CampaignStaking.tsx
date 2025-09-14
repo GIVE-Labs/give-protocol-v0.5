@@ -1,10 +1,10 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAccount, useReadContract, useWriteContract, useWaitForTransactionReceipt, useBalance } from 'wagmi';
-import { formatUnits, parseEther, formatEther } from 'viem';
+import { formatUnits, parseUnits } from 'viem';
 import { motion } from 'framer-motion';
-import { ArrowLeft, Heart, Share2, Twitter, Facebook, Linkedin, TrendingUp, Users, DollarSign, PieChart, Info, Gift, ExternalLink, MapPin, Calendar, Award, ChevronDown } from 'lucide-react';
-import { NGO_REGISTRY_ABI } from '../abis/NGORegistry';
+import { ArrowLeft, Heart, Share2, Twitter, Facebook, Linkedin, Info, Gift, ExternalLink, Award, ChevronDown } from 'lucide-react';
+import { NGORegistryABI } from '../abis/NGORegistry';
 import { GiveVault4626ABI } from '../abis/GiveVault4626';
 import { erc20Abi } from '../abis/erc20';
 
@@ -15,28 +15,37 @@ import Button from '../components/ui/Button';
 export default function CampaignStaking() {
   const { ngoAddress } = useParams<{ ngoAddress: string }>();
   const navigate = useNavigate();
-  const { address } = useAccount();
-  const [stakeAmount, setStakeAmount] = useState('1200');
+  const { address, isConnected, chain } = useAccount();
+  
+  // Network validation
+  const isCorrectNetwork = chain?.id === 11155111; // Sepolia testnet
+  const networkError = isConnected && !isCorrectNetwork ? 'Please switch to Sepolia testnet' : null;
+  const [stakeAmount, setStakeAmount] = useState('0');
   const [lockPeriod, setLockPeriod] = useState(12);
   const [yieldSharingRatio, setYieldSharingRatio] = useState(75);
   const [selectedToken, setSelectedToken] = useState<string>(CONTRACT_ADDRESSES.TOKENS.USDC);
   const [activeTab, setActiveTab] = useState<'details' | 'donate'>('donate');
   const [isTokenDropdownOpen, setIsTokenDropdownOpen] = useState(false);
   const [showFullDescription, setShowFullDescription] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
+  // NOTE: The current vault is USDC-based (ERC20 with 6 decimals).
+  // To avoid failed deposits and incorrect approvals, only USDC is enabled for staking.
   const tokens = [
-    { symbol: 'USDC', address: CONTRACT_ADDRESSES.TOKENS.USDC, icon: '/src/assets/token/usd-coin-usdc-logo.svg' },
-    { symbol: 'ETH', address: CONTRACT_ADDRESSES.TOKENS.ETH, icon: '/src/assets/token/ethereum-eth-icon.svg' },
-    { symbol: 'WETH', address: CONTRACT_ADDRESSES.TOKENS.WETH, icon: '/src/assets/token/weth-1671744457-logotic-brand.svg' }
+    { symbol: 'USDC', address: CONTRACT_ADDRESSES.TOKENS.USDC, icon: '/src/assets/token/usd-coin-usdc-logo.svg', decimals: 6 },
+    // Future support:
+    // { symbol: 'ETH', address: CONTRACT_ADDRESSES.TOKENS.ETH, icon: '/src/assets/token/ethereum-eth-icon.svg', decimals: 18 },
+    // { symbol: 'WETH', address: CONTRACT_ADDRESSES.TOKENS.WETH, icon: '/src/assets/token/weth-1671744457-logotic-brand.svg', decimals: 18 }
   ];
 
   const selectedTokenInfo = tokens.find(token => token.address === selectedToken) || tokens[0];
 
   // Fetch NGO information
-  const { data: ngoInfo, isLoading: loadingNGO } = useReadContract({
+  const { data: ngoInfo } = useReadContract({
     address: CONTRACT_ADDRESSES.NGO_REGISTRY,
-    abi: NGO_REGISTRY_ABI,
-    functionName: 'getNGOInfo',
+    abi: NGORegistryABI,
+    functionName: 'getNGO',
     args: [ngoAddress as `0x${string}`],
     query: {
       enabled: !!ngoAddress,
@@ -46,30 +55,111 @@ export default function CampaignStaking() {
   // Get user's token balance
   const { data: tokenBalance } = useBalance({
     address: address,
-    token: selectedToken as `0x${string}`,
+    token: selectedToken === CONTRACT_ADDRESSES.TOKENS.ETH ? undefined : selectedToken as `0x${string}`,
     query: {
       enabled: !!address,
     },
   });
 
-  // Get vault total assets for target calculation
-  const { data: vaultTotalAssets } = useReadContract({
-    address: CONTRACT_ADDRESSES.VAULT,
-    abi: GiveVault4626ABI,
-    functionName: 'totalAssets',
-  });
+  // Get vault total assets for target calculation (optional)
+  // Removed unused variable to satisfy TypeScript
 
-  // Contract interactions
-  const { writeContract: approveToken, data: approveHash, isPending: isApproving } = useWriteContract();
-  const { writeContract: depositToVault, data: depositHash, isPending: isDepositing } = useWriteContract();
+  // Active strategies read removed (unused)
+
+  // Real-time APY from Aave adapter unavailable; using estimated APY only
+
+  // Contract interactions with enhanced error handling
+  const { writeContract: approveToken, data: approveHash, isPending: isApproving, error: approveError } = useWriteContract();
+  const { writeContract: depositToVault, data: depositHash, isPending: isDepositing, error: depositError } = useWriteContract();
   const { isLoading: isApprovingTx, isSuccess: isApprovalSuccess } = useWaitForTransactionReceipt({ hash: approveHash });
   const { isLoading: isDepositingTx, isSuccess: isDepositSuccess } = useWaitForTransactionReceipt({ hash: depositHash });
 
+  // Input validation
+  const validateStakeAmount = (amount: string): string | null => {
+    if (!amount || parseFloat(amount) <= 0) {
+      return 'Please enter a valid stake amount';
+    }
+    if (tokenBalance && parseFloat(amount) > parseFloat(formatUnits(tokenBalance.value, selectedTokenInfo.decimals))) {
+      return 'Insufficient balance';
+    }
+    if (parseFloat(amount) < 0.000001) {
+      return 'Minimum stake amount is 0.000001';
+    }
+    return null;
+  };
+
+  // Clear messages after timeout
+  useEffect(() => {
+    if (error || successMessage) {
+      const timer = setTimeout(() => {
+        setError(null);
+        setSuccessMessage(null);
+      }, 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [error, successMessage]);
+
+  // Handle transaction success
+  useEffect(() => {
+    if (isDepositSuccess) {
+      setSuccessMessage('Stake completed successfully!');
+      setStakeAmount('');
+    }
+  }, [isDepositSuccess]);
+
+  // Handle transaction errors
+  useEffect(() => {
+    if (approveError) {
+      setError(approveError.message || 'Approval failed');
+    }
+    if (depositError) {
+      setError(depositError.message || 'Deposit failed');
+    }
+  }, [approveError, depositError]);
+
   // Calculate values
-  const stakeAmountWei = parseEther(stakeAmount || '0');
-  const targetStakedAmount = BigInt(5000000); // 5M USDC target from mockup
-  const currentStakedAmount = BigInt(3500000); // 3.5M USDC current from mockup
-  const estimatedAPY = lockPeriod === 6 ? 8 : lockPeriod === 12 ? 10 : 12;
+  // Parse stake amount using the selected token decimals (USDC = 6)
+  const stakeAmountUnits = useMemo(() => {
+    try {
+      return parseUnits(stakeAmount || '0', selectedTokenInfo.decimals);
+    } catch {
+      return 0n;
+    }
+  }, [stakeAmount, selectedTokenInfo.decimals]);
+  // Removed unused mock values
+  
+  // Calculate APY based on lock period
+  const calculateAPY = (lockPeriod: number) => {
+    // Token-specific fallback rates based on typical DeFi yields
+    const getTokenBaseRate = () => {
+      switch (selectedToken) {
+        case CONTRACT_ADDRESSES.TOKENS.USDC:
+          return { base: 4, name: 'USDC' }; // Stable coin base rate
+        case CONTRACT_ADDRESSES.TOKENS.ETH:
+          return { base: 6, name: 'ETH' }; // ETH staking-like rate
+        case CONTRACT_ADDRESSES.TOKENS.WETH:
+          return { base: 5.5, name: 'WETH' }; // Slightly lower than ETH
+        default:
+          return { base: 4, name: 'Token' };
+      }
+    };
+    
+    const { base } = getTokenBaseRate();
+    
+    // Add lock period bonus to base rate
+     switch (lockPeriod) {
+       case 6:
+         return base + 1; // +1% for 6 months
+       case 12:
+         return base + 2.5; // +2.5% for 12 months
+       case 24:
+         return base + 4; // +4% for 24 months
+       default:
+         return base + 1;
+     }
+  };
+  
+  const estimatedAPY = calculateAPY(lockPeriod);
   const totalYield = (parseFloat(stakeAmount || '0') * estimatedAPY / 100 * lockPeriod / 12);
   const ngoShare = totalYield * (yieldSharingRatio / 100);
   const userShare = totalYield * ((100 - yieldSharingRatio) / 100);
@@ -126,16 +216,40 @@ export default function CampaignStaking() {
   const handleStake = async () => {
     if (!address || !stakeAmount) return;
 
+    // Clear previous messages
+    setError(null);
+    setSuccessMessage(null);
+
+    // Validate network
+    if (!isCorrectNetwork) {
+      setError('Please switch to Sepolia testnet');
+      return;
+    }
+    
+    // Validate input
+    const validationError = validateStakeAmount(stakeAmount);
+    if (validationError) {
+      setError(validationError);
+      return;
+    }
+
+    // Enforce USDC-only staking while the vault asset is USDC
+    if (selectedToken !== CONTRACT_ADDRESSES.TOKENS.USDC) {
+      setError('Only USDC is supported for staking at the moment.');
+      return;
+    }
+
     try {
-      // First approve the vault to spend tokens
+      // First approve the vault to spend tokens (exact amount, no infinite allowance)
       await approveToken({
         address: selectedToken as `0x${string}`,
         abi: erc20Abi,
         functionName: 'approve',
-        args: [CONTRACT_ADDRESSES.VAULT, stakeAmountWei],
+        args: [CONTRACT_ADDRESSES.VAULT, stakeAmountUnits],
       });
     } catch (error) {
       console.error('Approval failed:', error);
+      setError('Failed to approve token spending');
     }
   };
 
@@ -146,10 +260,10 @@ export default function CampaignStaking() {
         address: CONTRACT_ADDRESSES.VAULT,
         abi: GiveVault4626ABI,
         functionName: 'deposit',
-        args: [stakeAmountWei, address!],
+        args: [stakeAmountUnits, address!],
       });
     }
-  }, [isApprovalSuccess, isDepositing, isDepositingTx, depositToVault, stakeAmountWei, address]);
+  }, [isApprovalSuccess, isDepositing, isDepositingTx, depositToVault, stakeAmountUnits, address]);
 
   const isLoading = isApproving || isDepositing || isApprovingTx || isDepositingTx;
 
@@ -378,6 +492,26 @@ export default function CampaignStaking() {
                     transition={{ duration: 0.3 }}
                     className="space-y-6"
                   >
+                    {/* Error/Success Messages */}
+                    {error && (
+                      <motion.div
+                        initial={{ opacity: 0, y: -10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        className="bg-red-50 border border-red-200 rounded-xl p-3 mb-4"
+                      >
+                        <p className="text-red-700 text-sm font-medium">❌ {error}</p>
+                      </motion.div>
+                    )}
+                    
+                    {successMessage && (
+                      <motion.div
+                        initial={{ opacity: 0, y: -10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        className="bg-green-50 border border-green-200 rounded-xl p-3 mb-4"
+                      >
+                        <p className="text-green-700 text-sm font-medium">✅ {successMessage}</p>
+                      </motion.div>
+                    )}
 
                     {/* Funding Target */}
                     <div className="bg-gradient-to-br from-emerald-50 via-green-50 to-emerald-100 rounded-2xl p-4 mb-6 border border-emerald-200/50">
@@ -502,66 +636,104 @@ export default function CampaignStaking() {
                      {/* Stake Amount Input */}
                      <div className="mb-4">
                        <label className="block text-xs font-semibold text-gray-700 mb-2">Stake Amount:</label>
-                       <div className="relative">
-                        <motion.input
-                          type="number"
-                          value={stakeAmount}
-                          onChange={(e) => setStakeAmount(e.target.value)}
-                          className="w-full px-4 py-2 text-base font-bold border-2 border-emerald-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 bg-white/80 backdrop-blur-sm transition-all [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                          placeholder="1200"
-                          whileFocus={{ scale: 1.02 }}
-                        />
-                         
-                         {/* Token Dropdown */}
-                         <div className="absolute right-2 top-1/2 transform -translate-y-1/2">
-                           <div className="relative">
-                             <motion.button
-                                type="button"
-                                onClick={() => setIsTokenDropdownOpen(!isTokenDropdownOpen)}
-                                className="flex items-center space-x-1 py-2.5 pl-6 hover:bg-gray-50 border-l-2 border-emerald-200 transition-all"
-                                whileHover={{ scale: 1.02 }}
-                                whileTap={{ scale: 0.98 }}
+                       
+                       {/* Flexbox Container */}
+                        <div className="flex items-stretch">
+                          {/* Amount Input */}
+                          <div className="flex-1">
+                            <motion.input
+                              type="number"
+                              value={stakeAmount}
+                              onChange={(e) => {
+                                const value = e.target.value;
+                                // Limit to 6 decimal places
+                                if (value === '' || /^\d*\.?\d{0,6}$/.test(value)) {
+                                  setStakeAmount(value);
+                                }
+                              }}
+                              className="w-full px-4 py-3 text-base font-bold border-2 border-emerald-200 rounded-l-xl border-r-0 focus:outline-none focus:ring-2bg-white/80 backdrop-blur-sm transition-all [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                              placeholder="0"
+                            />
+                          </div>
+                          
+                          {/* Max Button */}
+                          {tokenBalance && (
+                            <motion.button
+                              type="button"
+                              onClick={() => {
+                                const maxAmount = formatUnits(tokenBalance.value, selectedTokenInfo.decimals);
+                                // Limit to 6 decimal places
+                                const limitedAmount = parseFloat(maxAmount).toFixed(6).replace(/\.?0+$/, '');
+                                setStakeAmount(limitedAmount);
+                              }}
+                              className="px-3 text-sm font-semibold text-emerald-600 hover:text-emerald-700 bg-white/80 hover:bg-emerald-50 border-t-2 border-b-2 border-emerald-200 transition-all backdrop-blur-sm leading-tight"
+                            >
+                              MAX
+                            </motion.button>
+                          )}
+                          
+                          {/* Token Dropdown */}
+                          <div className="relative">
+                            <motion.button
+                               type="button"
+                               onClick={() => setIsTokenDropdownOpen(!isTokenDropdownOpen)}
+                               className="flex items-center space-x-1 px-2 py-3 text-base font-bold border-2 border-emerald-200 rounded-r-xl border-l-2 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 bg-white/80 backdrop-blur-sm transition-all hover:bg-gray-50"
+                             >
+                               <img src={selectedTokenInfo.icon} alt={selectedTokenInfo.symbol} className="w-5 h-5" />
+                               <span className="text-gray-700 min-w-[3rem]">{selectedTokenInfo.symbol}</span>
+                               <ChevronDown className={`w-4 h-4 text-gray-500 transition-transform ${
+                                 isTokenDropdownOpen ? 'rotate-180' : ''
+                               }`} />
+                             </motion.button>
+                            
+                            {/* Dropdown Menu */}
+                            {isTokenDropdownOpen && (
+                              <motion.div
+                                initial={{ opacity: 0, y: -10 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                exit={{ opacity: 0, y: -10 }}
+                                className="absolute top-full right-0 mt-1 w-40 bg-white border-2 border-emerald-200 rounded-xl shadow-xl z-50 overflow-hidden"
                               >
-                                <img src={selectedTokenInfo.icon} alt={selectedTokenInfo.symbol} className="w-4 h-4 mr-1 mb-0.5" />
-                                <span className="text-xs font-semibold text-gray-700 w-12 text-left">{selectedTokenInfo.symbol}</span>
-                                <ChevronDown className={`w-3 h-3 text-gray-500 transition-transform ${
-                                  isTokenDropdownOpen ? 'rotate-180' : ''
-                                }`} />
-                              </motion.button>
-                              
-                              {/* Dropdown Menu */}
-                              {isTokenDropdownOpen && (
-                                <motion.div
-                                  initial={{ opacity: 0, y: 0 }}
-                                  animate={{ opacity: 1, y: 0 }}
-                                  exit={{ opacity: 0, y: -10 }}
-                                  className="absolute top-full right-[-8px] mt-0.5 w-36 bg-white border-2 border-emerald-200 rounded-xl shadow-xl z-50 overflow-hidden"
-                                >
-                                  {tokens.map((token, index) => (
-                                    <motion.button
-                                      key={token.symbol}
-                                      onClick={() => {
-                                        setSelectedToken(token.address);
-                                        setIsTokenDropdownOpen(false);
-                                      }}
-                                      className={`w-full flex items-center space-x-3 px-4 py-3 text-left hover:bg-emerald-50 transition-colors border-b border-gray-100 last:border-b-0 ${
-                                        selectedToken === token.address ? 'bg-emerald-50 text-emerald-700' : 'text-gray-700'
-                                      }`}
-                                      whileHover={{ backgroundColor: '#ecfdf5' }}
-                                    >
-                                      <img src={token.icon} alt={token.symbol} className="w-5 h-5 mr-2" />
-                                      <span className="text-sm font-medium w-12 text-left">{token.symbol}</span>
-                                    </motion.button>
-                                  ))}
-                                </motion.div>
-                              )}
-                           </div>
+                                {tokens.map((token) => (
+                                  <motion.button
+                                    key={token.symbol}
+                                    onClick={() => {
+                                      setSelectedToken(token.address);
+                                      setIsTokenDropdownOpen(false);
+                                    }}
+                                    className={`w-full flex items-center space-x-3 px-4 py-3 text-left hover:bg-emerald-50 transition-colors border-b border-gray-100 last:border-b-0 ${
+                                      selectedToken === token.address ? 'bg-emerald-50 text-emerald-700' : 'text-gray-700'
+                                    }`}
+                                    whileHover={{ backgroundColor: '#ecfdf5' }}
+                                  >
+                                    <img src={token.icon} alt={token.symbol} className="w-5 h-5" />
+                                    <span className="text-sm font-medium">{token.symbol}</span>
+                                  </motion.button>
+                                ))}
+                              </motion.div>
+                            )}
                          </div>
                        </div>
+                       
                        {tokenBalance && (
-                         <p className="text-xs text-gray-600 mt-2 font-medium">
-                           Balance: {formatEther(tokenBalance.value)} {tokenBalance.symbol}
+                         <p className="text-xs text-gray-600 mt-2 font-medium ml-2">
+                           Balance: {parseFloat(formatUnits(tokenBalance.value, selectedTokenInfo.decimals)).toFixed(6).replace(/\.?0+$/, '')} {tokenBalance.symbol}
                          </p>
+                       )}
+                       
+                       {/* Balance and Validation Feedback */}
+                       {stakeAmount && (
+                         <div className="mt-2 ml-2">
+                           {tokenBalance && parseFloat(stakeAmount) > parseFloat(formatUnits(tokenBalance.value, selectedTokenInfo.decimals)) ? (
+                             <p className="text-xs text-red-500 font-medium flex items-center gap-1">
+                               Insufficient balance.
+                             </p>
+                           ) : parseFloat(stakeAmount) < 0.000001 ? (
+                             <p className="text-xs text-orange-500 font-medium flex items-center gap-1">
+                               Minimum stake amount is 0.000001 {selectedTokenInfo.symbol}
+                             </p>
+                           ) : null}
+                         </div>
                        )}
                      </div>
 
@@ -623,26 +795,45 @@ export default function CampaignStaking() {
                   </div>
                   <div className="flex justify-between items-center">
                     <span className="text-xs text-gray-600 font-medium">Estimated APY:</span>
-                    <span className="font-bold text-emerald-600 text-sm">{estimatedAPY}%</span>
+                    <div className="flex items-center gap-1">
+                      <span className="font-bold text-emerald-600 text-sm">{estimatedAPY.toFixed(2)}%</span>
+                      <span className="text-xs bg-orange-100 text-orange-700 px-1 rounded">Est.</span>
+                    </div>
                   </div>
                   <div className="flex justify-between items-center">
-                    <span className="text-xs text-gray-600 font-medium">Total Yield:</span>
-                    <span className="font-bold text-cyan-600 text-sm">{totalYield.toFixed(4)} USDC</span>
+                    <div className="flex items-center gap-1">
+                      <span className="text-xs text-gray-600 font-medium">Total Yield:</span>
+                      <img src={selectedTokenInfo.icon} alt={selectedTokenInfo.symbol} className="w-3 h-3" />
+                      <span className="text-xs text-gray-600 font-medium">{selectedTokenInfo.symbol}</span>
+                    </div>
+                    <span className="font-bold text-cyan-600 text-sm">{totalYield.toFixed(4)}</span>
                   </div>
                   <div className="border-t border-emerald-200 pt-3">
                     <div className="flex justify-between items-center text-emerald-600 mb-1">
-                      <span className="text-xs font-medium">To NGO ({yieldSharingRatio}%):</span>
-                      <span className="font-bold text-sm">{ngoShare.toFixed(4)} USDC</span>
+                      <div className="flex items-center gap-1">
+                        <span className="text-xs font-medium">To NGO ({yieldSharingRatio}%):</span>
+                        <img src={selectedTokenInfo.icon} alt={selectedTokenInfo.symbol} className="w-3 h-3" />
+                        <span className="text-xs font-medium">{selectedTokenInfo.symbol}</span>
+                      </div>
+                      <span className="font-bold text-sm">{ngoShare.toFixed(4)}</span>
                     </div>
                     <div className="flex justify-between items-center text-cyan-600">
-                      <span className="text-xs font-medium">To You ({100 - yieldSharingRatio}%):</span>
-                      <span className="font-bold text-sm">{userShare.toFixed(4)} USDC</span>
+                      <div className="flex items-center gap-1">
+                        <span className="text-xs font-medium">To You ({100 - yieldSharingRatio}%):</span>
+                        <img src={selectedTokenInfo.icon} alt={selectedTokenInfo.symbol} className="w-3 h-3" />
+                        <span className="text-xs font-medium">{selectedTokenInfo.symbol}</span>
+                      </div>
+                      <span className="font-bold text-sm">{userShare.toFixed(4)}</span>
                     </div>
                   </div>
                   <div className="border-t border-emerald-200 pt-3">
                     <div className="flex justify-between items-center">
-                      <span className="text-xs font-bold text-gray-700">You Get Back:</span>
-                      <span className="font-bold text-base bg-gradient-to-r from-emerald-600 to-cyan-600 bg-clip-text text-transparent">{userGetBack.toFixed(4)} USDC</span>
+                      <div className="flex items-center gap-1">
+                        <span className="text-xs font-bold text-gray-700">You Get Back:</span>
+                        <img src={selectedTokenInfo.icon} alt={selectedTokenInfo.symbol} className="w-4 h-4" />
+                        <span className="text-xs font-bold text-gray-700">{selectedTokenInfo.symbol}</span>
+                      </div>
+                      <span className="font-bold text-base bg-gradient-to-r from-emerald-600 to-cyan-600 bg-clip-text text-transparent">{userGetBack.toFixed(4)}</span>
                     </div>
                   </div>
                 </div>
@@ -655,22 +846,44 @@ export default function CampaignStaking() {
               >
                 <Button
                   onClick={handleStake}
-                  disabled={!address || !stakeAmount || isLoading}
-                  className="w-full bg-gradient-to-r from-emerald-500 to-cyan-500 hover:from-emerald-600 hover:to-cyan-600 text-white font-bold py-3 px-4 rounded-xl transition-all shadow-xl hover:shadow-2xl disabled:opacity-50 disabled:cursor-not-allowed text-base"
+                  disabled={!address || !stakeAmount || isLoading || !!validateStakeAmount(stakeAmount) || !!networkError}
+                  className={`w-full font-bold py-3 px-4 rounded-xl transition-all shadow-xl text-base ${
+                    !address || !stakeAmount || !!validateStakeAmount(stakeAmount) || !!networkError
+                      ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                      : isLoading
+                      ? 'bg-gradient-to-r from-blue-400 to-blue-500 text-white cursor-wait'
+                      : 'bg-gradient-to-r from-emerald-500 to-cyan-500 hover:from-emerald-600 hover:to-cyan-600 text-white hover:shadow-2xl'
+                  }`}
                 >
-                  {isLoading ? (
+                  {!address ? (
+                    <div className="flex items-center justify-center">
+                      🔗 Connect Wallet
+                    </div>
+                  ) : !stakeAmount ? (
+                    <div className="flex items-center justify-center">
+                      💰 Enter Amount
+                    </div>
+                  ) : networkError ? (
+                    <div className="flex items-center justify-center">
+                      🌐 {networkError}
+                    </div>
+                  ) : validateStakeAmount(stakeAmount) ? (
+                    <div className="flex items-center justify-center">
+                      ⚠️ {validateStakeAmount(stakeAmount)}
+                    </div>
+                  ) : isLoading ? (
                     <div className="flex items-center justify-center">
                       <motion.div
                         className="w-5 h-5 border-2 border-white border-t-transparent rounded-full mr-2"
                         animate={{ rotate: 360 }}
                         transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
                       />
-                      Processing...
+                      {isApproving || isApprovingTx ? 'Approving...' : 'Staking...'}
                     </div>
                   ) : (
-                    <div className="flex items-center justify-center">
+                    <div className="flex items-center justify-center font-unbounded">
                       <Heart className="w-4 h-4 mr-2" />
-                      Stake Now
+                      Donate Yield
                     </div>
                   )}
                 </Button>

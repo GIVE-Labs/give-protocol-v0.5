@@ -36,7 +36,7 @@ contract Fork_AaveSepoliaTest is Test {
         adapter.invest(amount);
 
         // Verify aToken minted via adapter view
-        (,,, , uint256 aTokenBalance) = adapter.getAdapterStats();
+        (,,,, uint256 aTokenBalance) = adapter.getAdapterStats();
         assertGt(aTokenBalance, 0, "aToken balance should be > 0 after supply");
 
         // Divest and ensure funds return
@@ -45,4 +45,3 @@ contract Fork_AaveSepoliaTest is Test {
         assertGt(returned, 0, "should withdraw");
     }
 }
-

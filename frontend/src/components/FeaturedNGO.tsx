@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { ChevronLeft, ChevronRight, Heart, Users, Sprout, ArrowRight } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Heart, ArrowRight } from 'lucide-react'
 import garden1 from '../assets/IMG_4241.jpg'
 import garden2 from '../assets/IMG_5543.jpg'
 import garden3 from '../assets/IMG_5550.jpg'

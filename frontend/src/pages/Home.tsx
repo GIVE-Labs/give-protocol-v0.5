@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom'
 import { DotLottieReact } from '@lottiefiles/dotlottie-react'
-import { ArrowRight, Heart, Sparkles, Zap, Globe } from 'lucide-react'
+import { ArrowRight, Heart, Sparkles, Globe } from 'lucide-react'
 import { motion } from 'framer-motion'
 import FeaturedNGO from '../components/FeaturedNGO'
 
@@ -191,7 +191,7 @@ export default function Home() {
                 { value: "$50K+", label: "Yield Generated", color: "text-emerald-600" },
                 { value: "25+", label: "NGOs Supported", color: "text-cyan-600" },
                 { value: "100%", label: "Principal Safe", color: "text-teal-600" }
-              ].map((stat, index) => (
+              ].map((stat) => (
                 <div 
                   key={stat.label}
                   className="text-center group"

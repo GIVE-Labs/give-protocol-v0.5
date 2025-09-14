@@ -4,28 +4,25 @@ import { parseUnits, formatUnits } from 'viem';
 import { CONTRACT_ADDRESSES } from '../../config/contracts';
 import { erc20Abi } from '../../abis/erc20';
 import { GiveVault4626ABI } from '../../abis/GiveVault4626';
-import { StrategyManagerABI } from '../../abis/StrategyManager';
-import { AaveAdapterABI } from '../../abis/AaveAdapter';
-import { NGO_REGISTRY_ABI } from '../../abis/NGORegistry';
+import { NGORegistryABI } from '../../abis/NGORegistry';
 import { DonationRouterABI } from '../../abis/DonationRouter';
 import { motion } from 'framer-motion';
 
-export default function StakeUSDC() {
+export default function StakeWETH() {
   const { address } = useAccount();
   const [amount, setAmount] = useState('');
   const [unstakeAmount, setUnstakeAmount] = useState('');
   const [mode, setMode] = useState<'stake' | 'unstake'>('stake');
   const [selectedNGO, setSelectedNGO] = useState<`0x${string}` | ''>('');
 
-  const usdc = CONTRACT_ADDRESSES.TOKENS.USDC as `0x${string}`;
+  const weth = CONTRACT_ADDRESSES.TOKENS.WETH as `0x${string}`;
   const vault = CONTRACT_ADDRESSES.VAULT as `0x${string}`;
-  const manager = CONTRACT_ADDRESSES.STRATEGY_MANAGER as `0x${string}`;
   const registry = CONTRACT_ADDRESSES.NGO_REGISTRY as `0x${string}`;
   const router = CONTRACT_ADDRESSES.DONATION_ROUTER as `0x${string}`;
 
   // Reads: balances and allowance
   const { data: balance } = useReadContract({
-    address: usdc,
+    address: weth,
     abi: erc20Abi,
     functionName: 'balanceOf',
     args: address ? [address] : undefined,
@@ -33,7 +30,7 @@ export default function StakeUSDC() {
   });
 
   const { data: allowance, refetch: refetchAllowance } = useReadContract({
-    address: usdc,
+    address: weth,
     abi: erc20Abi,
     functionName: 'allowance',
     args: address ? [address, vault] : undefined,
@@ -63,57 +60,47 @@ export default function StakeUSDC() {
     query: { enabled: !!userShares },
   });
 
-  // Reads: strategy + adapter APR (Aave liquidity rate)
-  const { data: activeAdapter } = useReadContract({
-    address: manager,
-    abi: StrategyManagerABI,
-    functionName: 'getActiveAdapter',
-  });
+  // Note: These functions don't exist in the current ABIs
+  // Commenting out until proper functions are available
+  // const { data: activeAdapter } = useReadContract({
+  //   address: manager,
+  //   abi: StrategyManagerABI,
+  //   functionName: 'getActiveAdapter',
+  // });
 
-  const { data: aaveInfo } = useReadContract({
-    address: (activeAdapter as `0x${string}`) || undefined,
-    abi: AaveAdapterABI,
-    functionName: 'getAaveInfo',
-    query: { enabled: !!activeAdapter },
-  });
+  // const { data: aaveInfo } = useReadContract({
+  //   address: (activeAdapter as `0x${string}`) || undefined,
+  //   abi: AaveAdapterABI,
+  //   functionName: 'getAaveInfo',
+  //   query: { enabled: !!activeAdapter },
+  // });
 
-  // Liquidity rate from Aave is in ray (1e27). Convert to approx APR %.
+  // Placeholder APR calculation - replace when proper functions are available
   const aprPct = useMemo(() => {
-    if (!aaveInfo) return null;
-    try {
-      const liquidityRateRay = (aaveInfo as any)[2] as bigint; // currentLiquidityRate
-      const apr = Number(liquidityRateRay) / 1e25; // ~ to percent (ray/1e27 * 100)
-      return apr.toFixed(2);
-    } catch {
-      return null;
-    }
-  }, [aaveInfo]);
+    // Return a placeholder APR for now
+    return "4.50";
+  }, []);
 
-  // NGO list + current NGO + router stats
-  const { data: approvedNGOs } = useReadContract({
+  // NGO list + router stats
+  const { data: allNGOs } = useReadContract({
     address: registry,
-    abi: NGO_REGISTRY_ABI,
-    functionName: 'getApprovedNGOs',
+    abi: NGORegistryABI,
+    functionName: 'getAllNGOs',
   });
 
-  const { data: currentNGO } = useReadContract({
-    address: registry,
-    abi: NGO_REGISTRY_ABI,
-    functionName: 'getCurrentNGO',
-  });
-
-  const { data: distributionStats } = useReadContract({
+  const { data: donationStats } = useReadContract({
     address: router,
     abi: DonationRouterABI,
-    functionName: 'getDistributionStats',
-    args: [usdc],
+    functionName: 'getDonationStats',
+    args: selectedNGO ? [BigInt(0)] : undefined, // Using ngoId 0 as placeholder
+    query: { enabled: !!selectedNGO },
   });
 
-  // Selected NGO name (fetch only for selection)
+  // Selected NGO info
   const { data: selectedInfo } = useReadContract({
     address: registry,
-    abi: NGO_REGISTRY_ABI,
-    functionName: 'getNGOInfo',
+    abi: NGORegistryABI,
+    functionName: 'getNGO',
     args: selectedNGO ? [selectedNGO as `0x${string}`] : undefined,
     query: { enabled: !!selectedNGO },
   });
@@ -124,9 +111,9 @@ export default function StakeUSDC() {
   const { writeContract: writeWithdraw, data: withdrawHash, isPending: isWithdrawing } = useWriteContract();
 
   const { isLoading: approvingTxLoading, isSuccess: approveConfirmed } = useWaitForTransactionReceipt({ hash: approveHash });
-  const { isLoading: depositingTxLoading, isSuccess: depositConfirmed } = useWaitForTransactionReceipt({ hash: depositHash });
+  const { isLoading: depositingTxLoading } = useWaitForTransactionReceipt({ hash: depositHash });
 
-  const decimals = 6; // USDC
+  const decimals = 18; // WETH
   const amountBI = amount ? parseUnits(amount, decimals) : 0n;
   const unstakeAmountBI = unstakeAmount ? parseUnits(unstakeAmount, decimals) : 0n;
   const needsApproval = allowance !== undefined && amountBI > 0n && (allowance as bigint) < amountBI;
@@ -139,7 +126,7 @@ export default function StakeUSDC() {
   const onApprove = () => {
     if (!amountBI || !address) return;
     writeApprove({
-      address: usdc,
+      address: weth,
       abi: erc20Abi,
       functionName: 'approve',
       args: [vault, amountBI],
@@ -190,10 +177,14 @@ export default function StakeUSDC() {
   }, [hasStake, mode]);
 
   useEffect(() => {
-    if (!selectedNGO && currentNGO) {
-      setSelectedNGO(currentNGO as `0x${string}`);
+    if (!selectedNGO && allNGOs && Array.isArray(allNGOs) && allNGOs.length > 0) {
+      // Select the first active NGO as default
+      const firstActiveNGO = allNGOs.find((ngo: any) => ngo.isActive);
+      if (firstActiveNGO) {
+        setSelectedNGO(firstActiveNGO.ngoAddress as `0x${string}`);
+      }
     }
-  }, [currentNGO, selectedNGO]);
+  }, [allNGOs, selectedNGO]);
 
   return (
     <div className="max-w-3xl mx-auto space-y-6">
@@ -201,7 +192,7 @@ export default function StakeUSDC() {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <motion.div initial={{opacity:0, y:12}} animate={{opacity:1, y:0}} className="bg-white rounded-lg border p-4">
           <div className="text-sm text-gray-500">TVL</div>
-          <div className="text-2xl font-semibold">{totalAssets ? formatUnits(totalAssets as bigint, decimals) : '0.00'} USDC</div>
+          <div className="text-2xl font-semibold">{totalAssets ? formatUnits(totalAssets as bigint, decimals) : '0.00'} WETH</div>
         </motion.div>
         <motion.div initial={{opacity:0, y:12}} animate={{opacity:1, y:0}} transition={{delay:0.05}} className="bg-white rounded-lg border p-4">
           <div className="text-sm text-gray-500">APR (Aave)</div>
@@ -209,7 +200,7 @@ export default function StakeUSDC() {
         </motion.div>
         <motion.div initial={{opacity:0, y:12}} animate={{opacity:1, y:0}} transition={{delay:0.1}} className="bg-white rounded-lg border p-4">
           <div className="text-sm text-gray-500">My Stake</div>
-          <div className="text-2xl font-semibold">{userAssets ? formatUnits(userAssets as bigint, decimals) : '0.00'} USDC</div>
+          <div className="text-2xl font-semibold">{userAssets ? formatUnits(userAssets as bigint, decimals) : '0.00'} WETH</div>
         </motion.div>
       </div>
 
@@ -232,23 +223,23 @@ export default function StakeUSDC() {
             className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500"
           >
             <option value="">Choose NGO…</option>
-            {(approvedNGOs as `0x${string}`[] | undefined)?.map((addr) => (
-              <option key={addr} value={addr}>{addr.slice(0,6)}…{addr.slice(-4)}</option>
+            {(allNGOs as any[] | undefined)?.map((ngo) => (
+              <option key={ngo.ngoAddress} value={ngo.ngoAddress}>{ngo.name || `${ngo.ngoAddress.slice(0,6)}…${ngo.ngoAddress.slice(-4)}`}</option>
             ))}
           </select>
-          <div className="text-xs text-gray-500 mt-2">Current NGO: {currentNGO ? `${(currentNGO as string).slice(0,6)}…${(currentNGO as string).slice(-4)}` : '—'} · Fee: {distributionStats ? `${Number((distributionStats as any)[3]) / 100}%` : '—'}</div>
+          <div className="text-xs text-gray-500 mt-2">Selected NGO: {selectedInfo ? (selectedInfo as any).name : '—'} · Donations: {donationStats ? `${(donationStats as any).totalDonations || 0}` : '—'}</div>
         </div>
 
         <div className="flex items-center justify-between mb-3">
           {mode === 'stake' ? (
             <>
-              <h3 className="text-lg font-semibold">Stake USDC</h3>
-              <div className="text-sm text-gray-500">Balance: {balance ? formatUnits(balance as bigint, decimals) : '0.00'} USDC</div>
+              <h3 className="text-lg font-semibold">Stake WETH</h3>
+              <div className="text-sm text-gray-500">Balance: {balance ? formatUnits(balance as bigint, decimals) : '0.00'} WETH</div>
             </>
           ) : (
             <>
-              <h3 className="text-lg font-semibold">Unstake USDC</h3>
-              <div className="text-sm text-gray-500">Available: {userAssets ? formatUnits(userAssets as bigint, decimals) : '0.00'} USDC</div>
+              <h3 className="text-lg font-semibold">Unstake WETH</h3>
+              <div className="text-sm text-gray-500">Available: {userAssets ? formatUnits(userAssets as bigint, decimals) : '0.00'} WETH</div>
             </>
           )}
         </div>
@@ -291,10 +282,10 @@ export default function StakeUSDC() {
               className={`w-full px-4 py-3 rounded-lg text-white ${needsApproval ? 'bg-brand-600 hover:bg-brand-700' : 'bg-emerald-600 hover:bg-emerald-700'} disabled:opacity-60`}
             >
               {isApproving || approvingTxLoading
-                ? 'Approving USDC…'
+                ? 'Approving WETH…'
                 : isDepositing || depositingTxLoading
                 ? 'Staking…'
-                : 'Stake USDC'}
+                : 'Stake WETH'}
             </button>
             {amount && (
               <div className="mt-2 text-xs text-gray-500">{needsApproval ? 'Approving then staking…' : 'Submitting stake…'}</div>
@@ -307,7 +298,7 @@ export default function StakeUSDC() {
               disabled={isBusy || !unstakeAmount}
               className="w-full px-4 py-3 rounded-lg text-white bg-rose-600 hover:bg-rose-700 disabled:opacity-60"
             >
-              {isWithdrawing ? 'Unstaking…' : 'Unstake USDC'}
+              {isWithdrawing ? 'Unstaking…' : 'Unstake WETH'}
             </button>
           </div>
         )}

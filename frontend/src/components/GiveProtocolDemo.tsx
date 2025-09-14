@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { useAccount, useConnect, useDisconnect } from 'wagmi';
 import { formatUnits } from 'viem';
 import { useVault, useUSDC, useNGORegistry, useDonationRouter, useStrategyManager } from '../hooks/useContracts';
@@ -203,38 +203,18 @@ export function GiveProtocolDemo() {
                 <div className="flex justify-between">
                   <span className="text-gray-600">Active Adapter:</span>
                   <span className="font-mono text-xs">
-                    {strategyManager.activeAdapter?.slice(0, 10)}...
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Can Rebalance:</span>
-                  <span className={strategyManager.canRebalance ? 'text-green-600' : 'text-red-600'}>
-                    {strategyManager.canRebalance ? 'Yes' : 'No'}
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Can Harvest:</span>
-                  <span className={strategyManager.canHarvest ? 'text-green-600' : 'text-red-600'}>
-                    {strategyManager.canHarvest ? 'Yes' : 'No'}
+                    {vault.activeAdapter?.slice(0, 10)}...
                   </span>
                 </div>
               </div>
               
               <div className="space-y-2">
                 <button
-                  onClick={() => strategyManager.harvest()}
-                  disabled={strategyManager.isPending || !strategyManager.canHarvest}
+                  onClick={() => strategyManager.harvestAll()}
+                  disabled={strategyManager.isPending}
                   className="w-full bg-indigo-500 hover:bg-indigo-600 disabled:bg-gray-400 text-white py-2 px-4 rounded-lg transition-colors"
                 >
-                  {strategyManager.isPending ? 'Harvesting...' : 'Strategy Harvest'}
-                </button>
-                
-                <button
-                  onClick={() => strategyManager.rebalance()}
-                  disabled={strategyManager.isPending || !strategyManager.canRebalance}
-                  className="w-full bg-teal-500 hover:bg-teal-600 disabled:bg-gray-400 text-white py-2 px-4 rounded-lg transition-colors"
-                >
-                  {strategyManager.isPending ? 'Rebalancing...' : 'Rebalance Strategy'}
+                  {strategyManager.isPending ? 'Harvesting...' : 'Strategy Harvest All'}
                 </button>
               </div>
             </div>
@@ -249,9 +229,9 @@ export function GiveProtocolDemo() {
                     {ngoRegistry.verifiedNGOs.length} verified NGO(s)
                   </p>
                   <div className="space-y-2">
-                    {ngoRegistry.verifiedNGOs.slice(0, 3).map((ngoAddress, index) => (
+                    {ngoRegistry.verifiedNGOs.slice(0, 3).map((ngo, index) => (
                       <div key={index} className="bg-gray-50 p-2 rounded text-xs font-mono">
-                        {ngoAddress}
+                        {(ngo as any).ngoAddress}
                       </div>
                     ))}
                   </div>
@@ -260,20 +240,20 @@ export function GiveProtocolDemo() {
                 <p className="text-gray-500 text-sm">No verified NGOs found</p>
               )}
               
-              {donationRouter.distributionStats && (
+              {donationRouter.donationStats && (
                 <div className="mt-4 pt-4 border-t">
                   <h3 className="font-medium mb-2">Distribution Stats</h3>
                   <div className="space-y-1 text-sm">
                     <div className="flex justify-between">
                       <span className="text-gray-600">Total Donated:</span>
                       <span className="text-green-600">
-                        {formatUnits(donationRouter.distributionStats[0], 6)} USDC
+                        {formatUnits(donationRouter.donationStats[0], 6)} USDC
                       </span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-gray-600">Total Fees:</span>
                       <span>
-                        {formatUnits(donationRouter.distributionStats[1], 6)} USDC
+                        {formatUnits(donationRouter.donationStats[1], 6)} USDC
                       </span>
                     </div>
                   </div>

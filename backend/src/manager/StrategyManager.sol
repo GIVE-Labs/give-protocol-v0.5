@@ -26,14 +26,14 @@ contract StrategyManager is AccessControl, ReentrancyGuard, Pausable {
 
     // === State Variables ===
     GiveVault4626 public immutable vault;
-    
+
     mapping(address => bool) public approvedAdapters;
     address[] public adapterList;
-    
+
     uint256 public rebalanceInterval = 24 hours;
     uint256 public lastRebalanceTime;
     uint256 public emergencyExitThreshold = 1000; // 10% loss threshold
-    
+
     bool public autoRebalanceEnabled = true;
     bool public emergencyMode;
 
@@ -45,46 +45,36 @@ contract StrategyManager is AccessControl, ReentrancyGuard, Pausable {
     event AutoRebalanceToggled(bool enabled);
     event EmergencyModeActivated(bool activated);
     event StrategyRebalanced(address indexed oldAdapter, address indexed newAdapter);
-    event ParametersUpdated(
-        uint256 cashBufferBps,
-        uint256 slippageBps,
-        uint256 maxLossBps
-    );
+    event ParametersUpdated(uint256 cashBufferBps, uint256 slippageBps, uint256 maxLossBps);
 
     // === Constructor ===
-    constructor(
-        address _vault,
-        address _admin
-    ) {
+    constructor(address _vault, address _admin) {
         if (_vault == address(0) || _admin == address(0)) {
             revert Errors.ZeroAddress();
         }
-        
+
         vault = GiveVault4626(_vault);
-        
+
         _grantRole(DEFAULT_ADMIN_ROLE, _admin);
         _grantRole(STRATEGY_MANAGER_ROLE, _admin);
         _grantRole(EMERGENCY_ROLE, _admin);
-        
+
         lastRebalanceTime = block.timestamp;
     }
 
     // === Adapter Management ===
-    
+
     /**
      * @dev Approves or disapproves an adapter for use
      * @param adapter The adapter address
      * @param approved Whether to approve the adapter
      */
-    function setAdapterApproval(address adapter, bool approved) 
-        external 
-        onlyRole(STRATEGY_MANAGER_ROLE) 
-    {
+    function setAdapterApproval(address adapter, bool approved) external onlyRole(STRATEGY_MANAGER_ROLE) {
         if (adapter == address(0)) revert Errors.ZeroAddress();
-        
+
         bool wasApproved = approvedAdapters[adapter];
         approvedAdapters[adapter] = approved;
-        
+
         if (approved && !wasApproved) {
             if (adapterList.length >= MAX_ADAPTERS) {
                 revert Errors.ParameterOutOfRange();
@@ -93,7 +83,7 @@ contract StrategyManager is AccessControl, ReentrancyGuard, Pausable {
         } else if (!approved && wasApproved) {
             _removeFromAdapterList(adapter);
         }
-        
+
         emit AdapterApproved(adapter, approved);
     }
 
@@ -101,38 +91,33 @@ contract StrategyManager is AccessControl, ReentrancyGuard, Pausable {
      * @dev Sets the active adapter for the vault
      * @param adapter The adapter to activate
      */
-    function setActiveAdapter(address adapter) 
-        external 
-        onlyRole(STRATEGY_MANAGER_ROLE) 
-        whenNotPaused 
-    {
+    function setActiveAdapter(address adapter) external onlyRole(STRATEGY_MANAGER_ROLE) whenNotPaused {
         if (adapter != address(0) && !approvedAdapters[adapter]) {
             revert Errors.InvalidAdapter();
         }
-        
+
         vault.setActiveAdapter(IYieldAdapter(adapter));
         lastRebalanceTime = block.timestamp;
-        
+
         emit AdapterActivated(adapter);
     }
 
     // === Parameter Management ===
-    
+
     /**
      * @dev Updates vault parameters in batch
      * @param cashBufferBps Cash buffer percentage in basis points
      * @param slippageBps Slippage tolerance in basis points
      * @param maxLossBps Maximum loss tolerance in basis points
      */
-    function updateVaultParameters(
-        uint256 cashBufferBps,
-        uint256 slippageBps,
-        uint256 maxLossBps
-    ) external onlyRole(STRATEGY_MANAGER_ROLE) {
+    function updateVaultParameters(uint256 cashBufferBps, uint256 slippageBps, uint256 maxLossBps)
+        external
+        onlyRole(STRATEGY_MANAGER_ROLE)
+    {
         vault.setCashBufferBps(cashBufferBps);
         vault.setSlippageBps(slippageBps);
         vault.setMaxLossBps(maxLossBps);
-        
+
         emit ParametersUpdated(cashBufferBps, slippageBps, maxLossBps);
     }
 
@@ -140,30 +125,24 @@ contract StrategyManager is AccessControl, ReentrancyGuard, Pausable {
      * @dev Sets the donation router for the vault
      * @param router The donation router address
      */
-    function setDonationRouter(address router) 
-        external 
-        onlyRole(STRATEGY_MANAGER_ROLE) 
-    {
+    function setDonationRouter(address router) external onlyRole(STRATEGY_MANAGER_ROLE) {
         vault.setDonationRouter(router);
     }
 
     // === Rebalancing ===
-    
+
     /**
      * @dev Sets the rebalance interval
      * @param interval New interval in seconds
      */
-    function setRebalanceInterval(uint256 interval) 
-        external 
-        onlyRole(STRATEGY_MANAGER_ROLE) 
-    {
+    function setRebalanceInterval(uint256 interval) external onlyRole(STRATEGY_MANAGER_ROLE) {
         if (interval < MIN_REBALANCE_INTERVAL || interval > MAX_REBALANCE_INTERVAL) {
             revert Errors.ParameterOutOfRange();
         }
-        
+
         uint256 oldInterval = rebalanceInterval;
         rebalanceInterval = interval;
-        
+
         emit RebalanceIntervalUpdated(oldInterval, interval);
     }
 
@@ -171,10 +150,7 @@ contract StrategyManager is AccessControl, ReentrancyGuard, Pausable {
      * @dev Toggles auto-rebalancing
      * @param enabled Whether auto-rebalancing is enabled
      */
-    function setAutoRebalanceEnabled(bool enabled) 
-        external 
-        onlyRole(STRATEGY_MANAGER_ROLE) 
-    {
+    function setAutoRebalanceEnabled(bool enabled) external onlyRole(STRATEGY_MANAGER_ROLE) {
         autoRebalanceEnabled = enabled;
         emit AutoRebalanceToggled(enabled);
     }
@@ -182,11 +158,7 @@ contract StrategyManager is AccessControl, ReentrancyGuard, Pausable {
     /**
      * @dev Manually triggers a rebalance to the best performing adapter
      */
-    function rebalance() 
-        external 
-        onlyRole(STRATEGY_MANAGER_ROLE) 
-        whenNotPaused 
-    {
+    function rebalance() external onlyRole(STRATEGY_MANAGER_ROLE) whenNotPaused {
         _performRebalance();
     }
 
@@ -196,48 +168,39 @@ contract StrategyManager is AccessControl, ReentrancyGuard, Pausable {
     function checkAndRebalance() external {
         if (!autoRebalanceEnabled || emergencyMode) return;
         if (block.timestamp < lastRebalanceTime + rebalanceInterval) return;
-        
+
         _performRebalance();
     }
 
     // === Emergency Functions ===
-    
+
     /**
      * @dev Sets the emergency exit threshold
      * @param threshold Loss threshold in basis points
      */
-    function setEmergencyExitThreshold(uint256 threshold) 
-        external 
-        onlyRole(STRATEGY_MANAGER_ROLE) 
-    {
+    function setEmergencyExitThreshold(uint256 threshold) external onlyRole(STRATEGY_MANAGER_ROLE) {
         if (threshold > 5000) revert Errors.ParameterOutOfRange(); // Max 50%
-        
+
         uint256 oldThreshold = emergencyExitThreshold;
         emergencyExitThreshold = threshold;
-        
+
         emit EmergencyThresholdUpdated(oldThreshold, threshold);
     }
 
     /**
      * @dev Activates emergency mode
      */
-    function activateEmergencyMode() 
-        external 
-        onlyRole(EMERGENCY_ROLE) 
-    {
+    function activateEmergencyMode() external onlyRole(EMERGENCY_ROLE) {
         emergencyMode = true;
         vault.emergencyPause();
-        
+
         emit EmergencyModeActivated(true);
     }
 
     /**
      * @dev Deactivates emergency mode
      */
-    function deactivateEmergencyMode() 
-        external 
-        onlyRole(DEFAULT_ADMIN_ROLE) 
-    {
+    function deactivateEmergencyMode() external onlyRole(DEFAULT_ADMIN_ROLE) {
         emergencyMode = false;
         emit EmergencyModeActivated(false);
     }
@@ -245,49 +208,39 @@ contract StrategyManager is AccessControl, ReentrancyGuard, Pausable {
     /**
      * @dev Emergency withdrawal from current adapter
      */
-    function emergencyWithdraw() 
-        external 
-        onlyRole(EMERGENCY_ROLE) 
-        returns (uint256 withdrawn) 
-    {
+    function emergencyWithdraw() external onlyRole(EMERGENCY_ROLE) returns (uint256 withdrawn) {
         withdrawn = vault.emergencyWithdrawFromAdapter();
     }
 
     // === Pause Controls ===
-    
+
     /**
      * @dev Pauses/unpauses vault investing
      */
-    function setInvestPaused(bool paused) 
-        external 
-        onlyRole(EMERGENCY_ROLE) 
-    {
+    function setInvestPaused(bool paused) external onlyRole(EMERGENCY_ROLE) {
         vault.setInvestPaused(paused);
     }
 
     /**
      * @dev Pauses/unpauses vault harvesting
      */
-    function setHarvestPaused(bool paused) 
-        external 
-        onlyRole(EMERGENCY_ROLE) 
-    {
+    function setHarvestPaused(bool paused) external onlyRole(EMERGENCY_ROLE) {
         vault.setHarvestPaused(paused);
     }
 
     // === Internal Functions ===
-    
+
     /**
      * @dev Performs the actual rebalancing logic
      */
     function _performRebalance() internal {
         address currentAdapter = address(vault.activeAdapter());
         address bestAdapter = _findBestAdapter();
-        
+
         if (bestAdapter != currentAdapter && bestAdapter != address(0)) {
             vault.setActiveAdapter(IYieldAdapter(bestAdapter));
             lastRebalanceTime = block.timestamp;
-            
+
             emit StrategyRebalanced(currentAdapter, bestAdapter);
         }
     }
@@ -298,14 +251,14 @@ contract StrategyManager is AccessControl, ReentrancyGuard, Pausable {
      */
     function _findBestAdapter() internal view returns (address) {
         if (adapterList.length == 0) return address(0);
-        
+
         address bestAdapter = adapterList[0];
         uint256 bestYield = 0;
-        
+
         for (uint256 i = 0; i < adapterList.length; i++) {
             address adapter = adapterList[i];
             if (!approvedAdapters[adapter]) continue;
-            
+
             // Simple heuristic: adapter with most assets is "best"
             // In production, this would use more sophisticated yield calculations
             try IYieldAdapter(adapter).totalAssets() returns (uint256 assets) {
@@ -318,7 +271,7 @@ contract StrategyManager is AccessControl, ReentrancyGuard, Pausable {
                 continue;
             }
         }
-        
+
         return bestAdapter;
     }
 
@@ -336,54 +289,50 @@ contract StrategyManager is AccessControl, ReentrancyGuard, Pausable {
     }
 
     // === View Functions ===
-    
+
     /**
      * @dev Returns the list of approved adapters
      */
     function getApprovedAdapters() external view returns (address[] memory) {
         address[] memory approved = new address[](adapterList.length);
         uint256 count = 0;
-        
+
         for (uint256 i = 0; i < adapterList.length; i++) {
             if (approvedAdapters[adapterList[i]]) {
                 approved[count] = adapterList[i];
                 count++;
             }
         }
-        
+
         // Resize array to actual count
         assembly {
             mstore(approved, count)
         }
-        
+
         return approved;
     }
 
     /**
      * @dev Returns strategy configuration
      */
-    function getConfiguration() external view returns (
-        uint256 rebalanceIntervalValue,
-        uint256 emergencyThreshold,
-        bool autoRebalance,
-        bool emergency,
-        uint256 lastRebalance
-    ) {
-        return (
-            rebalanceInterval,
-            emergencyExitThreshold,
-            autoRebalanceEnabled,
-            emergencyMode,
-            lastRebalanceTime
-        );
+    function getConfiguration()
+        external
+        view
+        returns (
+            uint256 rebalanceIntervalValue,
+            uint256 emergencyThreshold,
+            bool autoRebalance,
+            bool emergency,
+            uint256 lastRebalance
+        )
+    {
+        return (rebalanceInterval, emergencyExitThreshold, autoRebalanceEnabled, emergencyMode, lastRebalanceTime);
     }
 
     /**
      * @dev Checks if rebalancing is due
      */
     function isRebalanceDue() external view returns (bool) {
-        return autoRebalanceEnabled && 
-               !emergencyMode && 
-               block.timestamp >= lastRebalanceTime + rebalanceInterval;
+        return autoRebalanceEnabled && !emergencyMode && block.timestamp >= lastRebalanceTime + rebalanceInterval;
     }
 }

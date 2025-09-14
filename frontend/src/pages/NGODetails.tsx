@@ -1,10 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { useAccount, useReadContract, useWriteContract, useWaitForTransactionReceipt, useBalance } from 'wagmi';
-import { formatEther, parseEther, parseUnits, formatUnits } from 'viem';
+import { parseEther, parseUnits, formatUnits } from 'viem';
 import { erc20Abi } from 'viem';
 import { GiveVault4626ABI } from '../abis/GiveVault4626';
-import { useNGODetails, useNGOVerification } from '../hooks/useNGORegistryWagmi';
+import { useNGODetails } from '../hooks/useNGORegistryWagmi';
 import { NGO } from '../types';
 import StakingProgressModal from '../components/staking/StakingProgressModal';
 
@@ -31,7 +31,6 @@ export default function NGODetails() {
   
   // NGO data
   const { ngo, loading, error: ngoError } = useNGODetails(CONTRACT_ADDRESS, ngoAddress || '');
-  const { isVerifiedAndActive } = useNGOVerification(CONTRACT_ADDRESS, ngoAddress || '');
   
   // Token addresses
   const tokenAddress = selectedToken === 'ETH' ? undefined : 
@@ -53,7 +52,7 @@ export default function NGODetails() {
   });
   
   // Contract interactions
-  const { data: allowance, isLoading: isAllowanceLoading, refetch: refetchAllowance } = useReadContract({
+  const { data: allowance, refetch: refetchAllowance } = useReadContract({
     address: tokenAddress as `0x${string}`,
     abi: erc20Abi,
     functionName: 'allowance',
@@ -146,9 +145,6 @@ export default function NGODetails() {
           args: [STAKING_CONTRACT as `0x${string}`, amountInWei],
         });
       } else {
-        const lockDuration = lockPeriod === '6m' ? 15552000 : lockPeriod === '1y' ? 31104000 : 62208000;
-        const yieldShare = parseInt(yieldSharingRatio);
-        
         await stakeTokens({
           address: STAKING_CONTRACT as `0x${string}`,
           abi: GiveVault4626ABI,

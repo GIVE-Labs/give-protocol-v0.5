@@ -14,7 +14,7 @@ contract StrategyManagerBasicTest is Test {
     MockAdapter public adapter;
 
     address public admin = address(0xA11CE);
-    
+
     function setUp() public {
         usdc = new MockERC20("Test USDC", "TUSDC", 6);
         vault = new GiveVault4626(IERC20(address(usdc)), "GIVE USDC", "gvUSDC", admin);
@@ -51,18 +51,52 @@ contract StrategyManagerBasicTest is Test {
     }
 }
 
-contract MockERC20 is ERC20 { 
-    uint8 private _d; 
-    constructor(string memory n, string memory s, uint8 d) ERC20(n,s){_d=d;} 
-    function decimals() public view override returns (uint8){return _d;} 
+contract MockERC20 is ERC20 {
+    uint8 private _d;
+
+    constructor(string memory n, string memory s, uint8 d) ERC20(n, s) {
+        _d = d;
+    }
+
+    function decimals() public view override returns (uint8) {
+        return _d;
+    }
 }
 
 contract MockAdapter is IYieldAdapter {
-    IERC20 public override asset; address public override vault; uint256 public invested;
-    constructor(IERC20 _a, address _v){asset=_a; vault=_v;}
-    function totalAssets() external view override returns(uint256){return invested;}
-    function invest(uint256 assets) external override { require(msg.sender==vault, "only vault"); invested+=assets; emit Invested(assets);} 
-    function divest(uint256 assets) external override returns(uint256){ require(msg.sender==vault, "only vault"); emit Divested(assets, assets); return assets; }
-    function harvest() external override returns(uint256,uint256){ require(msg.sender==vault, "only vault"); emit Harvested(0,0); return (0,0);} 
-    function emergencyWithdraw() external override returns(uint256){ emit EmergencyWithdraw(0); return 0; }
+    IERC20 public override asset;
+    address public override vault;
+    uint256 public invested;
+
+    constructor(IERC20 _a, address _v) {
+        asset = _a;
+        vault = _v;
+    }
+
+    function totalAssets() external view override returns (uint256) {
+        return invested;
+    }
+
+    function invest(uint256 assets) external override {
+        require(msg.sender == vault, "only vault");
+        invested += assets;
+        emit Invested(assets);
+    }
+
+    function divest(uint256 assets) external override returns (uint256) {
+        require(msg.sender == vault, "only vault");
+        emit Divested(assets, assets);
+        return assets;
+    }
+
+    function harvest() external override returns (uint256, uint256) {
+        require(msg.sender == vault, "only vault");
+        emit Harvested(0, 0);
+        return (0, 0);
+    }
+
+    function emergencyWithdraw() external override returns (uint256) {
+        emit EmergencyWithdraw(0);
+        return 0;
+    }
 }

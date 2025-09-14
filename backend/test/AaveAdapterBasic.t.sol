@@ -62,26 +62,50 @@ contract AaveAdapterBasicTest is Test {
 
 contract MockERC20 is ERC20 {
     uint8 private _d;
-    constructor(string memory n, string memory s, uint8 d) ERC20(n, s) { _d = d; }
-    function decimals() public view override returns (uint8) { return _d; }
-    function mint(address to, uint256 amount) external { _mint(to, amount); }
+
+    constructor(string memory n, string memory s, uint8 d) ERC20(n, s) {
+        _d = d;
+    }
+
+    function decimals() public view override returns (uint8) {
+        return _d;
+    }
+
+    function mint(address to, uint256 amount) external {
+        _mint(to, amount);
+    }
 }
 
 contract MockAToken is ERC20 {
     uint8 private _d;
     IERC20 public immutable underlyingAsset;
+
     constructor(string memory n, string memory s, uint8 d, address underlying) ERC20(n, s) {
-        _d = d; underlyingAsset = IERC20(underlying);
+        _d = d;
+        underlyingAsset = IERC20(underlying);
     }
-    function decimals() public view override returns (uint8) { return _d; }
-    function mint(address to, uint256 amount) external { _mint(to, amount); }
-    function burn(address from, uint256 amount) external { _burn(from, amount); }
+
+    function decimals() public view override returns (uint8) {
+        return _d;
+    }
+
+    function mint(address to, uint256 amount) external {
+        _mint(to, amount);
+    }
+
+    function burn(address from, uint256 amount) external {
+        _burn(from, amount);
+    }
 }
 
 contract MockAavePool {
     IERC20 public immutable asset;
     MockAToken public immutable aToken;
-    constructor(address _asset, address _aToken) { asset = IERC20(_asset); aToken = MockAToken(_aToken); }
+
+    constructor(address _asset, address _aToken) {
+        asset = IERC20(_asset);
+        aToken = MockAToken(_aToken);
+    }
 
     function supply(address _asset, uint256 amount, address onBehalfOf, uint16) external {
         require(_asset == address(asset), "asset mismatch");

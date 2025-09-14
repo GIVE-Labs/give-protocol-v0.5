@@ -4,8 +4,7 @@ import { CONTRACT_ADDRESSES } from '../config/contracts';
 import { GiveVault4626ABI } from '../abis/GiveVault4626';
 import { DonationRouterABI } from '../abis/DonationRouter';
 import { StrategyManagerABI } from '../abis/StrategyManager';
-import { AaveAdapterABI } from '../abis/AaveAdapter';
-import { NGO_REGISTRY_ABI } from '../abis/NGORegistry';
+import { NGORegistryABI } from '../abis/NGORegistry';
 import { erc20Abi } from '../abis/erc20';
 
 // Hook for Vault operations
@@ -36,6 +35,12 @@ export function useVault() {
     address: CONTRACT_ADDRESSES.VAULT as `0x${string}`,
     abi: GiveVault4626ABI,
     functionName: 'getHarvestStats',
+  });
+
+  const { data: activeAdapter } = useReadContract({
+    address: CONTRACT_ADDRESSES.VAULT as `0x${string}`,
+    abi: GiveVault4626ABI,
+    functionName: 'activeAdapter',
   });
 
   const { data: configuration } = useReadContract({
@@ -80,6 +85,7 @@ export function useVault() {
     adapterAssets: adapterAssets ? formatUnits(adapterAssets, 6) : '0',
     harvestStats,
     configuration,
+    activeAdapter,
     // Write functions
     deposit,
     withdraw,
@@ -99,47 +105,41 @@ export function useDonationRouter() {
   const { isLoading: isConfirming, isSuccess: isConfirmed } = useWaitForTransactionReceipt({ hash });
 
   // Read functions
-  const { data: distributionStats } = useReadContract({
+  const { data: feeBps } = useReadContract({
     address: CONTRACT_ADDRESSES.DONATION_ROUTER as `0x${string}`,
     abi: DonationRouterABI,
-    functionName: 'getDistributionStats',
-    args: [CONTRACT_ADDRESSES.TOKENS.USDC as `0x${string}`], // Assuming USDC
+    functionName: 'feeBps',
   });
 
-  const { data: feeConfig } = useReadContract({
+  const { data: feeRecipient } = useReadContract({
     address: CONTRACT_ADDRESSES.DONATION_ROUTER as `0x${string}`,
     abi: DonationRouterABI,
-    functionName: 'getFeeConfig',
+    functionName: 'feeRecipient',
   });
 
-  const calculateDistribution = (amount: string) => {
-    const amountBigInt = parseUnits(amount, 6);
-    return useReadContract({
-      address: CONTRACT_ADDRESSES.DONATION_ROUTER as `0x${string}`,
-      abi: DonationRouterABI,
-      functionName: 'calculateDistribution',
-      args: [amountBigInt],
-    });
-  };
+  const { data: donationStats } = useReadContract({
+    address: CONTRACT_ADDRESSES.DONATION_ROUTER as `0x${string}`,
+    abi: DonationRouterABI,
+    functionName: 'getDonationStats',
+  });
 
   // Write functions
-  const distribute = (asset: `0x${string}`, amount: string) => {
-    const amountBigInt = parseUnits(amount, 6);
+  const donate = (ngoId: number, token: string, amount: string) => {
     writeContract({
       address: CONTRACT_ADDRESSES.DONATION_ROUTER as `0x${string}`,
       abi: DonationRouterABI,
-      functionName: 'distribute',
-      args: [asset, amountBigInt],
+      functionName: 'donate',
+      args: [BigInt(ngoId), token as `0x${string}`, parseUnits(amount, 6)],
     });
   };
 
   return {
     // Read data
-    distributionStats,
-    feeConfig,
-    calculateDistribution,
+    feeBps,
+    feeRecipient,
+    donationStats,
     // Write functions
-    distribute,
+    donate,
     // Transaction state
     isPending,
     isConfirming,
@@ -155,56 +155,34 @@ export function useStrategyManager() {
   const { isLoading: isConfirming, isSuccess: isConfirmed } = useWaitForTransactionReceipt({ hash });
 
   // Read functions
-  const { data: canRebalance } = useReadContract({
+  const { data: allStrategies } = useReadContract({
     address: CONTRACT_ADDRESSES.STRATEGY_MANAGER as `0x${string}`,
     abi: StrategyManagerABI,
-    functionName: 'canRebalance',
+    functionName: 'getAllStrategies',
   });
 
-  const { data: canHarvest } = useReadContract({
+  const { data: strategyInfo } = useReadContract({
     address: CONTRACT_ADDRESSES.STRATEGY_MANAGER as `0x${string}`,
     abi: StrategyManagerABI,
-    functionName: 'canHarvest',
-  });
-
-  const { data: activeAdapter } = useReadContract({
-    address: CONTRACT_ADDRESSES.STRATEGY_MANAGER as `0x${string}`,
-    abi: StrategyManagerABI,
-    functionName: 'getActiveAdapter',
-  });
-
-  const { data: performanceMetrics } = useReadContract({
-    address: CONTRACT_ADDRESSES.STRATEGY_MANAGER as `0x${string}`,
-    abi: StrategyManagerABI,
-    functionName: 'getPerformanceMetrics',
+    functionName: 'getStrategyInfo',
+    args: [CONTRACT_ADDRESSES.STRATEGY_MANAGER as `0x${string}`],
   });
 
   // Write functions
-  const harvest = () => {
+  const harvestAll = () => {
     writeContract({
       address: CONTRACT_ADDRESSES.STRATEGY_MANAGER as `0x${string}`,
       abi: StrategyManagerABI,
-      functionName: 'harvest',
-    });
-  };
-
-  const rebalance = () => {
-    writeContract({
-      address: CONTRACT_ADDRESSES.STRATEGY_MANAGER as `0x${string}`,
-      abi: StrategyManagerABI,
-      functionName: 'rebalance',
+      functionName: 'harvestAll',
     });
   };
 
   return {
     // Read data
-    canRebalance,
-    canHarvest,
-    activeAdapter,
-    performanceMetrics,
+    allStrategies,
+    strategyInfo,
     // Write functions
-    harvest,
-    rebalance,
+    harvestAll,
     // Transaction state
     isPending,
     isConfirming,
@@ -218,15 +196,14 @@ export function useStrategyManager() {
 export function useNGORegistry() {
   const { data: allNGOs } = useReadContract({
     address: CONTRACT_ADDRESSES.NGO_REGISTRY as `0x${string}`,
-    abi: NGO_REGISTRY_ABI,
+    abi: NGORegistryABI,
     functionName: 'getAllNGOs',
   });
 
   const { data: verifiedNGOs } = useReadContract({
     address: CONTRACT_ADDRESSES.NGO_REGISTRY as `0x${string}`,
-    abi: NGO_REGISTRY_ABI,
-    functionName: 'getNGOsByVerification',
-    args: [true],
+    abi: NGORegistryABI,
+    functionName: 'getAllNGOs',
   });
 
   return {

@@ -4,7 +4,7 @@ import { Heart, Menu } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { useAccount, useReadContract } from 'wagmi'
 import { CONTRACT_ADDRESSES } from '../../config/contracts'
-import { NGO_REGISTRY_ABI } from '../../abis/NGORegistry'
+import { NGORegistryABI } from '../../abis/NGORegistry'
 import { keccak256, toBytes } from 'viem'
 
 export default function Header() {
@@ -14,7 +14,7 @@ export default function Header() {
   const NGO_MANAGER_ROLE = useMemo(() => keccak256(toBytes('NGO_MANAGER_ROLE')) as `0x${string}` , [])
   const { data: isManager } = useReadContract({
     address: CONTRACT_ADDRESSES.NGO_REGISTRY as `0x${string}`,
-    abi: NGO_REGISTRY_ABI,
+    abi: NGORegistryABI,
     functionName: 'hasRole',
     args: address ? [NGO_MANAGER_ROLE, address] : undefined,
     query: { enabled: !!address },

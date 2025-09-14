@@ -1,56 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useReadContract } from 'wagmi';
 import { NGO } from '../types';
-
-// NGO Registry ABI for fetching NGO data
-const NGO_REGISTRY_ABI = [
-  {
-    name: 'getNGO',
-    type: 'function',
-    stateMutability: 'view',
-    inputs: [{ name: '_ngoAddress', type: 'address' }],
-    outputs: [{
-      name: '',
-      type: 'tuple',
-      components: [
-        { name: 'name', type: 'string' },
-        { name: 'description', type: 'string' },
-        { name: 'website', type: 'string' },
-        { name: 'logoURI', type: 'string' },
-        { name: 'walletAddress', type: 'address' },
-        { name: 'isVerified', type: 'bool' },
-        { name: 'isActive', type: 'bool' },
-        { name: 'totalYieldReceived', type: 'uint256' },
-        { name: 'activeStakers', type: 'uint256' },
-        { name: 'causes', type: 'string[]' },
-        { name: 'reputationScore', type: 'uint256' },
-        { name: 'registrationTime', type: 'uint256' },
-        { name: 'metadataHash', type: 'string' }
-      ]
-    }]
-  },
-  {
-    name: 'getAllNGOs',
-    type: 'function',
-    stateMutability: 'view',
-    inputs: [],
-    outputs: [{ name: '', type: 'address[]' }]
-  },
-  {
-    name: 'getNGOsByVerification',
-    type: 'function',
-    stateMutability: 'view',
-    inputs: [{ name: '_verified', type: 'bool' }],
-    outputs: [{ name: '', type: 'address[]' }]
-  },
-  {
-    name: 'isVerifiedAndActive',
-    type: 'function',
-    stateMutability: 'view',
-    inputs: [{ name: '_ngoAddress', type: 'address' }],
-    outputs: [{ name: '', type: 'bool' }]
-  }
-];
+import { NGORegistryABI } from '../abis/NGORegistry';
 
 // Helper to format contract data to NGO type
 const formatNGOData = (address: string, contractData: any): NGO => {
@@ -217,8 +168,8 @@ export const useNGORegistry = (contractAddress: string) => {
   const useNGOVerification = (contractAddress: string, ngoAddress: string) => {
     const { data, isLoading } = useReadContract({
       address: contractAddress as `0x${string}`,
-      abi: NGO_REGISTRY_ABI,
-      functionName: 'isVerifiedAndActive',
+      abi: NGORegistryABI,
+      functionName: 'isNGOActive',
       args: ngoAddress ? [ngoAddress as `0x${string}`] : undefined,
       query: { enabled: !!ngoAddress },
     });
@@ -323,8 +274,8 @@ export const useNGODetails = (contractAddress: string, ngoAddress: string) => {
 export const useNGOVerification = (contractAddress: string, ngoAddress: string) => {
   const { data, isLoading } = useReadContract({
     address: contractAddress as `0x${string}`,
-    abi: NGO_REGISTRY_ABI,
-    functionName: 'isVerifiedAndActive',
+    abi: NGORegistryABI,
+    functionName: 'isNGOActive',
     args: ngoAddress ? [ngoAddress as `0x${string}`] : undefined,
     query: { enabled: !!ngoAddress },
   });
