@@ -4,7 +4,7 @@ import { useAccount, useReadContract, useWriteContract, useWaitForTransactionRec
 import { formatUnits, parseUnits } from 'viem';
 import { motion } from 'framer-motion';
 import { ArrowLeft, Heart, Share2, Twitter, Facebook, Linkedin, Info, Gift, ExternalLink, Award, ChevronDown } from 'lucide-react';
-import { NGORegistryABI } from '../abis/NGORegistry';
+import { NGO_REGISTRY_ABI } from '../abis/NGORegistry';
 import { GiveVault4626ABI } from '../abis/GiveVault4626';
 import { erc20Abi } from '../abis/erc20';
 
@@ -44,7 +44,7 @@ export default function CampaignStaking() {
   // Fetch NGO information
   const { data: ngoInfo } = useReadContract({
     address: CONTRACT_ADDRESSES.NGO_REGISTRY,
-    abi: NGORegistryABI,
+    abi: NGO_REGISTRY_ABI,
     functionName: 'getNGO',
     args: [ngoAddress as `0x${string}`],
     query: {

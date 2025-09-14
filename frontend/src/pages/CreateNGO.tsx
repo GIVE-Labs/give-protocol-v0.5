@@ -2,7 +2,7 @@ import { useAccount, useReadContract, useWriteContract, useWaitForTransactionRec
 import { useEffect, useMemo, useState } from 'react'
 import { keccak256, toBytes } from 'viem'
 import { CONTRACT_ADDRESSES } from '../config/contracts'
-import { NGORegistryABI } from '../abis/NGORegistry'
+import { NGO_REGISTRY_ABI } from '../abis/NGORegistry'
 
 export default function CreateNGO() {
   const { address, isConnected } = useAccount()
@@ -18,7 +18,7 @@ export default function CreateNGO() {
   // Role check: only managers can add NGOs
   const { data: isManager } = useReadContract({
     address: registry,
-    abi: NGORegistryABI,
+    abi: NGO_REGISTRY_ABI,
     functionName: 'hasRole',
     args: address ? [NGO_MANAGER_ROLE as `0x${string}`, address] : undefined,
     query: { enabled: !!address },
@@ -38,7 +38,7 @@ export default function CreateNGO() {
     if (!canSubmit) return
     writeContract({
       address: registry,
-      abi: NGORegistryABI,
+      abi: NGO_REGISTRY_ABI,
       functionName: 'addNGO',
       args: [ngoAddress as `0x${string}`, name, description, website, logoUrl],
     })

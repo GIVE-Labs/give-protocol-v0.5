@@ -161,12 +161,12 @@ export default function Home() {
                 whileTap={{ scale: 0.95 }}
               >
                 <Link
-                  to="/demo"
+                  to="/discover"
                   className="group relative bg-gradient-to-r from-emerald-600 via-cyan-600 to-teal-600 text-white px-10 py-5 rounded-2xl font-bold text-xl hover:from-emerald-700 hover:via-cyan-700 hover:to-teal-700 transition-all duration-300 flex items-center justify-center space-x-3 shadow-2xl hover:shadow-emerald-500/25 overflow-hidden"
                 >
                   <div className="absolute inset-0 bg-gradient-to-r from-white/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
                   <Sparkles className="w-6 h-6 relative z-10" />
-                  <span className="relative z-10">Try Demo</span>
+                  <span className="relative z-10">Start Giving</span>
                   <ArrowRight className="w-6 h-6 group-hover:translate-x-2 transition-transform relative z-10" />
                 </Link>
               </motion.div>

@@ -4,7 +4,7 @@ import { CONTRACT_ADDRESSES } from '../config/contracts';
 import { GiveVault4626ABI } from '../abis/GiveVault4626';
 import { DonationRouterABI } from '../abis/DonationRouter';
 import { StrategyManagerABI } from '../abis/StrategyManager';
-import { NGORegistryABI } from '../abis/NGORegistry';
+import { NGO_REGISTRY_ABI } from '../abis/NGORegistry';
 import { erc20Abi } from '../abis/erc20';
 
 // Hook for Vault operations
@@ -196,13 +196,13 @@ export function useStrategyManager() {
 export function useNGORegistry() {
   const { data: allNGOs } = useReadContract({
     address: CONTRACT_ADDRESSES.NGO_REGISTRY as `0x${string}`,
-    abi: NGORegistryABI,
+    abi: NGO_REGISTRY_ABI,
     functionName: 'getAllNGOs',
   });
 
   const { data: verifiedNGOs } = useReadContract({
     address: CONTRACT_ADDRESSES.NGO_REGISTRY as `0x${string}`,
-    abi: NGORegistryABI,
+    abi: NGO_REGISTRY_ABI,
     functionName: 'getAllNGOs',
   });
 

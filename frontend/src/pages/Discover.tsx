@@ -3,7 +3,7 @@ import { NGOCard } from '../components/ngo/NGOCard'
 import { useChainId } from 'wagmi'
 import { useReadContract } from 'wagmi'
 import { NGO } from '../types'
-import { NGORegistryABI } from '../abis/NGORegistry'
+import { NGO_REGISTRY_ABI } from '../abis/NGORegistry'
 
 const formatNGOData = (address: string, contractData: any) => {
   return {
@@ -41,8 +41,8 @@ export default function Discover() {
   // Fetch all NGO addresses
   const { data: allNGOs, refetch } = useReadContract({
     address: contractAddress as `0x${string}`,
-    abi: NGORegistryABI,
-    functionName: 'getAllNGOs',
+    abi: NGO_REGISTRY_ABI,
+    functionName: 'getApprovedNGOs',
   });
 
   // Fetch NGO details for each address
