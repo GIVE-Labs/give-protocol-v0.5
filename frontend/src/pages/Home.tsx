@@ -383,7 +383,7 @@ export default function Home() {
               whileTap={{ scale: 0.95 }}
             >
               <Link
-                to="/stake"
+                to="/discover"
                 className="group inline-flex items-center space-x-3 bg-gradient-to-r from-emerald-600 to-cyan-600 text-white px-8 py-4 rounded-2xl font-bold text-lg hover:from-emerald-700 hover:to-cyan-700 transition-all duration-300 shadow-xl hover:shadow-2xl"
               >
                 <Heart className="w-6 h-6" />

@@ -87,7 +87,7 @@ function CampaignCard({ address, index }: { address: `0x${string}`, index: numbe
         <div className="absolute bottom-3 left-3">
           <div className="flex items-center text-white text-xs bg-black/50 backdrop-blur-sm px-2 py-1 rounded-full">
             <MapPin className="w-3 h-3 mr-1" />
-            Global Impact
+            Education
           </div>
         </div>
       </div>

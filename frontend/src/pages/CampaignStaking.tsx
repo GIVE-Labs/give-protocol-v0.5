@@ -25,9 +25,9 @@ export default function CampaignStaking() {
   const [showFullDescription, setShowFullDescription] = useState(false);
 
   const tokens = [
-    { symbol: 'USDC', address: CONTRACT_ADDRESSES.TOKENS.USDC, icon: '💵' },
-    { symbol: 'ETH', address: CONTRACT_ADDRESSES.TOKENS.ETH, icon: '⟠' },
-    { symbol: 'WETH', address: CONTRACT_ADDRESSES.TOKENS.WETH, icon: '🔄' }
+    { symbol: 'USDC', address: CONTRACT_ADDRESSES.TOKENS.USDC, icon: '/src/assets/token/usd-coin-usdc-logo.svg' },
+    { symbol: 'ETH', address: CONTRACT_ADDRESSES.TOKENS.ETH, icon: '/src/assets/token/ethereum-eth-icon.svg' },
+    { symbol: 'WETH', address: CONTRACT_ADDRESSES.TOKENS.WETH, icon: '/src/assets/token/weth-1671744457-logotic-brand.svg' }
   ];
 
   const selectedTokenInfo = tokens.find(token => token.address === selectedToken) || tokens[0];
@@ -518,12 +518,12 @@ export default function CampaignStaking() {
                              <motion.button
                                 type="button"
                                 onClick={() => setIsTokenDropdownOpen(!isTokenDropdownOpen)}
-                                className="flex items-center space-x-1 py-2.5 pl-2 hover:bg-gray-50 border-l-2 border-emerald-200 transition-all"
+                                className="flex items-center space-x-1 py-2.5 pl-6 hover:bg-gray-50 border-l-2 border-emerald-200 transition-all"
                                 whileHover={{ scale: 1.02 }}
                                 whileTap={{ scale: 0.98 }}
                               >
-                                <span className="text-sm">{selectedTokenInfo.icon}</span>
-                                <span className="text-xs font-semibold text-gray-700">{selectedTokenInfo.symbol}</span>
+                                <img src={selectedTokenInfo.icon} alt={selectedTokenInfo.symbol} className="w-4 h-4 mr-1 mb-0.5" />
+                                <span className="text-xs font-semibold text-gray-700 w-12 text-left">{selectedTokenInfo.symbol}</span>
                                 <ChevronDown className={`w-3 h-3 text-gray-500 transition-transform ${
                                   isTokenDropdownOpen ? 'rotate-180' : ''
                                 }`} />
@@ -532,10 +532,10 @@ export default function CampaignStaking() {
                               {/* Dropdown Menu */}
                               {isTokenDropdownOpen && (
                                 <motion.div
-                                  initial={{ opacity: 0, y: -10 }}
+                                  initial={{ opacity: 0, y: 0 }}
                                   animate={{ opacity: 1, y: 0 }}
                                   exit={{ opacity: 0, y: -10 }}
-                                  className="absolute top-full right-0 mt-2 w-36 bg-white border-2 border-emerald-200 rounded-xl shadow-xl z-50 overflow-hidden"
+                                  className="absolute top-full right-[-8px] mt-0.5 w-36 bg-white border-2 border-emerald-200 rounded-xl shadow-xl z-50 overflow-hidden"
                                 >
                                   {tokens.map((token, index) => (
                                     <motion.button
@@ -549,8 +549,8 @@ export default function CampaignStaking() {
                                       }`}
                                       whileHover={{ backgroundColor: '#ecfdf5' }}
                                     >
-                                      <span className="text-base">{token.icon}</span>
-                                      <span className="text-sm font-medium">{token.symbol}</span>
+                                      <img src={token.icon} alt={token.symbol} className="w-5 h-5 mr-2" />
+                                      <span className="text-sm font-medium w-12 text-left">{token.symbol}</span>
                                     </motion.button>
                                   ))}
                                 </motion.div>
