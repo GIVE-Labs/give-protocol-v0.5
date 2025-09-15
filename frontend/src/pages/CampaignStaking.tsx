@@ -4,8 +4,8 @@ import { useAccount, useReadContract, useWriteContract, useWaitForTransactionRec
 import { formatUnits, parseUnits } from 'viem';
 import { motion } from 'framer-motion';
 import { ArrowLeft, Heart, Share2, Twitter, Facebook, Linkedin, Info, Gift, ExternalLink, Award, ChevronDown } from 'lucide-react';
-import { NGO_REGISTRY_ABI } from '../abis/NGORegistry';
-import { GiveVault4626ABI } from '../abis/GiveVault4626';
+import NGORegistryABI from '../abis/NGORegistry.json';
+import GiveVault4626ABI from '../abis/GiveVault4626.json';
 import { erc20Abi } from '../abis/erc20';
 
 import { CONTRACT_ADDRESSES } from '../config/contracts';
@@ -44,7 +44,7 @@ export default function CampaignStaking() {
   // Fetch NGO information
   const { data: ngoInfo } = useReadContract({
     address: CONTRACT_ADDRESSES.NGO_REGISTRY,
-    abi: NGO_REGISTRY_ABI,
+    abi: NGORegistryABI,
     functionName: 'getNGOInfo',
     args: [ngoAddress as `0x${string}`],
     query: {
@@ -173,15 +173,15 @@ export default function CampaignStaking() {
 
   const ngo: NGO = (ngoInfo && typeof ngoInfo === 'object' && 'name' in ngoInfo) ? {
     ngoAddress: ngoAddress!,
-    name: ngoInfo.name || 'Global Education Fund',
-    description: ngoInfo.description || 'Empowering futures through accessible education',
+    name: typeof (ngoInfo as any).name === 'string' ? (ngoInfo as any).name : 'Global Education Fund',
+    description: typeof (ngoInfo as any).description === 'string' ? (ngoInfo as any).description : 'Empowering futures through accessible education',
     website: '',
     logoURI: '/api/placeholder/40/40',
     walletAddress: ngoAddress!,
     causes: ['Education'],
     metadataURI: '',
     isVerified: true,
-    isActive: ngoInfo.isActive || true,
+    isActive: typeof (ngoInfo as any).isActive === 'boolean' ? (ngoInfo as any).isActive : true,
     reputationScore: BigInt(0),
     totalStakers: BigInt(850),
     totalYieldReceived: BigInt(0),

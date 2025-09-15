@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useReadContract } from 'wagmi';
 import { NGO } from '../types';
-import { NGO_REGISTRY_ABI } from '../abis/NGORegistry';
+import NGORegistryABI from '../abis/NGORegistry.json';
 
 // Helper to format contract data to NGO type
 const formatNGOData = (address: string, contractData: any): NGO => {
@@ -168,7 +168,7 @@ export const useNGORegistry = (contractAddress: string) => {
   const useNGOVerification = (contractAddress: string, ngoAddress: string) => {
     const { data, isLoading } = useReadContract({
       address: contractAddress as `0x${string}`,
-      abi: NGO_REGISTRY_ABI,
+      abi: NGORegistryABI,
       functionName: 'isNGOApproved',
       args: ngoAddress ? [ngoAddress as `0x${string}`] : undefined,
       query: { enabled: !!ngoAddress },
@@ -274,7 +274,7 @@ export const useNGODetails = (contractAddress: string, ngoAddress: string) => {
 export const useNGOVerification = (contractAddress: string, ngoAddress: string) => {
   const { data, isLoading } = useReadContract({
     address: contractAddress as `0x${string}`,
-    abi: NGO_REGISTRY_ABI,
+    abi: NGORegistryABI,
     functionName: 'isNGOApproved',
     args: ngoAddress ? [ngoAddress as `0x${string}`] : undefined,
     query: { enabled: !!ngoAddress },

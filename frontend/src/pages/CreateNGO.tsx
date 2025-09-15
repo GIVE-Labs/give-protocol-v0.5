@@ -1,8 +1,8 @@
 import { useAccount, useReadContract, useWriteContract, useWaitForTransactionReceipt } from 'wagmi'
 import { useEffect, useMemo, useState } from 'react'
-import { keccak256, toBytes } from 'viem'
+import { keccak256, toBytes, stringToHex } from 'viem'
 import { CONTRACT_ADDRESSES } from '../config/contracts'
-import { NGO_REGISTRY_ABI } from '../abis/NGORegistry'
+import NGORegistryABI from '../abis/NGORegistry.json'
 
 export default function CreateNGO() {
   const { address, isConnected } = useAccount()
@@ -18,7 +18,7 @@ export default function CreateNGO() {
   // Role check: only managers can add NGOs
   const { data: isManager } = useReadContract({
     address: registry,
-    abi: NGO_REGISTRY_ABI,
+    abi: NGORegistryABI,
     functionName: 'hasRole',
     args: address ? [NGO_MANAGER_ROLE as `0x${string}`, address] : undefined,
     query: { enabled: !!address },
@@ -36,11 +36,17 @@ export default function CreateNGO() {
   const onSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     if (!canSubmit) return
+    
+    // Create metadata object and convert to bytes32
+    const metadata = JSON.stringify({ name, description, website, logoUrl })
+    const metadataCid = stringToHex(metadata, { size: 32 })
+    const kycHash = keccak256(toBytes('mock-kyc-hash')) // Mock KYC hash for development
+    
     writeContract({
       address: registry,
-      abi: NGO_REGISTRY_ABI,
+      abi: NGORegistryABI,
       functionName: 'addNGO',
-      args: [ngoAddress as `0x${string}`, name, description],
+      args: [ngoAddress as `0x${string}`, metadataCid, kycHash, address as `0x${string}`],
     })
   }
 

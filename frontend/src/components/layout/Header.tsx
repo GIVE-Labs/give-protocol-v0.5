@@ -4,7 +4,7 @@ import { Heart, Menu } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { useAccount, useReadContract } from 'wagmi'
 import { CONTRACT_ADDRESSES } from '../../config/contracts'
-import { NGO_REGISTRY_ABI } from '../../abis/NGORegistry'
+import NGORegistryABI from '../../abis/NGORegistry.json'
 import { keccak256, toBytes } from 'viem'
 
 export default function Header() {
@@ -14,7 +14,7 @@ export default function Header() {
   const NGO_MANAGER_ROLE = useMemo(() => keccak256(toBytes('NGO_MANAGER_ROLE')) as `0x${string}` , [])
   const { data: isManager } = useReadContract({
     address: CONTRACT_ADDRESSES.NGO_REGISTRY as `0x${string}`,
-    abi: NGO_REGISTRY_ABI,
+    abi: NGORegistryABI,
     functionName: 'hasRole',
     args: address ? [NGO_MANAGER_ROLE, address] : undefined,
     query: { enabled: !!address },
@@ -22,7 +22,7 @@ export default function Header() {
 
   const navItems = [
     { path: '/', label: 'Home' },
-    { path: '/discover', label: 'NGOs' },
+    { path: '/ngo', label: 'NGOs' },
     { path: '/dashboard', label: 'Dashboard' },
   ]
 
@@ -54,7 +54,7 @@ export default function Header() {
           </nav>
 
           <div className="flex items-center space-x-4">
-            {isManager && (
+            {Boolean(isManager) && (
               <Link
                 to="/create-ngo"
                 className="hidden sm:inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-brand-600 hover:bg-brand-700"
@@ -103,7 +103,7 @@ export default function Header() {
                   {item.label}
                 </Link>
               ))}
-              {isManager && (
+              {Boolean(isManager) && (
                 <Link
                   to="/create-ngo"
                   className="block px-3 py-2 text-base font-medium rounded-md text-brand-600 hover:bg-gray-50"

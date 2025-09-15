@@ -3,9 +3,9 @@ import { useAccount, useReadContract, useWriteContract, useWaitForTransactionRec
 import { parseUnits, formatUnits } from 'viem';
 import { CONTRACT_ADDRESSES } from '../../config/contracts';
 import { erc20Abi } from '../../abis/erc20';
-import { GiveVault4626ABI } from '../../abis/GiveVault4626';
-import { NGO_REGISTRY_ABI } from '../../abis/NGORegistry';
-import { DonationRouterABI } from '../../abis/DonationRouter';
+import GiveVault4626ABI from '../../abis/GiveVault4626.json';
+import NGORegistryABI from '../../abis/NGORegistry.json';
+import DonationRouterABI from '../../abis/DonationRouter.json';
 import { motion } from 'framer-motion';
 
 export default function StakeWETH() {
@@ -84,7 +84,7 @@ export default function StakeWETH() {
   // NGO list + router stats
   const { data: allNGOs } = useReadContract({
     address: registry,
-    abi: NGO_REGISTRY_ABI,
+    abi: NGORegistryABI,
     functionName: 'getApprovedNGOs',
   });
 
@@ -99,7 +99,7 @@ export default function StakeWETH() {
   // Selected NGO info
   const { data: selectedInfo } = useReadContract({
     address: registry,
-    abi: NGO_REGISTRY_ABI,
+    abi: NGORegistryABI,
     functionName: 'getNGOInfo',
     args: selectedNGO ? [selectedNGO as `0x${string}`] : undefined,
     query: { enabled: !!selectedNGO },

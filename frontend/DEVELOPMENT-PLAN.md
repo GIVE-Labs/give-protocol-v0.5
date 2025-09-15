@@ -25,7 +25,7 @@ Based on GiveHope patterns, adapted for GIVE Protocol’s no-loss giving. Focus 
 - How It Works section (staking process)
 - Statistics dashboard
 
-### 2. Discover NGOs (`/discover`) - NGO Selection
+### 2. Discover NGOs (`/ngo`) - NGO Selection
 **Components:**
 - NGO filtering by cause/location
 - NGO cards with impact metrics

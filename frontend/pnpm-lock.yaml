@@ -26,6 +26,9 @@ importers:
       lucide-react:
         specifier: ^0.417.0
         version: 0.417.0(react@18.3.1)
+      pinata:
+        specifier: ^2.5.0
+        version: 2.5.0(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       react:
         specifier: ^18.3.1
         version: 18.3.1
@@ -2053,6 +2056,18 @@ packages:
   pify@5.0.0:
     resolution: {integrity: sha512-eW/gHNMlxdSP6dmG6uJip6FXN0EQBwm2clYYd8Wul42Cwu/DK8HEftzsapcNdYe2MfLiIwZqsDk2RDEsTE79hA==}
     engines: {node: '>=10'}
+
+  pinata@2.5.0:
+    resolution: {integrity: sha512-zjjrEUbEqeAE3gqIOy1K8f4xq3CDDefCgRj6tMqn14gbclSYo014+HQcfcKAAstMUjYNDb1yYQjxmBImW2kxCw==}
+    engines: {node: '>=20'}
+    peerDependencies:
+      react: '>=16.8.0'
+      react-dom: '>=16.8.0'
+    peerDependenciesMeta:
+      react:
+        optional: true
+      react-dom:
+        optional: true
 
   pino-abstract-transport@0.5.0:
     resolution: {integrity: sha512-+KAgmVeqXYbTtU2FScx1XS3kNyfZ5TrXY07V96QnUSFqo2gAqlvmaxH67Lj7SWazqsMabf+58ctdTcBgnOLUOQ==}
@@ -5515,10 +5530,10 @@ snapshots:
   ox@0.6.7(typescript@5.9.2)(zod@3.22.4):
     dependencies:
       '@adraffy/ens-normalize': 1.11.0
-      '@noble/curves': 1.8.1
-      '@noble/hashes': 1.7.1
-      '@scure/bip32': 1.6.2
-      '@scure/bip39': 1.5.4
+      '@noble/curves': 1.9.6
+      '@noble/hashes': 1.8.0
+      '@scure/bip32': 1.7.0
+      '@scure/bip39': 1.6.0
       abitype: 1.0.8(typescript@5.9.2)(zod@3.22.4)
       eventemitter3: 5.0.1
     optionalDependencies:
@@ -5609,6 +5624,11 @@ snapshots:
   pify@3.0.0: {}
 
   pify@5.0.0: {}
+
+  pinata@2.5.0(react-dom@18.3.1(react@18.3.1))(react@18.3.1):
+    optionalDependencies:
+      react: 18.3.1
+      react-dom: 18.3.1(react@18.3.1)
 
   pino-abstract-transport@0.5.0:
     dependencies:

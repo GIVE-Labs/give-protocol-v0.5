@@ -1,10 +1,10 @@
 import { useReadContract, useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
 import { parseUnits, formatUnits } from 'viem';
 import { CONTRACT_ADDRESSES } from '../config/contracts';
-import { GiveVault4626ABI } from '../abis/GiveVault4626';
-import { DonationRouterABI } from '../abis/DonationRouter';
-import { StrategyManagerABI } from '../abis/StrategyManager';
-import { NGO_REGISTRY_ABI } from '../abis/NGORegistry';
+import GiveVault4626ABI from '../abis/GiveVault4626.json';
+import DonationRouterABI from '../abis/DonationRouter.json';
+import StrategyManagerABI from '../abis/StrategyManager.json';
+import NGORegistryABI from '../abis/NGORegistry.json';
 import { erc20Abi } from '../abis/erc20';
 
 // Hook for Vault operations
@@ -80,9 +80,9 @@ export function useVault() {
 
   return {
     // Read data
-    totalAssets: totalAssets ? formatUnits(totalAssets, 6) : '0',
-    cashBalance: cashBalance ? formatUnits(cashBalance, 6) : '0',
-    adapterAssets: adapterAssets ? formatUnits(adapterAssets, 6) : '0',
+    totalAssets: totalAssets && typeof totalAssets === 'bigint' ? formatUnits(totalAssets, 6) : '0',
+    cashBalance: cashBalance && typeof cashBalance === 'bigint' ? formatUnits(cashBalance, 6) : '0',
+    adapterAssets: adapterAssets && typeof adapterAssets === 'bigint' ? formatUnits(adapterAssets, 6) : '0',
     harvestStats,
     configuration,
     activeAdapter,
@@ -194,21 +194,39 @@ export function useStrategyManager() {
 
 // Hook for NGO Registry operations
 export function useNGORegistry() {
+  const { writeContract, data: hash, isPending, error } = useWriteContract();
+  const { isLoading: isConfirming, isSuccess: isConfirmed } = useWaitForTransactionReceipt({ hash });
+
   const { data: allNGOs } = useReadContract({
     address: CONTRACT_ADDRESSES.NGO_REGISTRY as `0x${string}`,
-    abi: NGO_REGISTRY_ABI,
+    abi: NGORegistryABI,
     functionName: 'getApprovedNGOs',
   });
 
   const { data: verifiedNGOs } = useReadContract({
     address: CONTRACT_ADDRESSES.NGO_REGISTRY as `0x${string}`,
-    abi: NGO_REGISTRY_ABI,
+    abi: NGORegistryABI,
     functionName: 'getApprovedNGOs',
   });
+
+  const registerNGO = async (name: string, description: string) => {
+    return writeContract({
+      address: CONTRACT_ADDRESSES.NGO_REGISTRY as `0x${string}`,
+      abi: NGORegistryABI,
+      functionName: 'addNGO',
+      args: [CONTRACT_ADDRESSES.NGO_REGISTRY as `0x${string}`, name, description],
+    });
+  };
 
   return {
     allNGOs,
     verifiedNGOs,
+    registerNGO,
+    isPending,
+    isConfirming,
+    isConfirmed,
+    error,
+    hash,
   };
 }
 

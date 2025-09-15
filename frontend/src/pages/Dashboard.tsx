@@ -126,7 +126,7 @@ export default function Dashboard() {
               <div className="bg-white rounded-lg shadow-md p-8">
                 <p className="text-gray-500 mb-4">You haven't made any stakes yet</p>
                 <a
-                  href="/discover"
+                  href="/ngo"
                   className="inline-block bg-gradient-to-r from-emerald-600 via-cyan-600 to-teal-600 text-white px-8 py-4 rounded-2xl font-bold hover:from-emerald-700 hover:via-cyan-700 hover:to-teal-700 transition-all duration-300 shadow-lg hover:shadow-emerald-500/25"
                 >
                   Discover NGOs to Support

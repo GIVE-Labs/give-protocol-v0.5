@@ -4,18 +4,18 @@ import { localhost } from 'viem/chains';
 // Contract addresses from local Anvil deployment
 // These addresses are from the latest deployment to chain ID 31337
 export const LOCAL_CONTRACT_ADDRESSES = {
-  // Main protocol contracts - update these with actual deployed addresses
-  NGO_REGISTRY: '0x5FbDB2315678afecb367f032d93F642f64180aa3', // Update with actual address
-  DONATION_ROUTER: '0x8A791620dd6260079BF849Dc5567aDC3F2FdC318', // From deployment logs
-  VAULT: '0x0165878A594ca255338adfa4d48449f69242Eb8F', // Update with actual address
-  STRATEGY_MANAGER: '0xb7f8bc63bbcad18155201308c8f3540b07f84f5e', // From deployment logs
-  AAVE_ADAPTER: '0x5f3f1dBD7B74C6B46e8c44f98792A1dAf8d69154', // Mock yield adapter for local testing
+  // Main protocol contracts - updated with latest deployment addresses
+  NGO_REGISTRY: '0x59b670e9fA9D0A427751Af201D676719a970857b', // Latest deployment
+  DONATION_ROUTER: '0x322813Fd9A801c5507c9de605d63CEA4f2CE6c44', // Latest deployment
+  VAULT: '0x610178dA211FEF7D417bC0e6FeD39F05609AD788', // Latest deployment
+  STRATEGY_MANAGER: '0xB7f8BC63BbcaD18155201308C8f3540b07f84F5e', // Latest deployment
+  AAVE_ADAPTER: '0xa85233C63b9Ee964Add6F2cffe00Fd84eb32338f', // Mock yield adapter for local testing
 
   // Mock tokens for local testing
   TOKENS: {
     ETH: '0x0000000000000000000000000000000000000000', // Native ETH
-    USDC: '0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512', // Mock USDC from deployment
-    WETH: '0xcf7ed3AccA5a467e9e704C703E8D87F634fB0Fc9', // Mock WETH from deployment
+    USDC: '0x4ed7c70F96B99c776995fB64377f0d4aB3B0e1C1', // Mock USDC from latest deployment
+    WETH: '0xc6e7DF5E7b4f2A278906862b61205850344D4e7d', // Mock WETH from latest deployment
   }
 } as const;
 

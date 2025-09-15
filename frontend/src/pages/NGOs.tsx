@@ -1,16 +1,17 @@
 import { useReadContract } from 'wagmi';
 import { useNavigate } from 'react-router-dom';
 import { CONTRACT_ADDRESSES } from '../config/contracts';
-import { NGO_REGISTRY_ABI } from '../abis/NGORegistry';
+import NGORegistryABI from '../abis/NGORegistry.json';
 import { motion } from 'framer-motion';
 import { Heart, MapPin, Users, Search } from 'lucide-react';
+import { hexToString } from 'viem';
 
 function CampaignCard({ address, index }: { address: `0x${string}`, index: number }) {
   const navigate = useNavigate();
   
   const { data: ngoInfo, isLoading } = useReadContract({
     address: CONTRACT_ADDRESSES.NGO_REGISTRY,
-    abi: NGO_REGISTRY_ABI,
+    abi: NGORegistryABI,
     functionName: 'getNGOInfo',
     args: [address],
   });
@@ -57,8 +58,19 @@ function CampaignCard({ address, index }: { address: `0x${string}`, index: numbe
     return null;
   }
 
-  const name = (ngoInfo as any)?.name || 'Unknown Campaign';
-  const description = (ngoInfo as any)?.description || 'Help us make a difference in the world';
+  // Parse metadata from metadataCid
+  let name = 'Unknown Campaign';
+  let description = 'Help us make a difference in the world';
+  
+  try {
+    const metadataString = hexToString((ngoInfo as any).metadataCid, { size: 32 });
+    const metadata = JSON.parse(metadataString.replace(/\0/g, ''));
+    name = metadata.name || name;
+    description = metadata.description || description;
+  } catch (error) {
+    console.warn('Failed to parse NGO metadata:', error);
+  }
+  
   const isActive = (ngoInfo as any)?.isActive || false;
 
   return (
@@ -139,7 +151,7 @@ function CampaignCard({ address, index }: { address: `0x${string}`, index: numbe
 export default function NGOsPage() {
   const { data: approvedNGOs, isLoading: loadingList } = useReadContract({
     address: CONTRACT_ADDRESSES.NGO_REGISTRY as `0x${string}`,
-    abi: NGO_REGISTRY_ABI,
+    abi: NGORegistryABI,
     functionName: 'getApprovedNGOs',
   });
 

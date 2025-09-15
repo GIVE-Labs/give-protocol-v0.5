@@ -3,7 +3,7 @@ import { useParams } from 'react-router-dom';
 import { useAccount, useReadContract, useWriteContract, useWaitForTransactionReceipt, useBalance } from 'wagmi';
 import { parseEther, parseUnits, formatUnits } from 'viem';
 import { erc20Abi } from 'viem';
-import { GiveVault4626ABI } from '../abis/GiveVault4626';
+import GiveVault4626ABI from '../abis/GiveVault4626.json';
 import { useNGODetails } from '../hooks/useNGORegistryWagmi';
 import { NGO } from '../types';
 import StakingProgressModal from '../components/staking/StakingProgressModal';

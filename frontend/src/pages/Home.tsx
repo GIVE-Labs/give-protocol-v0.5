@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom'
 import { DotLottieReact } from '@lottiefiles/dotlottie-react'
-import { ArrowRight, Heart, Sparkles, Globe } from 'lucide-react'
+import { ArrowRight, Heart, Sparkles } from 'lucide-react'
 import { motion } from 'framer-motion'
 import FeaturedNGO from '../components/FeaturedNGO'
 
@@ -161,7 +161,7 @@ export default function Home() {
                 whileTap={{ scale: 0.95 }}
               >
                 <Link
-                  to="/discover"
+                  to="/ngo"
                   className="group relative bg-gradient-to-r from-emerald-600 via-cyan-600 to-teal-600 text-white px-10 py-5 rounded-2xl font-bold text-xl hover:from-emerald-700 hover:via-cyan-700 hover:to-teal-700 transition-all duration-300 flex items-center justify-center space-x-3 shadow-2xl hover:shadow-emerald-500/25 overflow-hidden"
                 >
                   <div className="absolute inset-0 bg-gradient-to-r from-white/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
@@ -176,11 +176,11 @@ export default function Home() {
                 whileTap={{ scale: 0.95 }}
               >
                 <Link
-                  to="/discover"
+                  to="/create-campaign"
                   className="group border-3 border-emerald-600 text-emerald-700 px-10 py-5 rounded-2xl font-bold text-xl hover:bg-emerald-600 hover:text-white transition-all duration-300 flex items-center justify-center space-x-3 shadow-lg hover:shadow-xl bg-white/80 backdrop-blur-sm"
                 >
-                  <Globe className="w-6 h-6" />
-                  <span>Explore NGOs</span>
+                  <Heart className="w-6 h-6" />
+                  <span>Create Campaign</span>
                 </Link>
               </motion.div>
             </motion.div>
@@ -383,7 +383,7 @@ export default function Home() {
               whileTap={{ scale: 0.95 }}
             >
               <Link
-                to="/discover"
+                to="/ngo"
                 className="group inline-flex items-center space-x-3 bg-gradient-to-r from-emerald-600 to-cyan-600 text-white px-8 py-4 rounded-2xl font-bold text-lg hover:from-emerald-700 hover:to-cyan-700 transition-all duration-300 shadow-xl hover:shadow-2xl"
               >
                 <Heart className="w-6 h-6" />
