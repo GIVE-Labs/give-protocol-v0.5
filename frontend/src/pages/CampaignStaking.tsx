@@ -31,7 +31,7 @@ export default function CampaignStaking() {
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [metadata, setMetadata] = useState<NGOMetadata | null>(null);
-  const [metadataLoading, setMetadataLoading] = useState(false);
+
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
 
   // NOTE: The current vault is USDC-based (ERC20 with 6 decimals).
@@ -70,7 +70,6 @@ export default function CampaignStaking() {
     console.log('CampaignStaking - ngoInfo changed:', ngoInfo);
     const fetchNGOMetadata = async () => {
       if (ngoInfo && (ngoInfo as any).metadataCid) {
-        setMetadataLoading(true);
         try {
           const metadataCid = (ngoInfo as any).metadataCid as string;
           console.log('Fetching metadata for campaign staking:', metadataCid);
@@ -79,8 +78,6 @@ export default function CampaignStaking() {
           setMetadata(metadata);
         } catch (error) {
           console.error('Error fetching metadata:', error);
-        } finally {
-          setMetadataLoading(false);
         }
       } else {
         console.log('No ngoInfo or metadataCid found:', { ngoInfo, hasMetadataCid: ngoInfo && (ngoInfo as any).metadataCid });

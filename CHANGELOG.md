@@ -5,6 +5,43 @@ All notable changes to the GIVE Protocol will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.1] - 2025-01-15
+
+### Added - Deployment Infrastructure & Documentation
+
+#### Backend Infrastructure
+- **Makefile**: Comprehensive deployment automation for multiple networks
+  - Local development environment setup (`make dev`)
+  - Network-specific deployment commands (Sepolia, Scroll Sepolia, Mainnet)
+  - Automated contract verification
+  - Development utilities (build, test, format, lint)
+  - Environment validation and help system
+
+#### Documentation Updates
+- **Main README.md**: Complete installation and setup guide
+  - Step-by-step installation instructions
+  - Multiple development setup options
+  - Comprehensive deployment instructions
+  - Network configuration details
+- **Backend README.md**: Detailed backend-specific documentation
+  - Architecture overview
+  - Environment setup guide
+  - Deployment instructions for all networks
+  - Troubleshooting section
+  - Project structure documentation
+
+#### Development Experience
+- Simplified onboarding process for new developers
+- Automated environment setup and validation
+- Consistent deployment process across networks
+- Enhanced error handling and user feedback
+
+### Fixed
+- TypeScript compilation errors in frontend
+  - Removed unused `metadataLoading` variables from CampaignStaking.tsx and NGODetails.tsx
+  - Removed unused `description` variable from NGOs.tsx
+  - Cleaned up orphaned function calls
+
 ## [0.1.0] - 2025-09-13
 
 ### Added - MVP Release (Aave/Euler only, single NGO)

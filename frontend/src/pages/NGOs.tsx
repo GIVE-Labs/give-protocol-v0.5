@@ -138,7 +138,7 @@ function CampaignCard({ address, index }: { address: `0x${string}`, index: numbe
 
   // Use fetched metadata or fallback values
   const name = metadata?.name || 'Unknown Campaign';
-  const description = metadata?.description || 'Help us make a difference in the world';
+
   
   const isActive = (ngoInfo as NGOInfo)?.isActive || false;
 

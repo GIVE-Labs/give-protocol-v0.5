@@ -34,7 +34,7 @@ export default function NGODetails() {
   const [isStakeError, setIsStakeError] = useState(false);
   const [currentTxHash, setCurrentTxHash] = useState<string | undefined>();
   const [metadata, setMetadata] = useState<NGOMetadata | null>(null);
-  const [metadataLoading, setMetadataLoading] = useState(false);
+
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   
   // NGO data
@@ -74,7 +74,6 @@ export default function NGODetails() {
    useEffect(() => {
      const fetchNGOMetadata = async () => {
        if (ngoInfo && (ngoInfo as any).metadataCid) {
-         setMetadataLoading(true);
          try {
            const metadataCid = (ngoInfo as any).metadataCid as string;
            console.log('Fetching metadata for NGO details:', metadataCid);
@@ -82,8 +81,6 @@ export default function NGODetails() {
            setMetadata(metadata);
          } catch (error) {
            console.error('Error fetching metadata:', error);
-         } finally {
-           setMetadataLoading(false);
          }
        }
      };

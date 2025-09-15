@@ -23,21 +23,114 @@ Example:
 ## Quick Start
 
 ### Prerequisites
-- Node.js 18+
-- Foundry
-- Wallet with Scroll Sepolia configured
+- Node.js 18+ (with pnpm)
+- Foundry (forge, cast, anvil)
+- Git
+- Wallet with Scroll Sepolia configured (for testnet deployment)
 
-### Setup
+### Installation
+
+#### 1. Clone the Repository
 ```bash
-# Install dependencies
-cd frontend && pnpm install
-cd ../backend && forge install
+git clone <repository-url>
+cd GiveProtocol_MVP
+```
 
-# Configure
-# Copy .env.example to .env.local and add required keys
+#### 2. Install Frontend Dependencies
+```bash
+cd frontend
+pnpm install
+```
 
-# Run
-cd frontend && pnpm dev
+#### 3. Install Backend Dependencies
+```bash
+cd ../backend
+make install
+# or manually: forge install
+```
+
+#### 4. Environment Configuration
+
+**Frontend (.env.local):**
+```bash
+cd frontend
+cp .env.example .env.local
+# Edit .env.local with your configuration
+```
+
+**Backend (.env):**
+```bash
+cd backend
+cp .env.example .env
+# Add your private key and API keys:
+# DEPLOYER_KEY=your_private_key
+# SCROLL_SEPOLIA_RPC_URL=https://sepolia-rpc.scroll.io
+# ETHERSCAN_API_KEY=your_etherscan_api_key
+```
+
+#### 5. Build and Test
+```bash
+# Build contracts
+cd backend
+make build
+
+# Run tests
+make test
+
+# Build frontend
+cd ../frontend
+pnpm build
+```
+
+### Development Setup
+
+#### Option A: Full Local Development
+```bash
+# Terminal 1: Start local blockchain
+cd backend
+make dev  # Starts Anvil and deploys contracts
+
+# Terminal 2: Start frontend
+cd frontend
+pnpm dev
+```
+
+#### Option B: Manual Setup
+```bash
+# Terminal 1: Start Anvil
+anvil
+
+# Terminal 2: Deploy contracts locally
+cd backend
+make deploy-local
+
+# Terminal 3: Start frontend
+cd frontend
+pnpm dev
+```
+
+### Deployment
+
+#### Local Deployment
+```bash
+cd backend
+make deploy-local
+```
+
+#### Testnet Deployment (Scroll Sepolia)
+```bash
+cd backend
+# Ensure ETHERSCAN_API_KEY is set in .env
+make deploy-scroll
+```
+
+#### Other Networks
+```bash
+# Ethereum Sepolia
+make deploy-sepolia
+
+# Custom network
+make deploy NETWORK=custom RPC_URL=your_rpc_url
 ```
 
 ## Tech Stack
@@ -80,9 +173,24 @@ cd frontend && pnpm dev
 ### Smart Contracts
 ```bash
 cd backend
-forge test          # Run tests
-forge build         # Build contracts
-forge deploy        # Deploy to testnet
+
+# Development
+make help           # Show all available commands
+make build          # Build contracts
+make test           # Run tests
+make test-fork      # Run fork tests
+make format         # Format code
+make lint           # Lint code
+
+# Deployment
+make deploy-local   # Deploy to local Anvil
+make deploy-sepolia # Deploy to Ethereum Sepolia
+make deploy-scroll  # Deploy to Scroll Sepolia
+
+# Management
+make register-ngo   # Register test NGO (local)
+make verify         # Verify contracts on Etherscan
+make check-env      # Check environment setup
 ```
 
 ### Frontend
@@ -90,6 +198,9 @@ forge deploy        # Deploy to testnet
 cd frontend
 pnpm dev           # Start dev server
 pnpm build         # Build for production
+pnpm test          # Run tests
+pnpm lint          # Lint code
+pnpm type-check    # TypeScript check
 ```
 
 ## Current Status
