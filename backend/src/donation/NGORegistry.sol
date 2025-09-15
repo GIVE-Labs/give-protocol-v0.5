@@ -4,6 +4,7 @@ pragma solidity ^0.8.20;
 import "@openzeppelin/contracts/access/AccessControl.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/utils/Pausable.sol";
+import "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 import "../utils/Errors.sol";
 
 /**
@@ -11,33 +12,43 @@ import "../utils/Errors.sol";
  * @dev Registry for managing approved NGOs in the GIVE Protocol
  * @notice Simplified registry for v0.1 - focuses on approval/removal of NGOs
  */
-contract NGORegistry is AccessControl, ReentrancyGuard, Pausable {
+contract NGORegistry is AccessControl, Pausable {
     // === Roles ===
     bytes32 public constant NGO_MANAGER_ROLE = keccak256("NGO_MANAGER_ROLE");
     bytes32 public constant DONATION_RECORDER_ROLE = keccak256("DONATION_RECORDER_ROLE");
+    bytes32 public constant GUARDIAN_ROLE = keccak256("GUARDIAN_ROLE");
 
     // === State Variables ===
+    using EnumerableSet for EnumerableSet.AddressSet;
+    
     mapping(address => bool) public isApproved;
     mapping(address => NGOInfo) public ngoInfo;
+    EnumerableSet.AddressSet private _approvedNGOs;
+    
+    // Legacy getter for backward compatibility
     address[] public approvedNGOs;
-
-    uint256 public totalApprovedNGOs;
     address public currentNGO; // Single NGO for v0.1
+    address public pendingCurrentNGO; // Pending NGO for timelock
+    uint256 public currentNGOChangeETA; // ETA for currentNGO change
+    uint256 public constant TIMELOCK_DELAY = 24 hours; // 24h timelock for governance changes
 
     struct NGOInfo {
-        string name;
-        string description;
-        uint256 approvalTime;
-        uint256 totalReceived;
-        bool isActive;
+        bytes32 metadataCid;     // IPFS/Arweave hash for name/description
+        bytes32 kycHash;         // Hash of attestation docs or EAS UID
+        address attestor;        // Who verified the NGO
+        uint256 createdAt;       // Creation timestamp
+        uint256 updatedAt;       // Last update timestamp
+        uint256 version;         // Version for tracking changes
+        uint256 totalReceived;   // Total donations received
+        bool isActive;           // Whether NGO is active
     }
 
     // === Events ===
-    event NGOApproved(address indexed ngo, string name, uint256 timestamp);
-    event NGORemoved(address indexed ngo, string name, uint256 timestamp);
-    event NGOUpdated(address indexed ngo, string name, string description);
-    event CurrentNGOSet(address indexed oldNGO, address indexed newNGO);
-    event DonationRecorded(address indexed ngo, uint256 amount);
+    event NGOApproved(address indexed ngo, bytes32 metadataCid, bytes32 kycHash, address attestor, uint256 timestamp);
+    event NGORemoved(address indexed ngo, bytes32 metadataCid, uint256 timestamp);
+    event NGOUpdated(address indexed ngo, bytes32 oldMetadataCid, bytes32 newMetadataCid, uint256 newVersion);
+    event CurrentNGOSet(address indexed oldNGO, address indexed newNGO, uint256 eta);
+    event DonationRecorded(address indexed ngo, uint256 amount, uint256 newTotalReceived);
 
     // === Constructor ===
     constructor(address _admin) {
@@ -52,37 +63,42 @@ contract NGORegistry is AccessControl, ReentrancyGuard, Pausable {
     /**
      * @dev Approves an NGO for receiving donations
      * @param ngo The NGO address to approve
-     * @param name The NGO name
-     * @param description The NGO description
+     * @param metadataCid IPFS/Arweave hash containing name/description
+     * @param kycHash Hash of attestation documents or EAS UID
+     * @param attestor Address of the entity that verified the NGO
      */
-    function addNGO(address ngo, string calldata name, string calldata description)
+    function addNGO(address ngo, bytes32 metadataCid, bytes32 kycHash, address attestor)
         external
         onlyRole(NGO_MANAGER_ROLE)
         whenNotPaused
     {
         if (ngo == address(0)) revert Errors.InvalidNGOAddress();
         if (isApproved[ngo]) revert Errors.NGOAlreadyApproved();
-        if (bytes(name).length == 0) revert Errors.InvalidConfiguration();
+        if (metadataCid == bytes32(0)) revert Errors.InvalidMetadataCid();
+        if (attestor == address(0)) revert Errors.InvalidAttestor();
 
+        uint256 timestamp = block.timestamp;
         isApproved[ngo] = true;
         ngoInfo[ngo] = NGOInfo({
-            name: name,
-            description: description,
-            approvalTime: block.timestamp,
+            metadataCid: metadataCid,
+            kycHash: kycHash,
+            attestor: attestor,
+            createdAt: timestamp,
+            updatedAt: timestamp,
+            version: 1,
             totalReceived: 0,
             isActive: true
         });
 
-        approvedNGOs.push(ngo);
-        totalApprovedNGOs++;
+        _approvedNGOs.add(ngo);
 
         // Set as current NGO if none is set
         if (currentNGO == address(0)) {
             currentNGO = ngo;
-            emit CurrentNGOSet(address(0), ngo);
+            emit CurrentNGOSet(address(0), ngo, 0);
         }
 
-        emit NGOApproved(ngo, name, block.timestamp);
+        emit NGOApproved(ngo, metadataCid, kycHash, attestor, timestamp);
     }
 
     /**
@@ -92,56 +108,98 @@ contract NGORegistry is AccessControl, ReentrancyGuard, Pausable {
     function removeNGO(address ngo) external onlyRole(NGO_MANAGER_ROLE) {
         if (!isApproved[ngo]) revert Errors.NGONotApproved();
 
-        string memory name = ngoInfo[ngo].name;
+        bytes32 metadataCid = ngoInfo[ngo].metadataCid;
 
         isApproved[ngo] = false;
         ngoInfo[ngo].isActive = false;
-        totalApprovedNGOs--;
+        ngoInfo[ngo].updatedAt = block.timestamp;
 
-        // Remove from array
-        _removeFromArray(ngo);
+        // Remove from set
+        _approvedNGOs.remove(ngo);
 
         // Update current NGO if this was the current one
         if (currentNGO == ngo) {
-            currentNGO = approvedNGOs.length > 0 ? approvedNGOs[0] : address(0);
-            emit CurrentNGOSet(ngo, currentNGO);
+            currentNGO = _approvedNGOs.length() > 0 ? _approvedNGOs.at(0) : address(0);
+            emit CurrentNGOSet(ngo, currentNGO, 0);
         }
 
-        emit NGORemoved(ngo, name, block.timestamp);
+        emit NGORemoved(ngo, metadataCid, block.timestamp);
     }
 
     /**
-     * @dev Updates NGO information
+     * @dev Updates NGO metadata
      * @param ngo The NGO address
-     * @param name New name
-     * @param description New description
+     * @param newMetadataCid New IPFS/Arweave hash for metadata
+     * @param newKycHash New KYC hash (optional, use existing if bytes32(0))
      */
-    function updateNGO(address ngo, string calldata name, string calldata description)
+    function updateNGO(address ngo, bytes32 newMetadataCid, bytes32 newKycHash)
         external
         onlyRole(NGO_MANAGER_ROLE)
     {
         if (!isApproved[ngo]) revert Errors.NGONotApproved();
-        if (bytes(name).length == 0) revert Errors.InvalidConfiguration();
+        if (newMetadataCid == bytes32(0)) revert Errors.InvalidMetadataCid();
 
-        ngoInfo[ngo].name = name;
-        ngoInfo[ngo].description = description;
+        bytes32 oldMetadataCid = ngoInfo[ngo].metadataCid;
+        
+        ngoInfo[ngo].metadataCid = newMetadataCid;
+        if (newKycHash != bytes32(0)) {
+            ngoInfo[ngo].kycHash = newKycHash;
+        }
+        ngoInfo[ngo].updatedAt = block.timestamp;
+        ngoInfo[ngo].version++;
 
-        emit NGOUpdated(ngo, name, description);
+        emit NGOUpdated(ngo, oldMetadataCid, newMetadataCid, ngoInfo[ngo].version);
     }
 
     /**
-     * @dev Sets the current NGO for donations
+     * @dev Proposes a new current NGO (starts timelock)
      * @param ngo The NGO address to set as current
      */
-    function setCurrentNGO(address ngo) external onlyRole(NGO_MANAGER_ROLE) {
+    function proposeCurrentNGO(address ngo) external onlyRole(NGO_MANAGER_ROLE) {
+        if (ngo != address(0) && !isApproved[ngo]) {
+            revert Errors.NGONotApproved();
+        }
+
+        pendingCurrentNGO = ngo;
+        currentNGOChangeETA = block.timestamp + TIMELOCK_DELAY;
+
+        emit CurrentNGOSet(currentNGO, ngo, currentNGOChangeETA);
+    }
+
+    /**
+     * @dev Executes the pending current NGO change after timelock
+     */
+    function executeCurrentNGOChange() external {
+        if (block.timestamp < currentNGOChangeETA) revert Errors.TimelockNotReady();
+        if (currentNGOChangeETA == 0) revert Errors.NoTimelockPending();
+
+        address oldNGO = currentNGO;
+        currentNGO = pendingCurrentNGO;
+        
+        // Reset timelock state
+        pendingCurrentNGO = address(0);
+        currentNGOChangeETA = 0;
+
+        emit CurrentNGOSet(oldNGO, currentNGO, 0);
+    }
+
+    /**
+     * @dev Emergency function to set current NGO immediately (admin only)
+     * @param ngo The NGO address to set as current
+     */
+    function emergencySetCurrentNGO(address ngo) external onlyRole(DEFAULT_ADMIN_ROLE) {
         if (ngo != address(0) && !isApproved[ngo]) {
             revert Errors.NGONotApproved();
         }
 
         address oldNGO = currentNGO;
         currentNGO = ngo;
+        
+        // Reset any pending changes
+        pendingCurrentNGO = address(0);
+        currentNGOChangeETA = 0;
 
-        emit CurrentNGOSet(oldNGO, ngo);
+        emit CurrentNGOSet(oldNGO, ngo, 0);
     }
 
     // === Donation Tracking ===
@@ -151,13 +209,18 @@ contract NGORegistry is AccessControl, ReentrancyGuard, Pausable {
      * @param ngo The NGO that received the donation
      * @param amount The donation amount
      */
-    function recordDonation(address ngo, uint256 amount) external onlyRole(DONATION_RECORDER_ROLE) {
+    function recordDonation(address ngo, uint256 amount) 
+        external 
+        onlyRole(DONATION_RECORDER_ROLE) 
+        whenNotPaused 
+    {
         if (!isApproved[ngo]) revert Errors.NGONotApproved();
         if (amount == 0) revert Errors.InvalidAmount();
 
         ngoInfo[ngo].totalReceived += amount;
+        uint256 newTotal = ngoInfo[ngo].totalReceived;
 
-        emit DonationRecorded(ngo, amount);
+        emit DonationRecorded(ngo, amount, newTotal);
     }
 
     // === View Functions ===
@@ -184,22 +247,15 @@ contract NGORegistry is AccessControl, ReentrancyGuard, Pausable {
      * @return Array of approved NGO addresses
      */
     function getApprovedNGOs() external view returns (address[] memory) {
-        address[] memory activeNGOs = new address[](totalApprovedNGOs);
-        uint256 count = 0;
+        return _approvedNGOs.values();
+    }
 
-        for (uint256 i = 0; i < approvedNGOs.length; i++) {
-            if (isApproved[approvedNGOs[i]]) {
-                activeNGOs[count] = approvedNGOs[i];
-                count++;
-            }
-        }
-
-        // Resize array to actual count
-        assembly {
-            mstore(activeNGOs, count)
-        }
-
-        return activeNGOs;
+    /**
+     * @dev Returns the total number of approved NGOs
+     * @return Total count of approved NGOs
+     */
+    function getTotalApprovedNGOs() external view returns (uint256) {
+        return _approvedNGOs.length();
     }
 
     /**
@@ -223,42 +279,37 @@ contract NGORegistry is AccessControl, ReentrancyGuard, Pausable {
         returns (uint256 totalApproved, address currentNGOAddress, uint256 totalDonations)
     {
         uint256 totalDonated = 0;
-        for (uint256 i = 0; i < approvedNGOs.length; i++) {
-            if (isApproved[approvedNGOs[i]]) {
-                totalDonated += ngoInfo[approvedNGOs[i]].totalReceived;
-            }
+        uint256 length = _approvedNGOs.length();
+        
+        for (uint256 i = 0; i < length; i++) {
+            address ngo = _approvedNGOs.at(i);
+            totalDonated += ngoInfo[ngo].totalReceived;
         }
 
-        return (totalApprovedNGOs, currentNGO, totalDonated);
+        return (_approvedNGOs.length(), currentNGO, totalDonated);
     }
 
     // === Internal Functions ===
-
-    /**
-     * @dev Removes an NGO from the approved array
-     * @param ngo The NGO address to remove
-     */
-    function _removeFromArray(address ngo) internal {
-        for (uint256 i = 0; i < approvedNGOs.length; i++) {
-            if (approvedNGOs[i] == ngo) {
-                approvedNGOs[i] = approvedNGOs[approvedNGOs.length - 1];
-                approvedNGOs.pop();
-                break;
-            }
-        }
-    }
+    // EnumerableSet handles add/remove operations internally
 
     // === Emergency Functions ===
 
     /**
-     * @dev Emergency pause of the registry
+     * @dev Emergency pause of the registry (admin only)
      */
     function emergencyPause() external onlyRole(DEFAULT_ADMIN_ROLE) {
         _pause();
     }
 
     /**
-     * @dev Unpause the registry
+     * @dev Guardian pause (can only pause, not unpause)
+     */
+    function guardianPause() external onlyRole(GUARDIAN_ROLE) {
+        _pause();
+    }
+
+    /**
+     * @dev Unpause the registry (admin only)
      */
     function unpause() external onlyRole(DEFAULT_ADMIN_ROLE) {
         _unpause();

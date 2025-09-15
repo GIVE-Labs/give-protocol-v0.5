@@ -45,7 +45,7 @@ export default function CampaignStaking() {
   const { data: ngoInfo } = useReadContract({
     address: CONTRACT_ADDRESSES.NGO_REGISTRY,
     abi: NGO_REGISTRY_ABI,
-    functionName: 'getNGO',
+    functionName: 'getNGOInfo',
     args: [ngoAddress as `0x${string}`],
     query: {
       enabled: !!ngoAddress,
@@ -171,7 +171,7 @@ export default function CampaignStaking() {
   const totalStakers = 850;
   const avgLockPeriod = 14.3;
 
-  const ngo: NGO = ngoInfo ? {
+  const ngo: NGO = (ngoInfo && typeof ngoInfo === 'object' && 'name' in ngoInfo) ? {
     ngoAddress: ngoAddress!,
     name: ngoInfo.name || 'Global Education Fund',
     description: ngoInfo.description || 'Empowering futures through accessible education',

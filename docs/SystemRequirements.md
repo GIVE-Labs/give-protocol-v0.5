@@ -8,7 +8,7 @@
 
 ## 0) Purpose & Goals
 
-GIVE Protocol enables no‑loss giving: users deposit an ERC‑20 asset into an ERC‑4626 vault; principal remains redeemable, while yield (profits) is routed to approved NGOs. The system must be safe‑by‑default, modular (adapters per yield source), and easy to audit.
+GIVE Protocol enables no‑loss giving: users deposit an ERC‑20 asset into an ERC‑4626 vault; principal remains redeemable, while yield (profits) is routed to approved NGOs based on user-configurable allocation preferences (50%, 75%, 100%). The system must be safe‑by‑default, modular (adapters per yield source), and easy to audit.
 
 ### Goals
 
@@ -16,6 +16,8 @@ GIVE Protocol enables no‑loss giving: users deposit an ERC‑20 asset into an 
 * Standardize user UX via ERC‑4626 interface (deposits, share math, previews).
 * Support multiple yield adapters (Aave/Euler, Pendle PT → optional LP/gauge).
 * Route realized profits to a Donation Router for approved NGOs (via NGO Registry).
+* **Enable user-configurable yield allocation (50%, 75%, 100% to NGO, remainder to protocol treasury)**.
+* **Track user shares and preferences for proportional yield distribution**.
 * Ship a production‑minded MVP (v0.1) and evolve to v1 with governance, risk controls, and monitoring.
 
 ### Non‑Goals (v0.1)
@@ -39,7 +41,12 @@ Users <-> ERC-4626 Vault (GiveVault4626) <-> StrategyManager
                                      |-> Adapter (Aave/Euler)
                                      |-> Adapter (Pendle PT) [v0.3+]
 
-harvest() -> DonationRouter -> NGO Registry (approval) -> NGO address
+harvest() -> DonationRouter -> User Preferences (50%/75%/100%) -> NGO + Protocol Treasury
+                            -> NGO Registry (approval) -> NGO address
+                            -> Protocol Treasury (1% fee + remainder)
+
+User Preferences: setUserPreference(ngo, allocation%) -> stored per user
+Distribution: calculateUserDistribution() -> proportional to user shares
 
 Admin: Multisig (DEFAULT_ADMIN) + (VAULT_MANAGER, NGO_MANAGER, PAUSER)
 Upgrade (optional v1): UUPS proxy with UPGRADER_ROLE + Timelock
@@ -162,7 +169,16 @@ Upgrade (optional v1): UUPS proxy with UPGRADER_ROLE + Timelock
 
 * `function distribute(address asset, uint256 amount) external` (authorized caller: vault/keeper). Routes funds to the current NGO after fees.
 * `function distributeToMultiple(address asset, uint256 amount, address[] calldata ngos) external` (authorized caller) for equal-split distributions when needed.
+* `function distributeToAllUsers(address asset, uint256 amount) external` (authorized caller) distributes yield based on user preferences and shares.
 * `function updateFeeConfig(address recipient, uint16 bps) external onlyAdmin`
+* **User Preference Functions:**
+  * `function setUserPreference(address ngo, uint8 allocationPercentage) external` - Set user's NGO and allocation (50%, 75%, 100%)
+  * `function getUserPreference(address user) external view returns (UserPreference memory)` - Get user's current preference
+  * `function updateUserShares(address user, address asset, uint256 balance) external` - Update user's share balance (called by vault)
+  * `function calculateUserDistribution(address user, uint256 totalYield) external view returns (uint256, uint256, uint256)` - Calculate NGO, treasury, protocol amounts
+  * `function getUserAssetShares(address user, address asset) external view returns (uint256)` - Get user's shares for specific asset
+  * `function getTotalAssetShares(address asset) external view returns (uint256)` - Get total shares for asset
+  * `function getValidAllocations() external pure returns (uint8[] memory)` - Returns [50, 75, 100]
 
 ### 4.4 NGO Registry
 
@@ -190,7 +206,12 @@ Upgrade (optional v1): UUPS proxy with UPGRADER_ROLE + Timelock
 ### 5.3 Harvest
 
 1. Vault calls `adapter.harvest()`; adapter realizes P/L.
-2. If `profit > 0`: Vault transfers profit to DonationRouter and immediately calls `router.distribute(asset, profit)`.
+2. If `profit > 0`: Vault transfers profit to DonationRouter and immediately calls `router.distributeToAllUsers(asset, profit)`.
+3. DonationRouter calculates each user's yield share based on their vault balance and preference:
+   - For each user: `userYield = (userShares / totalShares) * totalProfit`
+   - Distribution per user preference: `(ngoAmount, treasuryAmount, protocolAmount) = calculateUserDistribution(user, userYield)`
+   - Aggregate all amounts and transfer to respective recipients
+4. Protocol fee (1%) is deducted from all distributions and sent to protocol treasury.
 3. Router computes `fee = amount * feeBps` and transfers net donation to the current NGO; registry records donation.
 
 ### 5.4 Emergency

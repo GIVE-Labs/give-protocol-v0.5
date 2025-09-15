@@ -118,4 +118,4 @@ export default function StakingProgressModal({
     </div>
   )
 }
-import { SEPOLIA } from '../../config/contracts'
+import { SEPOLIA } from '../../config/web3'

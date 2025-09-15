@@ -44,7 +44,7 @@ contract StrategyManagerBasicTest is Test {
     }
 
     function testSetDonationRouter() public {
-        DonationRouter router = new DonationRouter(admin, address(new NGORegistry(admin)), address(0xFEE5), 100);
+        DonationRouter router = new DonationRouter(admin, address(new NGORegistry(admin)), address(0xFEE5), admin, 100);
         vm.prank(admin);
         manager.setDonationRouter(address(router));
         assertEq(address(vault.donationRouter()), address(router));

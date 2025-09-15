@@ -37,7 +37,7 @@ contract VaultRouterTest is Test {
 
         // Registry + Router
         registry = new NGORegistry(admin);
-        router = new DonationRouter(admin, address(registry), feeRecipient, 250); // 2.5%
+        router = new DonationRouter(admin, address(registry), feeRecipient, admin, 250); // 2.5%
 
         // Vault
         vault = new GiveVault4626(IERC20(address(usdc)), "GIVE USDC", "gvUSDC", admin);
@@ -51,9 +51,13 @@ contract VaultRouterTest is Test {
         router.setAuthorizedCaller(address(vault), true);
         vm.stopPrank();
 
-        // Approve NGO
+        // Approve NGO and set as current
         vm.prank(admin);
-        registry.addNGO(ngo, "NGO", "desc");
+        registry.addNGO(ngo, bytes32("NGO"), bytes32("kyc"), admin);
+        
+        // Ensure NGO is set as current (should happen automatically in addNGO)
+        vm.prank(admin);
+        registry.emergencySetCurrentNGO(ngo);
 
         // Adapter
         adapter = new MockAdapter(IERC20(address(usdc)), address(vault));
@@ -80,6 +84,9 @@ contract VaultRouterTest is Test {
         vm.startPrank(user);
         usdc.approve(address(vault), amount);
         vault.deposit(amount, user);
+        
+        // Set user preference to donate to NGO
+        router.setUserPreference(ngo, 100); // 100% to NGO
         vm.stopPrank();
 
         // Fund adapter with profit and mark it as pending
@@ -89,17 +96,17 @@ contract VaultRouterTest is Test {
         adapter.mockAddProfit(profit);
 
         uint256 ngoBefore = usdc.balanceOf(ngo);
-        uint256 feeBefore = usdc.balanceOf(feeRecipient);
+        uint256 adminBefore = usdc.balanceOf(admin); // Protocol treasury
 
         (uint256 p, uint256 l) = vault.harvest();
         assertEq(p, profit);
         assertEq(l, 0);
 
-        uint256 expectedFee = (profit * 250) / 10_000;
-        uint256 expectedDonation = profit - expectedFee;
+        uint256 expectedProtocolFee = (profit * 250) / 10_000; // 2.5% protocol fee
+        uint256 expectedDonation = profit - expectedProtocolFee;
 
         assertEq(usdc.balanceOf(ngo), ngoBefore + expectedDonation);
-        assertEq(usdc.balanceOf(feeRecipient), feeBefore + expectedFee);
+        assertEq(usdc.balanceOf(admin), adminBefore + expectedProtocolFee); // Protocol fee goes to admin
     }
 
     function testWithdrawReturnsPrincipal() public {

@@ -2,9 +2,7 @@
 src = "src"
 out = "out"
 libs = ["lib"]
-remappings = [
-    "@openzeppelin/contracts/=lib/openzeppelin-contracts/contracts/"
-]
+remappings = ["@chainlink=lib/chainlink-brownie-contracts", "@openzeppelin=lib/openzeppelin-contracts"]
 
 # Optimizer settings to fix "stack too deep" errors
 via_ir = true

@@ -31,7 +31,7 @@ export default function CreateNGO() {
     if (isConnected && !ngoAddress) setNgoAddress(address!)
   }, [isConnected, address, ngoAddress])
 
-  const canSubmit = !!name && !!description && !!ngoAddress && !!website && !!logoUrl && isManager
+  const canSubmit = !!name && !!description && !!ngoAddress && isManager
 
   const onSubmit = (e: React.FormEvent) => {
     e.preventDefault()
@@ -40,7 +40,7 @@ export default function CreateNGO() {
       address: registry,
       abi: NGO_REGISTRY_ABI,
       functionName: 'addNGO',
-      args: [ngoAddress as `0x${string}`, name, description, website, logoUrl],
+      args: [ngoAddress as `0x${string}`, name, description],
     })
   }
 

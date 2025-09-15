@@ -8,8 +8,6 @@ import Dashboard from './pages/Dashboard'
 import NGODetails from './pages/NGODetails'
 import CreateNGO from './pages/CreateNGO'
 import CampaignStaking from './pages/CampaignStaking'
-import { GiveProtocolDemo } from './components/GiveProtocolDemo'
-
 
 function App() {
   return (
@@ -24,8 +22,6 @@ function App() {
             <Route path="/ngo/:address" element={<NGODetails />} />
             <Route path="/campaign/:ngoAddress" element={<CampaignStaking />} />
             <Route path="/create-ngo" element={<CreateNGO />} />
-
-            <Route path="/demo" element={<GiveProtocolDemo />} />
           </Routes>
         </main>
         <Footer />

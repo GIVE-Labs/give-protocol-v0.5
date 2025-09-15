@@ -28,13 +28,13 @@ contract RouterTest is Test {
         usdc = new MockERC20("Test USDC", "TUSDC", 6);
         usdc.mint(address(this), 1_000_000e6);
         registry = new NGORegistry(admin);
-        router = new DonationRouter(admin, address(registry), feeRecipient, 0);
+        router = new DonationRouter(admin, address(registry), feeRecipient, admin, 0); // Using admin as protocol treasury
 
         vm.startPrank(admin);
         registry.grantRole(registry.NGO_MANAGER_ROLE(), admin);
         registry.grantRole(registry.DONATION_RECORDER_ROLE(), address(router));
-        registry.addNGO(ngo1, "NGO1", "d");
-        registry.addNGO(ngo2, "NGO2", "d");
+        registry.addNGO(ngo1, bytes32("NGO1"), bytes32("kyc1"), admin);
+        registry.addNGO(ngo2, bytes32("NGO2"), bytes32("kyc2"), admin);
         router.setAuthorizedCaller(caller, true);
         vm.stopPrank();
     }
@@ -72,7 +72,7 @@ contract RouterTest is Test {
 
     function testUnauthorizedCallerCannotDistribute() public {
         usdc.transfer(address(router), 1_000e6);
-        vm.expectRevert(Errors.UnauthorizedCaller.selector);
+        vm.expectRevert(abi.encodeWithSelector(Errors.UnauthorizedCaller.selector, address(this)));
         router.distribute(address(usdc), 1_000e6);
     }
 }

@@ -91,7 +91,7 @@ contract GiveVault4626 is ERC4626, AccessControl, ReentrancyGuard, Pausable {
     }
 
     /**
-     * @dev Hook called after deposit to invest excess cash
+     * @dev Hook called after deposit to invest excess cash and update user shares
      */
     function _deposit(address caller, address receiver, uint256 assets, uint256 shares)
         internal
@@ -100,11 +100,17 @@ contract GiveVault4626 is ERC4626, AccessControl, ReentrancyGuard, Pausable {
         whenNotPaused
     {
         super._deposit(caller, receiver, assets, shares);
+        
+        // Update user shares in donation router for yield distribution
+        if (donationRouter != address(0)) {
+            DonationRouter(payable(donationRouter)).updateUserShares(receiver, asset(), balanceOf(receiver));
+        }
+        
         _investExcessCash();
     }
 
     /**
-     * @dev Hook called before withdraw to ensure sufficient cash
+     * @dev Hook called before withdraw to ensure sufficient cash and update user shares
      */
     function _withdraw(address caller, address receiver, address owner, uint256 assets, uint256 shares)
         internal
@@ -114,6 +120,11 @@ contract GiveVault4626 is ERC4626, AccessControl, ReentrancyGuard, Pausable {
     {
         _ensureSufficientCash(assets);
         super._withdraw(caller, receiver, owner, assets, shares);
+        
+        // Update user shares in donation router after withdrawal
+        if (donationRouter != address(0)) {
+            DonationRouter(payable(donationRouter)).updateUserShares(owner, asset(), balanceOf(owner));
+        }
     }
 
     // === Vault Management ===
@@ -238,11 +249,8 @@ contract GiveVault4626 is ERC4626, AccessControl, ReentrancyGuard, Pausable {
             // Transfer profit to donation router
             IERC20(asset()).safeTransfer(donationRouter, profit);
 
-            // Immediately distribute to NGOs
-            (uint256 netDonation, uint256 feeAmount) =
-                DonationRouter(payable(donationRouter)).distribute(asset(), profit);
-
-            donated = netDonation + feeAmount; // Total amount processed
+            // Distribute yield to all users based on their preferences
+            donated = DonationRouter(payable(donationRouter)).distributeToAllUsers(asset(), profit);
         }
 
         emit Harvest(profit, loss, donated);

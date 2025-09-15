@@ -11,9 +11,9 @@ Based on GiveHope patterns, adapted for GIVE Protocol’s no-loss giving. Focus 
 - **Routing**: React Router v6
 
 ## Contract Integration Strategy
-1. **GiveVault4626**: ERC-4626 deposit/withdraw + previews
+1. **GiveVault4626**: ERC-4626 deposit/withdraw + previews + automatic user share tracking
 2. **NGORegistry**: Display and validate approved NGOs
-3. **DonationRouter**: Show DonationPaid events and NGO receipts
+3. **DonationRouter**: User preference management (50%, 75%, 100% allocation) + yield distribution + NGO receipts
 4. **StrategyManager**: Admin/ops panel (gated) for adapter/cash buffer
 
 ## Page Structure
@@ -38,16 +38,35 @@ Based on GiveHope patterns, adapted for GIVE Protocol’s no-loss giving. Focus 
 - Asset selection (per vault; USDC v0.1)
 - Amount input with balance check
 - ERC-4626 previews (shares, assets)
+- **User preference selection (50%, 75%, 100% yield allocation)**
+- **Impact preview showing distribution breakdown**
 - Deposit confirmation modal
 
-### 4. Portfolio (`/portfolio`) - User Dashboard
+### 4. Preferences (`/preferences`) - User Preference Management
+**Components:**
+- Current preference display (NGO + allocation %)
+- NGO selection interface
+- Allocation percentage selector (50%, 75%, 100%)
+- Impact calculator showing distribution preview
+- Preference update confirmation
+- Historical preference changes
+
+### 5. Portfolio (`/portfolio`) - User Dashboard
 **Components:**
 - Vault position overview (shares, estimated assets)
+- **Current yield allocation preference**
 - Total donated (from events)
 - Recent harvests/donations
+- **Projected yield distribution based on preferences**
 - Transaction history
 
-### 5. NGO Details (`/ngo/:id`) - NGO Information
+### 6. NGO Details (`/ngo/:id`) - NGO Information
+**Components:**
+- NGO profile and mission
+- Impact metrics and transparency
+- **Quick preference setting ("Support this NGO with X% allocation")**
+- Recent donations received
+- Verification status
 **Components:**
 - NGO profile with verification status
 - Total donations received (on-chain)

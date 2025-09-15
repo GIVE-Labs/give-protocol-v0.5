@@ -169,7 +169,7 @@ export const useNGORegistry = (contractAddress: string) => {
     const { data, isLoading } = useReadContract({
       address: contractAddress as `0x${string}`,
       abi: NGO_REGISTRY_ABI,
-      functionName: 'isNGOActive',
+      functionName: 'isNGOApproved',
       args: ngoAddress ? [ngoAddress as `0x${string}`] : undefined,
       query: { enabled: !!ngoAddress },
     });
@@ -275,7 +275,7 @@ export const useNGOVerification = (contractAddress: string, ngoAddress: string) 
   const { data, isLoading } = useReadContract({
     address: contractAddress as `0x${string}`,
     abi: NGO_REGISTRY_ABI,
-    functionName: 'isNGOActive',
+    functionName: 'isNGOApproved',
     args: ngoAddress ? [ngoAddress as `0x${string}`] : undefined,
     query: { enabled: !!ngoAddress },
   });

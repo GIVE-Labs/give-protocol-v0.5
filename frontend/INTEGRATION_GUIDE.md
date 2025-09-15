@@ -18,7 +18,7 @@ The `/src/hooks/useContracts.ts` file provides React hooks for interacting with 
 
 ### 1. useVault()
 
-Interacts with the main GiveVault4626 contract for deposits, withdrawals, and harvesting.
+Interacts with the main GiveVault4626 contract for deposits, withdrawals, and harvesting. The vault now automatically updates user shares for yield distribution.
 
 ```typescript
 import { useVault } from '../hooks/useContracts';
@@ -158,7 +158,56 @@ function StrategyComponent() {
 }
 ```
 
-### 4. useNGORegistry()
+### 4. useDonationRouter()
+
+Interacts with the DonationRouter for user preferences and yield allocation.
+
+```typescript
+import { useDonationRouter } from '../hooks/useContracts';
+
+function UserPreferencesComponent() {
+  const {
+    userPreference,
+    setUserPreference,
+    getUserAssetShares,
+    calculateUserDistribution,
+    getValidAllocations,
+    isPending
+  } = useDonationRouter();
+
+  const handleSetPreference = async (ngoAddress: string, allocationPercentage: number) => {
+    await setUserPreference(ngoAddress, allocationPercentage);
+  };
+
+  return (
+    <div>
+      <h3>Your Donation Preferences</h3>
+      {userPreference && (
+        <div>
+          <p>Selected NGO: {userPreference.selectedNGO}</p>
+          <p>Allocation: {userPreference.allocationPercentage}%</p>
+          <p>Last Updated: {new Date(Number(userPreference.lastUpdated) * 1000).toLocaleDateString()}</p>
+        </div>
+      )}
+      
+      <div>
+        <h4>Choose Your Impact Level:</h4>
+        <button onClick={() => handleSetPreference(selectedNGO, 50)} disabled={isPending}>
+          50% to NGO, 50% to Treasury
+        </button>
+        <button onClick={() => handleSetPreference(selectedNGO, 75)} disabled={isPending}>
+          75% to NGO, 25% to Treasury
+        </button>
+        <button onClick={() => handleSetPreference(selectedNGO, 100)} disabled={isPending}>
+          100% to NGO
+        </button>
+      </div>
+    </div>
+  );
+}
+```
+
+### 5. useNGORegistry()
 
 Interacts with the NGORegistry to display available NGOs.
 

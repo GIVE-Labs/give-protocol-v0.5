@@ -1,12 +1,13 @@
+import { LOCAL_CONTRACT_ADDRESSES } from './local';
+
 // Contract addresses (Sepolia) - deployed addresses
-export const CONTRACT_ADDRESSES = {
+const SEPOLIA_CONTRACT_ADDRESSES = {
   // Deployed contract addresses
   NGO_REGISTRY: '0xeFBC3D84420D848A8b6F5FD614E5740279D834Fa',
   VAULT: '0x330EC5985f4a8A03ac148a4fa12d4c45120e73bB',
   STRATEGY_MANAGER: '0xDd7800b4871816Ccc4E185A101055Ea47a73b32d',
   AAVE_ADAPTER: '0x284Ac57242f5657Cb2E45157D80068639EBac026',
   DONATION_ROUTER: '0xcA3826a36f1B82121c18F35d218e7163aFF904a4',
-
 
   // Token addresses for Sepolia
   TOKENS: {
@@ -16,6 +17,15 @@ export const CONTRACT_ADDRESSES = {
   }
 } as const;
 
+// Environment-based contract addresses
+const isDevelopment = import.meta.env.DEV;
+export const CONTRACT_ADDRESSES = isDevelopment 
+  ? LOCAL_CONTRACT_ADDRESSES 
+  : SEPOLIA_CONTRACT_ADDRESSES;
+
+// Export SEPOLIA for chain configuration
+export const SEPOLIA = SEPOLIA_CONTRACT_ADDRESSES;
+
 // Export individual contract addresses for convenience
 export const MOCK_WETH = CONTRACT_ADDRESSES.TOKENS.WETH;
 export const MOCK_USDC = CONTRACT_ADDRESSES.TOKENS.USDC;
@@ -24,22 +34,3 @@ export const VAULT = CONTRACT_ADDRESSES.VAULT;
 export const STRATEGY_MANAGER = CONTRACT_ADDRESSES.STRATEGY_MANAGER;
 export const AAVE_ADAPTER = CONTRACT_ADDRESSES.AAVE_ADAPTER;
 export const DONATION_ROUTER = CONTRACT_ADDRESSES.DONATION_ROUTER;
-
-
-// Chain configuration
-export const SEPOLIA = {
-  id: 11155111,
-  name: 'Sepolia',
-  nativeCurrency: {
-    name: 'ETH',
-    symbol: 'ETH',
-    decimals: 18,
-  },
-  rpcUrls: {
-    default: { http: [import.meta.env.VITE_SEPOLIA_RPC || 'https://rpc.sepolia.org'] },
-  },
-  blockExplorers: {
-    default: { name: 'Sepolia Explorer', url: 'https://sepolia.etherscan.io' },
-  },
-  testnet: true,
-} as const;

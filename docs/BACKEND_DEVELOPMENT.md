@@ -6,10 +6,12 @@ This guide outlines how to implement the GIVE Protocol backend (v0.1 → v1) ali
 - ERC-4626 vault: `GiveVault4626` (shares = claim on totalAssets)
 - StrategyManager: config surface (active adapter, cash buffer, risk params)
 - Adapters: `IYieldAdapter` with Aave/Euler supply-only for MVP
-- DonationRouter: routes realized profit to current NGO (optional fee)
+- **DonationRouter**: routes realized profit based on user preferences (50%/75%/100% allocation)
+- **User Preferences**: each user selects NGO and allocation percentage
+- **Protocol Treasury**: receives remaining yield + 1% protocol fee
 - NGO Registry: approve/remove NGOs; validity checks used by vault/router
 
-Key flows: deposit/withdraw per ERC-4626 with cash buffer; `harvest()` realizes P/L and donates profit.
+Key flows: deposit/withdraw per ERC-4626 with cash buffer; `harvest()` realizes P/L and distributes to users based on their preferences.
 
 ## Tech Stack
 - Foundry + Solidity 0.8.x
@@ -49,11 +51,14 @@ backend/
 1. Implement interfaces and storage layout
 2. Implement `GiveVault4626` using OZ ERC-4626 hooks:
    - `totalAssets() = cash + adapter.totalAssets()`
-   - `afterDeposit`: invest excess above cash buffer
-   - `beforeWithdraw`: divest shortfall with `maxLossBps`
+   - `afterDeposit`: invest excess above cash buffer + update user shares
+   - `beforeWithdraw`: divest shortfall with `maxLossBps` + update user shares
 3. Implement `IYieldAdapter` + `AaveAdapter` (supply-only)
-4. Implement `NGORegistry` and `DonationRouter`
-5. Wire `harvest()` in vault → adapter.harvest() → DonationRouter
+4. Implement `NGORegistry` and `DonationRouter` with user preferences:
+   - `setUserPreference(ngo, allocationPercentage)` - 50%, 75%, or 100%
+   - `updateUserShares(user, asset, shares)` - track proportional ownership
+   - `distributeToAllUsers(asset, amount)` - distribute based on preferences
+5. Wire `harvest()` in vault → adapter.harvest() → DonationRouter.distributeToAllUsers()
 6. Add AccessControl roles: DEFAULT_ADMIN, VAULT_MANAGER, NGO_MANAGER, PAUSER
 
 ## Risk & Controls (MVP hooks)

@@ -1,7 +1,7 @@
 # GIVE Protocol Frontend Interaction Guide
 
 ## Overview
-This guide shows how to interact with GIVE Protocol contracts (ERC-4626 vault, DonationRouter, NGORegistry) from the frontend using wagmi/viem.
+This guide shows how to interact with GIVE Protocol contracts (ERC-4626 vault, DonationRouter, NGORegistry) from the frontend using wagmi/viem. The system now supports user-configurable yield allocation (50%, 75%, 100%) with a 1% protocol fee.
 
 ## Contract Addresses (Scroll Sepolia)
 After deployment, update these addresses:
@@ -192,6 +192,58 @@ const getAllNGOs = async () => {
     isVerified: ngo.isVerified,
   }));
 };
+```
+
+### User Preference Management
+
+#### Set User Preference
+```typescript
+const setUserPreference = async (ngoAddress: string, allocationPercentage: number) => {
+  // allocationPercentage must be 50, 75, or 100
+  const { hash } = await writeContract({
+    abi: donationRouterAbi,
+    address: DONATION_ROUTER_ADDRESS,
+    functionName: 'setUserPreference',
+    args: [ngoAddress, allocationPercentage],
+  });
+  
+  await waitForTransactionReceipt({ hash });
+};
+```
+
+#### Get User Preference
+```typescript
+const { data: userPreference } = useReadContract({
+  abi: donationRouterAbi,
+  address: DONATION_ROUTER_ADDRESS,
+  functionName: 'getUserPreference',
+  args: [userAddress],
+});
+
+// Returns: { selectedNGO: address, allocationPercentage: uint8, lastUpdated: uint256 }
+```
+
+#### Calculate Distribution Preview
+```typescript
+const { data: distribution } = useReadContract({
+  abi: donationRouterAbi,
+  address: DONATION_ROUTER_ADDRESS,
+  functionName: 'calculateUserDistribution',
+  args: [userAddress, parseUnits('100', 6)], // Example: 100 USDC yield
+});
+
+// Returns: [ngoAmount, treasuryAmount, protocolAmount]
+```
+
+#### Get Valid Allocation Options
+```typescript
+const { data: validAllocations } = useReadContract({
+  abi: donationRouterAbi,
+  address: DONATION_ROUTER_ADDRESS,
+  functionName: 'getValidAllocations',
+});
+
+// Returns: [50, 75, 100]
 ```
 
 ### Utility Functions

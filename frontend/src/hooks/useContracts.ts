@@ -197,13 +197,13 @@ export function useNGORegistry() {
   const { data: allNGOs } = useReadContract({
     address: CONTRACT_ADDRESSES.NGO_REGISTRY as `0x${string}`,
     abi: NGO_REGISTRY_ABI,
-    functionName: 'getAllNGOs',
+    functionName: 'getApprovedNGOs',
   });
 
   const { data: verifiedNGOs } = useReadContract({
     address: CONTRACT_ADDRESSES.NGO_REGISTRY as `0x${string}`,
     abi: NGO_REGISTRY_ABI,
-    functionName: 'getAllNGOs',
+    functionName: 'getApprovedNGOs',
   });
 
   return {

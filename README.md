@@ -63,13 +63,17 @@ cd frontend && pnpm dev
 ### For Supporters
 - Deposit into simple ERC-4626 vault interface
 - Keep principal redeemable; donate only yield
+- **Choose your impact**: Select 50%, 75%, or 100% of yield to donate
+- **Select your NGO**: Pick from approved organizations
 - Transparent harvest/donation events
 - Withdraw anytime within liquidity constraints
+- Remaining yield goes to protocol treasury for sustainability
 
 ### For NGOs
 - Apply and get approved in the NGO Registry
-- Receive ongoing yield routed by Donation Router
+- Receive ongoing yield based on user preferences
 - Transparent on-chain donation receipts
+- Proportional distribution based on user allocations
 
 ## Development
 

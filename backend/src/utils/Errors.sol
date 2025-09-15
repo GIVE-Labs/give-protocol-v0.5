@@ -44,6 +44,12 @@ library Errors {
     error InvalidNGOAddress();
     error NGORemovalFailed();
     error UnauthorizedNGOManager();
+    error InvalidMetadataCid();
+    error InvalidKycHash();
+    error InvalidAttestor();
+    error TimelockNotReady();
+    error NoTimelockPending();
+    error TimelockAlreadySet();
 
     // === Donation Router Errors ===
     error InvalidDonationAmount();
@@ -65,7 +71,6 @@ library Errors {
     error InvalidStrategy();
 
     // === Access Control Errors ===
-    error UnauthorizedCaller();
     error InvalidRole();
     error RoleAlreadyGranted();
     error RoleNotGranted();
@@ -86,4 +91,8 @@ library Errors {
     error MathOverflow();
     error MathUnderflow();
     error DivisionByZero();
+    
+    // === User Preference Errors ===
+    error InvalidAllocationPercentage(uint8 percentage);
+    error UnauthorizedCaller(address caller);
 }
