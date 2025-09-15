@@ -54,14 +54,14 @@ export default function Header() {
           </nav>
 
           <div className="flex items-center space-x-4">
-            {Boolean(isManager) && (
+            {/* {Boolean(isManager) && (
               <Link
-                to="/create-ngo"
+                to="/create-campaign"
                 className="hidden sm:inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-brand-600 hover:bg-brand-700"
               >
-                Register NGO
+                Register Camapign
               </Link>
-            )}
+            )} */}
             <ConnectButton
               accountStatus={{
                 smallScreen: 'avatar',

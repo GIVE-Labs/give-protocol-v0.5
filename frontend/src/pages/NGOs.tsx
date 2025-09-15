@@ -5,7 +5,7 @@ import NGORegistryABI from '../abis/NGORegistry.json';
 import { motion } from 'framer-motion';
 import { Heart, MapPin, Users, Search } from 'lucide-react';
 import { useState, useEffect } from 'react';
-import { fetchMetadataFromIPFS } from '../services/ipfs';
+import { fetchMetadataFromIPFS, getIPFSUrl } from '../services/ipfs';
 
 
 // Type definition for NGO info from contract
@@ -22,11 +22,27 @@ interface NGOInfo {
 
 // Type definition for NGO metadata
 interface NGOMetadata {
-  name: string;
-  description: string;
-  category?: string;
-  website?: string;
-  image?: string;
+  name: string
+  description: string
+  category: string
+  missionStatement: string
+  fundingGoal: string
+  fundingDuration: string
+  images: string[] // IPFS hashes
+  videos: string[]
+  teamMembers: Array<{
+    name: string
+    role: string
+    bio: string
+  }>
+  donationTiers: Array<{
+    name: string
+    amount: string
+    description: string
+    benefits: string[]
+  }>
+  createdAt: string
+  version: string
 }
 
 
@@ -80,16 +96,17 @@ function CampaignCard({ address, index }: { address: `0x${string}`, index: numbe
     loadMetadata();
   }, [ngoInfo, address]);
 
-  // Using local images from assets folder
-  const campaignImages = [
-    '/src/assets/IMG_4241.jpg',
-    '/src/assets/IMG_5543.jpg',
-    '/src/assets/IMG_5550.jpg',
-  ];
-
-  const mockProgress = [65, 78, 45, 89, 34, 92][index % 6];
-  const mockRaised = [12500, 8900, 3400, 15600, 2100, 18900][index % 6];
-  const mockTarget = [20000, 12000, 8000, 18000, 6000, 22000][index % 6];
+  // Get actual values from metadata or use fallbacks
+  const fundingGoal = metadata?.fundingGoal ? parseFloat(metadata.fundingGoal) : 20000;
+  const totalReceived = Number((ngoInfo as NGOInfo)?.totalReceived || 0n) / 1e18; // Convert from wei
+  const progress = fundingGoal > 0 ? Math.min((totalReceived / fundingGoal) * 100, 100) : 0;
+  
+  // Use actual images from metadata or fallback
+  const campaignImages = metadata?.images && metadata.images.length > 0 
+    ? metadata.images.map(hash => getIPFSUrl(hash))
+    : ['/src/assets/IMG_4241.jpg', '/src/assets/IMG_5543.jpg', '/src/assets/IMG_5550.jpg'];
+  
+  // Mock supporters count (this would come from contract events in a real implementation)
   const mockSupporters = [234, 156, 89, 445, 67, 523][index % 6];
 
   const handleDonateClick = () => {
@@ -150,39 +167,46 @@ function CampaignCard({ address, index }: { address: `0x${string}`, index: numbe
         <div className="absolute bottom-3 left-3">
           <div className="flex items-center text-white text-xs bg-black/50 backdrop-blur-sm px-2 py-1 rounded-full">
             <MapPin className="w-3 h-3 mr-1" />
-            Education
+            {metadata?.category || 'General'}
           </div>
         </div>
       </div>
 
       {/* Campaign Content */}
       <div className="p-6">
-        <h3 className="font-bold text-lg text-gray-900 mb-2 group-hover:text-emerald-600 transition-colors line-clamp-1 font-unbounded">
-          {name}
+        <div className="flex items-center justify-between mb-3">
+          <span className="px-3 py-1 bg-emerald-100 text-emerald-800 text-xs font-medium rounded-full">
+            {metadata?.category || 'General'}
+          </span>
+          <Heart className="w-5 h-5 text-gray-400 hover:text-red-500 cursor-pointer transition-colors" />
+        </div>
+        
+        <h3 className="text-justify font-bold text-lg text-gray-900 mb-2 group-hover:text-emerald-600 transition-colors whitespace-normal break-words font-unbounded">
+          {metadata?.name || 'Unnamed NGO'}
         </h3>
         
         <p className="text-gray-600 text-sm mb-4 line-clamp-2 leading-relaxed">
-          {description}
+          {metadata?.description || metadata?.missionStatement || 'No description available'}
         </p>
         
         {/* Progress Bar */}
         <div className="mb-4">
           <div className="flex justify-between items-center mb-2">
             <span className="text-sm font-semibold text-gray-900">
-              ${mockRaised.toLocaleString()} raised
+              ${totalReceived.toLocaleString()} raised
             </span>
             <span className="text-sm text-gray-500">
-              {mockProgress}%
+              {Math.round(progress)}%
             </span>
           </div>
           <div className="w-full bg-gray-200 rounded-full h-2">
             <div 
               className="bg-gradient-to-r from-emerald-500 to-teal-500 h-2 rounded-full transition-all duration-500"
-              style={{ width: `${mockProgress}%` }}
+              style={{ width: `${progress}%` }}
             />
           </div>
           <div className="flex justify-between items-center mt-2 text-xs text-gray-500">
-            <span>${mockTarget.toLocaleString()} goal</span>
+            <span>${fundingGoal.toLocaleString()} goal</span>
             <div className="flex items-center">
               <Users className="w-3 h-3 mr-1" />
               {mockSupporters} supporters

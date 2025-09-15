@@ -3,14 +3,15 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useAccount, useReadContract, useWriteContract, useWaitForTransactionReceipt, useBalance } from 'wagmi';
 import { formatUnits, parseUnits } from 'viem';
 import { motion } from 'framer-motion';
-import { ArrowLeft, Heart, Share2, Twitter, Facebook, Linkedin, Info, Gift, ExternalLink, Award, ChevronDown } from 'lucide-react';
+import { ArrowLeft, Heart, Share2, Twitter, Facebook, Linkedin, Info, Gift, ExternalLink, Award, ChevronDown, ChevronLeft, ChevronRight } from 'lucide-react';
 import NGORegistryABI from '../abis/NGORegistry.json';
 import GiveVault4626ABI from '../abis/GiveVault4626.json';
 import { erc20Abi } from '../abis/erc20';
 
-import { CONTRACT_ADDRESSES } from '../config/contracts';
+import { CONTRACT_ADDRESSES, CURRENT_NETWORK } from '../config/contracts';
 import { NGO } from '../types';
 import Button from '../components/ui/Button';
+import { fetchMetadataFromIPFS, NGOMetadata } from '../services/ipfs';
 
 export default function CampaignStaking() {
   const { ngoAddress } = useParams<{ ngoAddress: string }>();
@@ -18,8 +19,8 @@ export default function CampaignStaking() {
   const { address, isConnected, chain } = useAccount();
   
   // Network validation
-  const isCorrectNetwork = chain?.id === 11155111; // Sepolia testnet
-  const networkError = isConnected && !isCorrectNetwork ? 'Please switch to Sepolia testnet' : null;
+  const isCorrectNetwork = chain?.id === CURRENT_NETWORK.chainId;
+  const networkError = isConnected && !isCorrectNetwork ? `Please switch to ${CURRENT_NETWORK.name}` : null;
   const [stakeAmount, setStakeAmount] = useState('0');
   const [lockPeriod, setLockPeriod] = useState(12);
   const [yieldSharingRatio, setYieldSharingRatio] = useState(75);
@@ -29,6 +30,9 @@ export default function CampaignStaking() {
   const [showFullDescription, setShowFullDescription] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [metadata, setMetadata] = useState<NGOMetadata | null>(null);
+  const [metadataLoading, setMetadataLoading] = useState(false);
+  const [currentImageIndex, setCurrentImageIndex] = useState(0);
 
   // NOTE: The current vault is USDC-based (ERC20 with 6 decimals).
   // To avoid failed deposits and incorrect approvals, only USDC is enabled for staking.
@@ -60,6 +64,31 @@ export default function CampaignStaking() {
       enabled: !!address,
     },
   });
+
+  // Fetch metadata from IPFS
+  useEffect(() => {
+    console.log('CampaignStaking - ngoInfo changed:', ngoInfo);
+    const fetchNGOMetadata = async () => {
+      if (ngoInfo && (ngoInfo as any).metadataCid) {
+        setMetadataLoading(true);
+        try {
+          const metadataCid = (ngoInfo as any).metadataCid as string;
+          console.log('Fetching metadata for campaign staking:', metadataCid);
+          const metadata = await fetchMetadataFromIPFS(metadataCid);
+          console.log('Fetched metadata:', metadata);
+          setMetadata(metadata);
+        } catch (error) {
+          console.error('Error fetching metadata:', error);
+        } finally {
+          setMetadataLoading(false);
+        }
+      } else {
+        console.log('No ngoInfo or metadataCid found:', { ngoInfo, hasMetadataCid: ngoInfo && (ngoInfo as any).metadataCid });
+      }
+    };
+    
+    fetchNGOMetadata();
+  }, [ngoInfo]);
 
   // Get vault total assets for target calculation (optional)
   // Removed unused variable to satisfy TypeScript
@@ -171,43 +200,23 @@ export default function CampaignStaking() {
   const totalStakers = 850;
   const avgLockPeriod = 14.3;
 
-  const ngo: NGO = (ngoInfo && typeof ngoInfo === 'object' && 'name' in ngoInfo) ? {
+  const ngo: NGO = {
     ngoAddress: ngoAddress!,
-    name: typeof (ngoInfo as any).name === 'string' ? (ngoInfo as any).name : 'Global Education Fund',
-    description: typeof (ngoInfo as any).description === 'string' ? (ngoInfo as any).description : 'Empowering futures through accessible education',
+    name: metadata?.name || (ngoInfo && typeof (ngoInfo as any).name === 'string' ? (ngoInfo as any).name : 'Global Education Fund'),
+    description: metadata?.description || (ngoInfo && typeof (ngoInfo as any).description === 'string' ? (ngoInfo as any).description : 'Empowering futures through accessible education'),
     website: '',
-    logoURI: '/api/placeholder/40/40',
+    logoURI: metadata?.images?.[0] || '/api/placeholder/40/40',
     walletAddress: ngoAddress!,
-    causes: ['Education'],
-    metadataURI: '',
+    causes: metadata?.category ? [metadata.category] : ['Education'],
+    metadataURI: metadata ? (ngoInfo as any)?.metadataCid || '' : '',
     isVerified: true,
-    isActive: typeof (ngoInfo as any).isActive === 'boolean' ? (ngoInfo as any).isActive : true,
+    isActive: ngoInfo ? (typeof (ngoInfo as any).isActive === 'boolean' ? (ngoInfo as any).isActive : true) : true,
     reputationScore: BigInt(0),
     totalStakers: BigInt(850),
     totalYieldReceived: BigInt(0),
     id: ngoAddress!,
     location: '',
-    category: 'Education',
-    totalStaked: '3500000',
-    activeStakers: 850,
-    impactScore: 95
-  } : {
-    ngoAddress: ngoAddress!,
-    name: 'Global Education Fund',
-    description: 'Empowering futures through accessible education',
-    website: '',
-    logoURI: '/api/placeholder/40/40',
-    walletAddress: ngoAddress!,
-    causes: ['Education'],
-    metadataURI: '',
-    isVerified: true,
-    isActive: true,
-    reputationScore: BigInt(0),
-    totalStakers: BigInt(850),
-    totalYieldReceived: BigInt(0),
-    id: ngoAddress!,
-    location: '',
-    category: 'Education',
+    category: metadata?.category || 'Education',
     totalStaked: '3500000',
     activeStakers: 850,
     impactScore: 95
@@ -222,7 +231,7 @@ export default function CampaignStaking() {
 
     // Validate network
     if (!isCorrectNetwork) {
-      setError('Please switch to Sepolia testnet');
+      setError(`Please switch to ${CURRENT_NETWORK.name}`);
       return;
     }
     
@@ -365,10 +374,48 @@ export default function CampaignStaking() {
                 </div>
                 <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent"></div>
                 <img 
-                  src="/src/assets/IMG_4241.jpg" 
-                  alt="Education Campaign" 
-                  className="w-full h-full object-cover"
-                />
+                    src={metadata?.images?.[currentImageIndex] ? `https://ipfs.io/ipfs/${metadata.images[currentImageIndex]}` : "/src/assets/IMG_4241.jpg"} 
+                    alt={metadata?.name || "Education Campaign"} 
+                    className="w-full h-full object-cover"
+
+                  />
+                {metadata?.images && metadata.images.length > 1 && (
+                  <>
+                    <button
+                       onClick={() => {
+                         setCurrentImageIndex(prev => {
+                           const newIndex = prev === 0 ? metadata.images.length - 1 : prev - 1;
+                           return newIndex;
+                         });
+                       }}
+                       className="absolute left-2 top-1/2 transform -translate-y-1/2 bg-black/50 hover:bg-black/70 text-white p-2 rounded-full transition-colors z-20"
+                     >
+                       <ChevronLeft className="w-5 h-5" />
+                     </button>
+                    <button
+                       onClick={() => {
+                         setCurrentImageIndex(prev => {
+                           const newIndex = prev === metadata.images.length - 1 ? 0 : prev + 1;
+                           return newIndex;
+                         });
+                       }}
+                       className="absolute right-2 top-1/2 transform -translate-y-1/2 bg-black/50 hover:bg-black/70 text-white p-2 rounded-full transition-colors z-20"
+                     >
+                       <ChevronRight className="w-5 h-5" />
+                     </button>
+                    <div className="absolute bottom-2 left-1/2 transform -translate-x-1/2 flex space-x-2 z-20">
+                      {metadata.images.map((_, index) => (
+                        <button
+                          key={index}
+                          onClick={() => setCurrentImageIndex(index)}
+                          className={`w-2 h-2 rounded-full transition-colors ${
+                            index === currentImageIndex ? 'bg-white' : 'bg-white/50'
+                          }`}
+                        />
+                      ))}
+                    </div>
+                  </>
+                )}
               </div>
 
               {/* Campaign Details */}
@@ -379,7 +426,7 @@ export default function CampaignStaking() {
                     whileHover={{ scale: 1.05 }}
                   >
                     <img 
-                      src="/src/assets/IMG_5543.jpg" 
+                      src={metadata?.images?.[0] ? `https://ipfs.io/ipfs/${metadata.images[0]}` : "/src/assets/IMG_5543.jpg"} 
                       alt={ngo.name} 
                       className="w-16 h-16 rounded-full object-cover border-3 border-emerald-200 shadow-lg"
                     />

@@ -4,14 +4,19 @@ import { useAccount, useReadContract, useWriteContract, useWaitForTransactionRec
 import { parseEther, parseUnits, formatUnits } from 'viem';
 import { erc20Abi } from 'viem';
 import GiveVault4626ABI from '../abis/GiveVault4626.json';
+import NGORegistryABI from '../abis/NGORegistry.json';
 import { useNGODetails } from '../hooks/useNGORegistryWagmi';
 import { NGO } from '../types';
 import StakingProgressModal from '../components/staking/StakingProgressModal';
+import { fetchMetadataFromIPFS, getIPFSUrl, NGOMetadata } from '../services/ipfs';
+import { CONTRACT_ADDRESSES } from '../config/contracts';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 
-const STAKING_CONTRACT = '0x742d35Cc6634C0532925a3b8D4C9db96C4b5Da5e';
-const WETH_ADDRESS = '0xfFf9976782d46CC05630D1f6eBAb18b2324d6B14';
-const USDC_ADDRESS = '0x94a9D9AC8a22534E3FaCa9F4e7F2E2cf85d5E4C8';
-const CONTRACT_ADDRESS = '0x742d35Cc6634C0532925a3b8D4C9db96C4b5Da5e';
+// Use dynamic contract addresses based on active network
+const STAKING_CONTRACT = CONTRACT_ADDRESSES.VAULT;
+const WETH_ADDRESS = CONTRACT_ADDRESSES.TOKENS.WETH;
+const USDC_ADDRESS = CONTRACT_ADDRESSES.TOKENS.USDC;
+const CONTRACT_ADDRESS = CONTRACT_ADDRESSES.VAULT;
 
 export default function NGODetails() {
   const { ngoAddress } = useParams<{ ngoAddress: string }>();
@@ -28,9 +33,23 @@ export default function NGODetails() {
   const [isStakeComplete, setIsStakeComplete] = useState(false);
   const [isStakeError, setIsStakeError] = useState(false);
   const [currentTxHash, setCurrentTxHash] = useState<string | undefined>();
+  const [metadata, setMetadata] = useState<NGOMetadata | null>(null);
+  const [metadataLoading, setMetadataLoading] = useState(false);
+  const [currentImageIndex, setCurrentImageIndex] = useState(0);
   
   // NGO data
   const { ngo, loading, error: ngoError } = useNGODetails(CONTRACT_ADDRESS, ngoAddress || '');
+  
+  // Get NGO info from contract for metadata
+  const { data: ngoInfo } = useReadContract({
+    address: CONTRACT_ADDRESSES.NGO_REGISTRY,
+    abi: NGORegistryABI,
+    functionName: 'getNGOInfo',
+    args: ngoAddress ? [ngoAddress as `0x${string}`] : undefined,
+    query: {
+      enabled: !!ngoAddress
+    }
+  });
   
   // Token addresses
   const tokenAddress = selectedToken === 'ETH' ? undefined : 
@@ -50,6 +69,40 @@ export default function NGODetails() {
     address: userAddress,
     token: USDC_ADDRESS as `0x${string}`,
   });
+  
+  // Fetch metadata from IPFS
+   useEffect(() => {
+     const fetchNGOMetadata = async () => {
+       if (ngoInfo && (ngoInfo as any).metadataCid) {
+         setMetadataLoading(true);
+         try {
+           const metadataCid = (ngoInfo as any).metadataCid as string;
+           console.log('Fetching metadata for NGO details:', metadataCid);
+           const metadata = await fetchMetadataFromIPFS(metadataCid);
+           setMetadata(metadata);
+         } catch (error) {
+           console.error('Error fetching metadata:', error);
+         } finally {
+           setMetadataLoading(false);
+         }
+       }
+     };
+     
+     fetchNGOMetadata();
+   }, [ngoInfo]);
+  
+  // Image carousel navigation functions
+  const nextImage = () => {
+    if (metadata?.images && metadata.images.length > 0) {
+      setCurrentImageIndex((prev) => (prev + 1) % metadata.images.length);
+    }
+  };
+  
+  const prevImage = () => {
+    if (metadata?.images && metadata.images.length > 0) {
+      setCurrentImageIndex((prev) => (prev - 1 + metadata.images.length) % metadata.images.length);
+    }
+  };
   
   // Contract interactions
   const { data: allowance, refetch: refetchAllowance } = useReadContract({
@@ -210,28 +263,71 @@ export default function NGODetails() {
         <div className="absolute bottom-20 left-1/3 w-40 h-40 bg-gradient-to-r from-blue-200/20 to-purple-200/20 rounded-full blur-2xl" />
       </div>
       
-      {/* Hero Section */}
+      {/* Hero Section with Image Carousel */}
       <div className="relative h-96 bg-gradient-to-r from-emerald-600 via-teal-600 to-cyan-600">
-        <img 
-          src={displayNgo.logoURI} 
-          alt={displayNgo.name}
-          className="w-full h-full object-cover opacity-20"
-        />
+        {/* Image Carousel */}
+        {metadata?.images && metadata.images.length > 0 ? (
+          <div className="relative w-full h-full overflow-hidden">
+            <img 
+              src={getIPFSUrl(metadata.images[currentImageIndex])} 
+              alt={metadata.name || displayNgo.name}
+              className="w-full h-full object-cover opacity-30 transition-all duration-500"
+            />
+            
+            {/* Carousel Navigation */}
+            {metadata.images.length > 1 && (
+              <>
+                <button
+                  onClick={prevImage}
+                  className="absolute left-4 top-1/2 transform -translate-y-1/2 bg-black/50 hover:bg-black/70 text-white p-2 rounded-full transition-all duration-200"
+                >
+                  <ChevronLeft className="w-6 h-6" />
+                </button>
+                <button
+                  onClick={nextImage}
+                  className="absolute right-4 top-1/2 transform -translate-y-1/2 bg-black/50 hover:bg-black/70 text-white p-2 rounded-full transition-all duration-200"
+                >
+                  <ChevronRight className="w-6 h-6" />
+                </button>
+                
+                {/* Image Indicators */}
+                <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 flex space-x-2">
+                  {metadata.images.map((_, index) => (
+                    <button
+                      key={index}
+                      onClick={() => setCurrentImageIndex(index)}
+                      className={`w-2 h-2 rounded-full transition-all duration-200 ${
+                        index === currentImageIndex ? 'bg-white' : 'bg-white/50'
+                      }`}
+                    />
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
+        ) : (
+          <img 
+            src={displayNgo.logoURI} 
+            alt={displayNgo.name}
+            className="w-full h-full object-cover opacity-20"
+          />
+        )}
+        
         <div className="absolute inset-0 bg-gradient-to-r from-emerald-600/80 via-teal-600/80 to-cyan-600/80" />
         <div className="absolute top-6 left-6">
           <span className="bg-emerald-100 text-emerald-800 px-3 py-1 rounded-full text-sm font-medium font-unbounded">
-            {displayNgo.category}
+            {metadata?.category || displayNgo.category || 'General'}
           </span>
         </div>
         <div className="absolute bottom-6 left-6 text-white">
           <div className="flex items-center space-x-3 mb-4">
             <img 
-              src={displayNgo.logoURI} 
-              alt={displayNgo.name}
+              src={metadata?.images && metadata.images.length > 0 ? getIPFSUrl(metadata.images[0]) : displayNgo.logoURI} 
+              alt={metadata?.name || displayNgo.name}
               className="w-16 h-16 rounded-lg object-cover border-2 border-white shadow-lg"
             />
             <div>
-              <h1 className="text-3xl font-bold font-unbounded mb-2">{displayNgo.name}</h1>
+              <h1 className="text-3xl font-bold font-unbounded mb-2">{metadata?.name || displayNgo.name}</h1>
               <div className="flex items-center space-x-2">
                 <span className="bg-emerald-100 text-emerald-800 px-2 py-1 rounded-full text-xs font-medium flex items-center">
                   <svg className="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 20 20">
@@ -242,7 +338,7 @@ export default function NGODetails() {
               </div>
             </div>
           </div>
-          <p className="text-xl opacity-90 max-w-2xl font-medium">{displayNgo.description}</p>
+          <p className="text-xl opacity-90 max-w-2xl font-medium">{metadata?.description || metadata?.missionStatement || displayNgo.description}</p>
         </div>
       </div>
       
@@ -304,24 +400,81 @@ export default function NGODetails() {
                     <div>
                       <h3 className="text-lg font-semibold text-gray-900 mb-3 font-unbounded">About This Campaign</h3>
                       <p className="text-gray-700 leading-relaxed mb-4 font-medium">
-                        {displayNgo.name} is dedicated to creating sustainable impact in {displayNgo.location.toLowerCase()}. 
-                        Through innovative programs and community-driven solutions, we work tirelessly to address 
-                        critical social issues and create lasting positive change.
+                        {metadata?.description || `${displayNgo.name} is dedicated to creating sustainable impact. Through innovative programs and community-driven solutions, we work tirelessly to address critical social issues and create lasting positive change.`}
                       </p>
-                      <p className="text-gray-700 leading-relaxed font-medium">
-                        Our mission focuses on empowering communities through education, providing access to quality 
-                        learning opportunities, and building sustainable futures for the next generation.
-                      </p>
+                      {metadata?.missionStatement && (
+                        <div className="mb-4">
+                          <h4 className="text-md font-semibold text-gray-900 mb-2 font-unbounded">Mission Statement</h4>
+                          <p className="text-gray-700 leading-relaxed font-medium">
+                            {metadata.missionStatement}
+                          </p>
+                        </div>
+                      )}
+                      {metadata?.fundingGoal && (
+                        <div className="mb-4">
+                          <h4 className="text-md font-semibold text-gray-900 mb-2 font-unbounded">Funding Goal</h4>
+                          <p className="text-gray-700 leading-relaxed font-medium">
+                            Target: ${parseFloat(metadata.fundingGoal).toLocaleString()}
+                            {metadata.fundingDuration && ` over ${metadata.fundingDuration} days`}
+                          </p>
+                        </div>
+                      )}
                     </div>
+                    
+                    {metadata?.teamMembers && metadata.teamMembers.length > 0 && (
+                      <div>
+                        <h3 className="text-lg font-semibold text-gray-900 mb-3 font-unbounded">Team Members</h3>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          {metadata.teamMembers.map((member, index) => (
+                            <div key={index} className="bg-gray-50 p-4 rounded-lg">
+                              <h4 className="font-semibold text-gray-900">{member.name}</h4>
+                              <p className="text-sm text-emerald-600 mb-2">{member.role}</p>
+                              <p className="text-sm text-gray-600">{member.bio}</p>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    
+                    {metadata?.donationTiers && metadata.donationTiers.length > 0 && (
+                      <div>
+                        <h3 className="text-lg font-semibold text-gray-900 mb-3 font-unbounded">Donation Tiers</h3>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          {metadata.donationTiers.map((tier, index) => (
+                            <div key={index} className="border border-gray-200 p-4 rounded-lg">
+                              <h4 className="font-semibold text-gray-900">{tier.name}</h4>
+                              <p className="text-lg font-bold text-emerald-600 mb-2">${tier.amount}</p>
+                              <p className="text-sm text-gray-600 mb-2">{tier.description}</p>
+                              {tier.benefits && tier.benefits.length > 0 && (
+                                <div>
+                                  <p className="text-xs font-semibold text-gray-700 mb-1">Benefits:</p>
+                                  <ul className="text-xs text-gray-600 list-disc list-inside">
+                                    {tier.benefits.map((benefit, benefitIndex) => (
+                                      <li key={benefitIndex}>{benefit}</li>
+                                    ))}
+                                  </ul>
+                                </div>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                     
                     <div>
                       <h3 className="text-lg font-semibold text-gray-900 mb-3 font-unbounded">Focus Areas</h3>
                       <div className="flex flex-wrap gap-2">
-                        {displayNgo.causes.map((cause: string) => (
-                          <span key={cause} className="bg-gradient-to-r from-emerald-100 to-teal-100 text-emerald-800 px-3 py-1 rounded-full text-sm font-medium">
-                            {cause}
+                        {metadata?.category ? (
+                          <span className="bg-gradient-to-r from-emerald-100 to-teal-100 text-emerald-800 px-3 py-1 rounded-full text-sm font-medium">
+                            {metadata.category}
                           </span>
-                        ))}
+                        ) : (
+                          displayNgo.causes.map((cause: string) => (
+                            <span key={cause} className="bg-gradient-to-r from-emerald-100 to-teal-100 text-emerald-800 px-3 py-1 rounded-full text-sm font-medium">
+                              {cause}
+                            </span>
+                          ))
+                        )}
                       </div>
                     </div>
                   </div>
