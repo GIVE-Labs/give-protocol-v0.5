@@ -50,8 +50,8 @@ contract UserPreferencesTest is Test {
         registry.grantRole(registry.DONATION_RECORDER_ROLE(), address(router));
         
         // Setup NGOs
-        registry.addNGO(ngo1, bytes32("NGO1"), bytes32("kyc1"), admin);
-        registry.addNGO(ngo2, bytes32("NGO2"), bytes32("kyc2"), admin);
+        registry.addNGO(ngo1, "NGO1", bytes32("kyc1"), admin);
+        registry.addNGO(ngo2, "NGO2", bytes32("kyc2"), admin);
         
         // Authorize caller
         router.setAuthorizedCaller(caller, true);

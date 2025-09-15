@@ -209,12 +209,12 @@ export function useNGORegistry() {
     functionName: 'getApprovedNGOs',
   });
 
-  const registerNGO = async (name: string, description: string) => {
+  const registerNGO = async (ngoAddress: string, metadataCid: string, kycHash: string, attestor: string) => {
     return writeContract({
       address: CONTRACT_ADDRESSES.NGO_REGISTRY as `0x${string}`,
       abi: NGORegistryABI,
       functionName: 'addNGO',
-      args: [CONTRACT_ADDRESSES.NGO_REGISTRY as `0x${string}`, name, description],
+      args: [ngoAddress as `0x${string}`, metadataCid as `0x${string}`, kycHash as `0x${string}`, attestor as `0x${string}`],
     });
   };
 

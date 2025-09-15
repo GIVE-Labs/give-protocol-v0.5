@@ -33,7 +33,7 @@ contract NGORegistry is AccessControl, Pausable {
     uint256 public constant TIMELOCK_DELAY = 24 hours; // 24h timelock for governance changes
 
     struct NGOInfo {
-        bytes32 metadataCid;     // IPFS/Arweave hash for name/description
+        string metadataCid;      // IPFS/Arweave hash for name/description
         bytes32 kycHash;         // Hash of attestation docs or EAS UID
         address attestor;        // Who verified the NGO
         uint256 createdAt;       // Creation timestamp
@@ -44,9 +44,9 @@ contract NGORegistry is AccessControl, Pausable {
     }
 
     // === Events ===
-    event NGOApproved(address indexed ngo, bytes32 metadataCid, bytes32 kycHash, address attestor, uint256 timestamp);
-    event NGORemoved(address indexed ngo, bytes32 metadataCid, uint256 timestamp);
-    event NGOUpdated(address indexed ngo, bytes32 oldMetadataCid, bytes32 newMetadataCid, uint256 newVersion);
+    event NGOApproved(address indexed ngo, string metadataCid, bytes32 kycHash, address attestor, uint256 timestamp);
+    event NGORemoved(address indexed ngo, string metadataCid, uint256 timestamp);
+    event NGOUpdated(address indexed ngo, string oldMetadataCid, string newMetadataCid, uint256 newVersion);
     event CurrentNGOSet(address indexed oldNGO, address indexed newNGO, uint256 eta);
     event DonationRecorded(address indexed ngo, uint256 amount, uint256 newTotalReceived);
 
@@ -67,14 +67,14 @@ contract NGORegistry is AccessControl, Pausable {
      * @param kycHash Hash of attestation documents or EAS UID
      * @param attestor Address of the entity that verified the NGO
      */
-    function addNGO(address ngo, bytes32 metadataCid, bytes32 kycHash, address attestor)
+    function addNGO(address ngo, string calldata metadataCid, bytes32 kycHash, address attestor)
         external
         onlyRole(NGO_MANAGER_ROLE)
         whenNotPaused
     {
         if (ngo == address(0)) revert Errors.InvalidNGOAddress();
         if (isApproved[ngo]) revert Errors.NGOAlreadyApproved();
-        if (metadataCid == bytes32(0)) revert Errors.InvalidMetadataCid();
+        if (bytes(metadataCid).length == 0) revert Errors.InvalidMetadataCid();
         if (attestor == address(0)) revert Errors.InvalidAttestor();
 
         uint256 timestamp = block.timestamp;
@@ -108,7 +108,7 @@ contract NGORegistry is AccessControl, Pausable {
     function removeNGO(address ngo) external onlyRole(NGO_MANAGER_ROLE) {
         if (!isApproved[ngo]) revert Errors.NGONotApproved();
 
-        bytes32 metadataCid = ngoInfo[ngo].metadataCid;
+        string memory metadataCid = ngoInfo[ngo].metadataCid;
 
         isApproved[ngo] = false;
         ngoInfo[ngo].isActive = false;
@@ -132,14 +132,14 @@ contract NGORegistry is AccessControl, Pausable {
      * @param newMetadataCid New IPFS/Arweave hash for metadata
      * @param newKycHash New KYC hash (optional, use existing if bytes32(0))
      */
-    function updateNGO(address ngo, bytes32 newMetadataCid, bytes32 newKycHash)
+    function updateNGO(address ngo, string calldata newMetadataCid, bytes32 newKycHash)
         external
         onlyRole(NGO_MANAGER_ROLE)
     {
         if (!isApproved[ngo]) revert Errors.NGONotApproved();
-        if (newMetadataCid == bytes32(0)) revert Errors.InvalidMetadataCid();
+        if (bytes(newMetadataCid).length == 0) revert Errors.InvalidMetadataCid();
 
-        bytes32 oldMetadataCid = ngoInfo[ngo].metadataCid;
+        string memory oldMetadataCid = ngoInfo[ngo].metadataCid;
         
         ngoInfo[ngo].metadataCid = newMetadataCid;
         if (newKycHash != bytes32(0)) {

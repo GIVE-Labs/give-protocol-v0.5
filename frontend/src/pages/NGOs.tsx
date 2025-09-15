@@ -4,10 +4,37 @@ import { CONTRACT_ADDRESSES } from '../config/contracts';
 import NGORegistryABI from '../abis/NGORegistry.json';
 import { motion } from 'framer-motion';
 import { Heart, MapPin, Users, Search } from 'lucide-react';
-import { hexToString } from 'viem';
+import { useState, useEffect } from 'react';
+import { fetchMetadataFromIPFS } from '../services/ipfs';
+
+
+// Type definition for NGO info from contract
+interface NGOInfo {
+  metadataCid: string; // string CID from contract
+  kycHash: `0x${string}`;
+  attestor: `0x${string}`;
+  createdAt: bigint;
+  updatedAt: bigint;
+  version: bigint;
+  totalReceived: bigint;
+  isActive: boolean;
+}
+
+// Type definition for NGO metadata
+interface NGOMetadata {
+  name: string;
+  description: string;
+  category?: string;
+  website?: string;
+  image?: string;
+}
+
+
 
 function CampaignCard({ address, index }: { address: `0x${string}`, index: number }) {
   const navigate = useNavigate();
+  const [metadata, setMetadata] = useState<NGOMetadata | null>(null);
+  const [, setMetadataLoading] = useState(false);
   
   const { data: ngoInfo, isLoading } = useReadContract({
     address: CONTRACT_ADDRESSES.NGO_REGISTRY,
@@ -16,14 +43,48 @@ function CampaignCard({ address, index }: { address: `0x${string}`, index: numbe
     args: [address],
   });
 
+
+
+  // Fetch metadata from IPFS when ngoInfo is available
+  useEffect(() => {
+    async function loadMetadata() {
+      console.log('NGO Info for', address, ':', ngoInfo);
+      if (!ngoInfo || !(ngoInfo as NGOInfo).metadataCid) {
+        console.log('No ngoInfo or metadataCid for', address);
+        return;
+      }
+      
+      const metadataCid = (ngoInfo as NGOInfo).metadataCid;
+      console.log('Raw metadataCid for', address, ':', metadataCid, 'Type:', typeof metadataCid);
+      
+      setMetadataLoading(true);
+      try {
+        // metadataCid is now a string CID directly from contract
+        console.log('Using CID directly:', metadataCid);
+        
+        if (!metadataCid || metadataCid.trim() === '') {
+          console.warn('Empty metadataCid');
+          return;
+        }
+        
+        const fetchedMetadata = await fetchMetadataFromIPFS(metadataCid);
+        console.log('Fetched metadata for', address, ':', fetchedMetadata);
+        setMetadata(fetchedMetadata);
+      } catch (error) {
+        console.warn('Failed to fetch metadata for NGO:', address, error);
+      } finally {
+        setMetadataLoading(false);
+      }
+    }
+    
+    loadMetadata();
+  }, [ngoInfo, address]);
+
   // Using local images from assets folder
   const campaignImages = [
     '/src/assets/IMG_4241.jpg',
     '/src/assets/IMG_5543.jpg',
     '/src/assets/IMG_5550.jpg',
-    '/src/assets/IMG_4241.jpg',
-    '/src/assets/IMG_5543.jpg',
-    '/src/assets/IMG_5550.jpg'
   ];
 
   const mockProgress = [65, 78, 45, 89, 34, 92][index % 6];
@@ -58,20 +119,11 @@ function CampaignCard({ address, index }: { address: `0x${string}`, index: numbe
     return null;
   }
 
-  // Parse metadata from metadataCid
-  let name = 'Unknown Campaign';
-  let description = 'Help us make a difference in the world';
+  // Use fetched metadata or fallback values
+  const name = metadata?.name || 'Unknown Campaign';
+  const description = metadata?.description || 'Help us make a difference in the world';
   
-  try {
-    const metadataString = hexToString((ngoInfo as any).metadataCid, { size: 32 });
-    const metadata = JSON.parse(metadataString.replace(/\0/g, ''));
-    name = metadata.name || name;
-    description = metadata.description || description;
-  } catch (error) {
-    console.warn('Failed to parse NGO metadata:', error);
-  }
-  
-  const isActive = (ngoInfo as any)?.isActive || false;
+  const isActive = (ngoInfo as NGOInfo)?.isActive || false;
 
   return (
     <motion.div 
@@ -155,6 +207,11 @@ export default function NGOsPage() {
     functionName: 'getApprovedNGOs',
   });
 
+  // Debug logging
+  console.log('NGO Registry Address:', CONTRACT_ADDRESSES.NGO_REGISTRY);
+  console.log('Approved NGOs:', approvedNGOs);
+  console.log('Loading:', loadingList);
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-emerald-50 via-cyan-50 to-teal-50 relative overflow-hidden">
       {/* Animated Background Elements */}
@@ -214,6 +271,8 @@ export default function NGOsPage() {
           </motion.div>
         </div>
       </div>
+
+
 
       {/* Campaigns Grid */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">

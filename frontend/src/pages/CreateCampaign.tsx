@@ -5,6 +5,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { createNGOMetadata, validateImages } from '../services/ipfs'
 import { useAccount } from 'wagmi'
 import { useNGORegistry } from '../hooks/useContracts'
+import { keccak256, toBytes, stringToHex } from 'viem'
 
 interface FormData {
   // Basic Info
@@ -219,7 +220,9 @@ export default function CreateCampaign() {
       
       // Register NGO on blockchain
       console.log('Registering NGO on blockchain...')
-      await registerNGO(formData.ngoName, formData.detailedDescription)
+      const metadataCid = stringToHex(metadataHash, { size: 32 })
+      const kycHash = keccak256(toBytes('mock-kyc-hash')) // Mock KYC hash for development
+      await registerNGO(address, metadataCid, kycHash, address)
       console.log('NGO registered successfully')
       
       // Navigate to success page or NGO details

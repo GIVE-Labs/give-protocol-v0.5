@@ -53,7 +53,7 @@ contract VaultRouterTest is Test {
 
         // Approve NGO and set as current
         vm.prank(admin);
-        registry.addNGO(ngo, bytes32("NGO"), bytes32("kyc"), admin);
+        registry.addNGO(ngo, "NGO", bytes32("kyc"), admin);
         
         // Ensure NGO is set as current (should happen automatically in addNGO)
         vm.prank(admin);

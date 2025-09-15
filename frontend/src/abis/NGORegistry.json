@@ -86,8 +86,8 @@
       },
       {
         "name": "metadataCid",
-        "type": "bytes32",
-        "internalType": "bytes32"
+        "type": "string",
+        "internalType": "string"
       },
       {
         "name": "kycHash",
@@ -219,8 +219,8 @@
         "components": [
           {
             "name": "metadataCid",
-            "type": "bytes32",
-            "internalType": "bytes32"
+            "type": "string",
+            "internalType": "string"
           },
           {
             "name": "kycHash",
@@ -417,8 +417,8 @@
     "outputs": [
       {
         "name": "metadataCid",
-        "type": "bytes32",
-        "internalType": "bytes32"
+        "type": "string",
+        "internalType": "string"
       },
       {
         "name": "kycHash",
@@ -601,8 +601,8 @@
       },
       {
         "name": "newMetadataCid",
-        "type": "bytes32",
-        "internalType": "bytes32"
+        "type": "string",
+        "internalType": "string"
       },
       {
         "name": "newKycHash",
@@ -675,9 +675,9 @@
       },
       {
         "name": "metadataCid",
-        "type": "bytes32",
+        "type": "string",
         "indexed": false,
-        "internalType": "bytes32"
+        "internalType": "string"
       },
       {
         "name": "kycHash",
@@ -712,9 +712,9 @@
       },
       {
         "name": "metadataCid",
-        "type": "bytes32",
+        "type": "string",
         "indexed": false,
-        "internalType": "bytes32"
+        "internalType": "string"
       },
       {
         "name": "timestamp",
@@ -737,15 +737,15 @@
       },
       {
         "name": "oldMetadataCid",
-        "type": "bytes32",
+        "type": "string",
         "indexed": false,
-        "internalType": "bytes32"
+        "internalType": "string"
       },
       {
         "name": "newMetadataCid",
-        "type": "bytes32",
+        "type": "string",
         "indexed": false,
-        "internalType": "bytes32"
+        "internalType": "string"
       },
       {
         "name": "newVersion",

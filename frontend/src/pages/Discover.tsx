@@ -4,6 +4,8 @@ import { useReadContract } from 'wagmi'
 import { NGO } from '../types'
 import NGORegistryABI from '../abis/NGORegistry.json'
 import { CONTRACT_ADDRESSES } from '../config/contracts'
+import { readContract } from 'wagmi/actions'
+import { config } from '../config/web3'
 
 const formatNGOData = (address: string, contractData: any) => {
   return {
@@ -56,8 +58,7 @@ export default function Discover() {
 
       setLoading(true)
       try {
-        const ngoPromises = allNGOs.map(async (ngoData: any) => {
-          const address = ngoData.ngoAddress
+        const ngoPromises = allNGOs.map(async (address: string) => {
           const response = await fetchContractData(address)
           return formatNGOData(address, response)
         })
@@ -77,45 +78,58 @@ export default function Discover() {
   // Helper to fetch contract data from blockchain
   const fetchContractData = async (ngoAddress: string) => {
     try {
-      // Use viem's readContract to fetch NGO info from the blockchain
-      // Note: This is a simplified approach - in production you'd want to use a proper client
       console.log('Fetching NGO info for address:', ngoAddress);
       
-      // For now, return a placeholder since we need to set up the viem client properly
-      // This will be improved in the next iteration
-      const ngoInfo = {
-        name: `NGO at ${ngoAddress.slice(0, 6)}...${ngoAddress.slice(-4)}`,
-        description: 'NGO information loaded from blockchain',
+      // Fetch NGO info from the contract
+      const ngoInfo = await readContract(config, {
+        address: contractAddress as `0x${string}`,
+        abi: NGORegistryABI,
+        functionName: 'getNGOInfo',
+        args: [ngoAddress as `0x${string}`]
+      }) as any;
+
+      console.log('Raw NGO info from contract:', ngoInfo);
+
+      // Parse metadata from IPFS hash if available
+      let parsedMetadata = {
+        name: `NGO ${ngoAddress.slice(0, 6)}...${ngoAddress.slice(-4)}`,
+        description: 'NGO registered on blockchain',
         website: '',
-        logoURI: '',
+        logoURI: ''
+      };
+
+      // If metadataCid exists, try to parse it
+      if (ngoInfo.metadataCid && ngoInfo.metadataCid !== '0x0000000000000000000000000000000000000000000000000000000000000000') {
+        try {
+          // For now, use placeholder data since IPFS parsing is complex
+          // In production, you'd fetch from IPFS using the CID
+          parsedMetadata = {
+            name: `NGO ${ngoAddress.slice(0, 6)}...${ngoAddress.slice(-4)}`,
+            description: 'NGO with metadata on IPFS',
+            website: '',
+            logoURI: ''
+          };
+        } catch (metadataError) {
+          console.warn('Failed to parse metadata:', metadataError);
+        }
+      }
+
+      // Return the contract data in the expected format
+      return {
+        name: parsedMetadata.name,
+        description: parsedMetadata.description,
+        website: parsedMetadata.website,
+        logoURI: parsedMetadata.logoURI,
         walletAddress: ngoAddress,
         isVerified: true,
-        isActive: true,
-        totalYieldReceived: 0n,
+        isActive: ngoInfo.isActive || true,
+        totalYieldReceived: ngoInfo.totalReceived || 0n,
         activeStakers: 0n,
         totalStakers: 0n,
         causes: ['General'],
         reputationScore: 0n,
-        metadataHash: '',
-        registrationTime: 0n
-      };
-
-      // Return the contract data in the expected format
-      return {
-        name: ngoInfo.name || 'Unknown NGO',
-        description: ngoInfo.description || 'No description available',
-        website: ngoInfo.website || '',
-        logoURI: ngoInfo.logoURI || '',
-        walletAddress: ngoInfo.walletAddress || ngoAddress,
-        isVerified: ngoInfo.isVerified || false,
-        isActive: ngoInfo.isActive || false,
-        totalYieldReceived: ngoInfo.totalYieldReceived || 0n,
-        activeStakers: ngoInfo.activeStakers || 0n,
-        totalStakers: ngoInfo.activeStakers || 0n,
-        causes: ngoInfo.causes || ['General'],
-        reputationScore: ngoInfo.reputationScore || 0n,
-        metadataHash: ngoInfo.metadataHash || '',
-        registrationTime: ngoInfo.registrationTime || 0n
+        metadataHash: ngoInfo.metadataCid || '',
+        registrationTime: ngoInfo.createdAt || 0n
       };
     } catch (error) {
       console.error('Error fetching NGO data for address', ngoAddress, ':', error);

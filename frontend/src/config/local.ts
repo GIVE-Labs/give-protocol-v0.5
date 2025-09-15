@@ -5,8 +5,8 @@ import { localhost } from 'viem/chains';
 // These addresses are from the latest deployment to chain ID 31337
 export const LOCAL_CONTRACT_ADDRESSES = {
   // Main protocol contracts - updated with latest deployment addresses
-  NGO_REGISTRY: '0x59b670e9fA9D0A427751Af201D676719a970857b', // Latest deployment
-  DONATION_ROUTER: '0x322813Fd9A801c5507c9de605d63CEA4f2CE6c44', // Latest deployment
+  NGO_REGISTRY: '0x2279B7A0a67DB372996a5FaB50D91eAA73d2eBe6', // Latest deployment
+  DONATION_ROUTER: '0x67d269191c92Caf3cD7723F116c85e6E9bf55933', // Latest deployment
   VAULT: '0x610178dA211FEF7D417bC0e6FeD39F05609AD788', // Latest deployment
   STRATEGY_MANAGER: '0xB7f8BC63BbcaD18155201308C8f3540b07f84F5e', // Latest deployment
   AAVE_ADAPTER: '0xa85233C63b9Ee964Add6F2cffe00Fd84eb32338f', // Mock yield adapter for local testing
