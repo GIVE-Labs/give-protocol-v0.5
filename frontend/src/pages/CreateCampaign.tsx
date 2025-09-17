@@ -1,11 +1,11 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { ArrowLeft, ArrowRight, Upload, X, Check, Camera, AlertCircle } from 'lucide-react'
 import { Link, useNavigate } from 'react-router-dom'
 import { createNGOMetadata, validateImages } from '../services/ipfs'
 import { useAccount } from 'wagmi'
 import { useNGORegistry } from '../hooks/useContracts'
-import { keccak256, toBytes, stringToHex } from 'viem'
+import { keccak256, toBytes } from 'viem'
 
 interface FormData {
   // Basic Info
@@ -80,7 +80,25 @@ export default function CreateCampaign() {
   
   const navigate = useNavigate()
   const { address } = useAccount()
-  const { registerNGO, isPending: isRegistering } = useNGORegistry()
+  const { registerNGO, isPending: isRegistering, isConfirming, isConfirmed, error: registrationError } = useNGORegistry()
+
+  // Handle transaction confirmation
+  useEffect(() => {
+    if (isConfirmed) {
+      console.log('NGO registered successfully')
+      setIsSubmitting(false)
+      navigate('/ngo')
+    }
+  }, [isConfirmed, navigate])
+
+  // Handle registration errors
+  useEffect(() => {
+    if (registrationError) {
+      console.error('Registration error:', registrationError)
+      setSubmitError(registrationError.message || 'Failed to register NGO')
+      setIsSubmitting(false)
+    }
+  }, [registrationError])
 
   const updateFormData = (field: keyof FormData, value: any) => {
     setFormData(prev => ({ ...prev, [field]: value }))
@@ -220,17 +238,16 @@ export default function CreateCampaign() {
       
       // Register NGO on blockchain
       console.log('Registering NGO on blockchain...')
-      const metadataCid = stringToHex(metadataHash, { size: 32 })
       const kycHash = keccak256(toBytes('mock-kyc-hash')) // Mock KYC hash for development
-      await registerNGO(address, metadataCid, kycHash, address)
-      console.log('NGO registered successfully')
+      await registerNGO(address, metadataHash, kycHash, address)
       
-      // Navigate to success page or NGO details
-      navigate('/dashboard')
+      // Wait for transaction confirmation
+      console.log('Waiting for transaction confirmation...')
+      // The hook will handle the confirmation state, we'll check it in useEffect
+      
     } catch (error) {
       console.error('Error creating campaign:', error)
       setSubmitError(error instanceof Error ? error.message : 'Failed to create campaign')
-    } finally {
       setIsSubmitting(false)
     }
   }
@@ -597,40 +614,95 @@ export default function CreateCampaign() {
   const progress = (currentStep / STEPS.length) * 100
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-emerald-50 via-cyan-50 to-teal-50">
-      <div className="container mx-auto px-4 py-8">
+    <div className="min-h-screen bg-gradient-to-br from-emerald-50 via-cyan-50 to-teal-50 relative overflow-hidden">
+      {/* Animated Background Elements */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        <motion.div 
+          className="absolute top-20 left-10 w-32 h-32 bg-gradient-to-r from-emerald-200/30 to-cyan-200/30 rounded-full blur-xl"
+          animate={{ 
+            scale: [1, 1.2, 1],
+            rotate: [0, 180, 360]
+          }}
+          transition={{
+            duration: 20,
+            repeat: Infinity,
+            ease: "linear"
+          }}
+        />
+        <motion.div 
+          className="absolute top-40 right-20 w-24 h-24 bg-gradient-to-r from-teal-200/30 to-blue-200/30 rounded-full blur-xl"
+          animate={{ 
+            scale: [1.2, 1, 1.2],
+            rotate: [360, 180, 0]
+          }}
+          transition={{
+            duration: 15,
+            repeat: Infinity,
+            ease: "linear"
+          }}
+        />
+        <motion.div 
+          className="absolute bottom-20 left-1/3 w-40 h-40 bg-gradient-to-r from-cyan-200/20 to-emerald-200/20 rounded-full blur-2xl"
+          animate={{ 
+            scale: [1, 1.3, 1],
+            x: [-20, 20, -20]
+          }}
+          transition={{
+            duration: 25,
+            repeat: Infinity,
+            ease: "easeInOut"
+          }}
+        />
+      </div>
+
+      <div className="container mx-auto px-4 py-8 relative z-10">
         {/* Header */}
-        <div className="mb-8">
+        <motion.div 
+          className="mb-12"
+          initial={{ opacity: 0, y: 30 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6, ease: "easeOut" }}
+        >
           <Link
             to="/"
-            className="inline-flex items-center text-emerald-600 hover:text-emerald-700 mb-4"
+            className="inline-flex items-center text-emerald-600 hover:text-emerald-700 mb-6 font-medium transition-colors"
           >
             <ArrowLeft className="w-5 h-5 mr-2" />
             Back to Home
           </Link>
           
           <div className="text-center">
-            <h1 className="text-4xl font-bold text-gray-900 mb-2">Create NGO Campaign</h1>
-            <p className="text-xl text-gray-600">
+            <h1 className="text-5xl lg:text-6xl font-bold text-gray-900 mb-4 font-unbounded leading-tight">
+              <span className="text-gray-900">Create NGO</span>
+              <span className="block text-transparent bg-gradient-to-r from-emerald-600 via-cyan-600 to-teal-600 bg-clip-text pb-1">
+                Campaign
+              </span>
+            </h1>
+            <p className="text-xl lg:text-2xl text-gray-700 leading-relaxed font-medium font-unbounded max-w-3xl mx-auto">
               Launch your humanitarian project and connect with compassionate backers worldwide
             </p>
           </div>
-        </div>
+        </motion.div>
 
         {/* Progress Bar */}
-        <div className="mb-8">
-          <div className="flex justify-between items-center mb-4">
-            <span className="text-sm font-medium text-gray-700">
+        <motion.div 
+          className="mb-12"
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6, delay: 0.2, ease: "easeOut" }}
+        >
+          <div className="flex justify-between items-center mb-6">
+            <span className="text-lg font-bold text-gray-900 font-unbounded">
               Step {currentStep} of {STEPS.length}
             </span>
-            <span className="text-sm font-medium text-emerald-600">
+            <span className="text-lg font-bold text-transparent bg-gradient-to-r from-emerald-600 to-cyan-600 bg-clip-text font-unbounded">
               {Math.round(progress)}% Complete
             </span>
           </div>
           
-          <div className="w-full bg-gray-200 rounded-full h-2 mb-6">
+          <div className="w-full bg-gray-200/50 rounded-full h-3 mb-8 shadow-inner">
             <motion.div
-              className="bg-gradient-to-r from-emerald-500 to-cyan-500 h-2 rounded-full"
+              className="bg-gradient-to-r from-emerald-500 via-cyan-500 to-teal-500 h-3 rounded-full shadow-lg"
               initial={{ width: 0 }}
               animate={{ width: `${progress}%` }}
               transition={{ duration: 0.5 }}
@@ -639,100 +711,200 @@ export default function CreateCampaign() {
           
           {/* Step indicators */}
           <div className="flex justify-between">
-            {STEPS.map((step) => (
-              <div key={step.id} className="flex flex-col items-center">
-                <div className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-medium ${
+            {STEPS.map((step, index) => (
+              <motion.div 
+                key={step.id} 
+                className="flex flex-col items-center"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.5, delay: index * 0.1 }}
+              >
+                <div className={`w-12 h-12 rounded-full flex items-center justify-center text-sm font-bold shadow-lg transition-all duration-300 ${
                   step.id <= currentStep
-                    ? 'bg-emerald-500 text-white'
-                    : 'bg-gray-200 text-gray-500'
+                    ? 'bg-gradient-to-r from-emerald-500 to-cyan-500 text-white shadow-emerald-500/30'
+                    : 'bg-white text-gray-400 border-2 border-gray-200 shadow-gray-200/50'
                 }`}>
                   {step.id < currentStep ? (
-                    <Check className="w-5 h-5" />
+                    <Check className="w-6 h-6" />
                   ) : (
                     step.id
                   )}
                 </div>
-                <div className="mt-2 text-center">
-                  <div className="text-sm font-medium text-gray-900">{step.name}</div>
-                  <div className="text-xs text-gray-500">{step.description}</div>
+                <div className="mt-3 text-center">
+                  <div className={`text-sm font-bold font-unbounded ${
+                    step.id <= currentStep ? 'text-gray-900' : 'text-gray-500'
+                  }`}>{step.name}</div>
+                  <div className="text-xs text-gray-500 mt-1">{step.description}</div>
                 </div>
-              </div>
+              </motion.div>
             ))}
           </div>
-        </div>
+        </motion.div>
 
         {/* Form Content */}
-        <div className="max-w-4xl mx-auto">
-          <div className="bg-white rounded-2xl shadow-xl p-8">
-            {/* Error Messages */}
-            {(submitError || validationErrors.length > 0) && (
-              <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-xl">
-                <div className="flex items-start">
-                  <AlertCircle className="w-5 h-5 text-red-500 mt-0.5 mr-3 flex-shrink-0" />
-                  <div>
-                    {submitError && (
-                      <p className="text-red-700 font-medium mb-2">{submitError}</p>
-                    )}
-                    {validationErrors.length > 0 && (
-                      <div>
-                        <p className="text-red-700 font-medium mb-2">Please fix the following errors:</p>
-                        <ul className="list-disc list-inside text-red-600 space-y-1">
-                          {validationErrors.map((error, index) => (
-                            <li key={index}>{error}</li>
-                          ))}
-                        </ul>
-                      </div>
-                    )}
+        <motion.div 
+          className="max-w-4xl mx-auto"
+          initial={{ opacity: 0, y: 30 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.7, delay: 0.3, ease: "easeOut" }}
+        >
+          <div className="bg-white/80 backdrop-blur-xl rounded-3xl shadow-2xl border border-white/20 p-10 lg:p-12">
+            {/* Success Message */}
+            <AnimatePresence>
+              {isConfirmed && (
+                <motion.div
+                  initial={{ opacity: 0, y: -20, scale: 0.95 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, y: -20, scale: 0.95 }}
+                  className="mb-6 p-6 bg-gradient-to-r from-emerald-50 to-cyan-50 border-2 border-emerald-200 rounded-2xl shadow-lg"
+                >
+                  <div className="flex items-start">
+                    <div className="w-8 h-8 bg-gradient-to-r from-emerald-500 to-cyan-500 rounded-full flex items-center justify-center mr-4 flex-shrink-0">
+                      <Check className="w-5 h-5 text-white" />
+                    </div>
+                    <div>
+                      <h3 className="text-emerald-800 font-bold text-lg mb-2 font-unbounded">Campaign Created Successfully!</h3>
+                      <p className="text-emerald-700 font-medium">Your NGO has been registered on the blockchain. Redirecting to your dashboard...</p>
+                    </div>
                   </div>
-                </div>
-              </div>
-            )}
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            {/* Loading State */}
+            <AnimatePresence>
+              {(isSubmitting || isRegistering || isConfirming) && (
+                <motion.div
+                  initial={{ opacity: 0, y: -20, scale: 0.95 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, y: -20, scale: 0.95 }}
+                  className="mb-6 p-6 bg-gradient-to-r from-blue-50 to-indigo-50 border-2 border-blue-200 rounded-2xl shadow-lg"
+                >
+                  <div className="flex items-start">
+                    <div className="w-8 h-8 bg-gradient-to-r from-blue-500 to-indigo-500 rounded-full flex items-center justify-center mr-4 flex-shrink-0">
+                      <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white" />
+                    </div>
+                    <div>
+                      <h3 className="text-blue-800 font-bold text-lg mb-2 font-unbounded">
+                        {isSubmitting ? 'Uploading to IPFS...' : 
+                         isRegistering ? 'Waiting for Wallet...' : 
+                         'Confirming Transaction...'}
+                      </h3>
+                      <p className="text-blue-700 font-medium">
+                        {isSubmitting ? 'Uploading your campaign data to decentralized storage.' : 
+                         isRegistering ? 'Please confirm the transaction in your wallet to register your NGO.' : 
+                         'Your transaction is being confirmed on the blockchain. This may take a few moments.'}
+                      </p>
+                    </div>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            {/* Error Messages */}
+            <AnimatePresence>
+              {(submitError || validationErrors.length > 0) && (
+                <motion.div
+                  initial={{ opacity: 0, y: -20, scale: 0.95 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, y: -20, scale: 0.95 }}
+                  className="mb-6 p-6 bg-gradient-to-r from-red-50 to-pink-50 border-2 border-red-200 rounded-2xl shadow-lg"
+                >
+                  <div className="flex items-start">
+                    <div className="w-8 h-8 bg-gradient-to-r from-red-500 to-pink-500 rounded-full flex items-center justify-center mr-4 flex-shrink-0">
+                      <AlertCircle className="w-5 h-5 text-white" />
+                    </div>
+                    <div>
+                      <h3 className="text-red-800 font-bold text-lg mb-2 font-unbounded">Action Required</h3>
+                      {submitError && (
+                        <p className="text-red-700 font-medium mb-2">{submitError}</p>
+                      )}
+                      {validationErrors.length > 0 && (
+                        <div>
+                          <p className="text-red-700 font-medium mb-2">Please fix the following errors:</p>
+                          <ul className="list-disc list-inside text-red-600 space-y-1">
+                            {validationErrors.map((error, index) => (
+                              <li key={index} className="font-medium">{error}</li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
             
+            {/* Loading Overlay */}
+            <AnimatePresence>
+              {(isSubmitting || isRegistering) && (
+                <motion.div
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  className="absolute inset-0 bg-white/80 backdrop-blur-sm flex items-center justify-center z-50 rounded-3xl"
+                >
+                  <div className="text-center">
+                    <div className="w-16 h-16 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin mx-auto mb-4"></div>
+                    <p className="text-lg font-semibold text-gray-700 font-unbounded">Creating your campaign...</p>
+                    <p className="text-sm text-gray-500 mt-2">Please wait while we process your information</p>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
             <AnimatePresence mode="wait">
               {renderStepContent()}
             </AnimatePresence>
             
             {/* Navigation Buttons */}
-            <div className="flex justify-between mt-8 pt-6 border-t border-gray-200">
-              <button
+            <div className="flex justify-between mt-12 pt-8 border-t border-gray-200/50">
+              <motion.button
                 onClick={prevStep}
-                disabled={currentStep === 1}
-                className="flex items-center px-6 py-3 border border-gray-300 rounded-xl text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                disabled={currentStep === 1 || isSubmitting || isRegistering}
+                className="flex items-center px-8 py-4 border-2 border-gray-300/50 rounded-2xl text-gray-700 hover:bg-gray-50/80 hover:border-gray-400/50 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300 shadow-lg hover:shadow-xl font-semibold font-unbounded backdrop-blur-sm"
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
               >
-                <ArrowLeft className="w-5 h-5 mr-2" />
+                <ArrowLeft className="w-5 h-5 mr-3" />
                 Previous
-              </button>
+              </motion.button>
               
               {currentStep === STEPS.length ? (
-                <button
+                <motion.button
                   onClick={handleSubmit}
                   disabled={isSubmitting || isRegistering}
-                  className="flex items-center px-8 py-3 bg-gradient-to-r from-emerald-600 to-cyan-600 text-white rounded-xl hover:from-emerald-700 hover:to-cyan-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  className="flex items-center px-10 py-4 bg-gradient-to-r from-emerald-600 via-cyan-600 to-teal-600 text-white rounded-2xl hover:from-emerald-700 hover:via-cyan-700 hover:to-teal-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300 shadow-xl hover:shadow-2xl font-bold font-unbounded"
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
                 >
                   {(isSubmitting || isRegistering) ? (
                     <>
-                      <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2" />
+                      <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-white mr-3" />
                       {isSubmitting ? 'Uploading to IPFS...' : 'Registering on Blockchain...'}
                     </>
                   ) : (
                     <>
-                      <Upload className="w-5 h-5 mr-2" />
+                      <Upload className="w-6 h-6 mr-3" />
                       Create Campaign
                     </>
                   )}
-                </button>
+                </motion.button>
               ) : (
-                <button
+                <motion.button
                   onClick={nextStep}
-                  className="flex items-center px-6 py-3 bg-gradient-to-r from-emerald-600 to-cyan-600 text-white rounded-xl hover:from-emerald-700 hover:to-cyan-700 transition-colors"
+                  disabled={isSubmitting || isRegistering || isConfirming}
+                  className="flex items-center px-8 py-4 bg-gradient-to-r from-emerald-600 via-cyan-600 to-teal-600 text-white rounded-2xl hover:from-emerald-700 hover:via-cyan-700 hover:to-teal-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300 shadow-xl hover:shadow-2xl font-bold font-unbounded"
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
                 >
                   Next
-                  <ArrowRight className="w-5 h-5 ml-2" />
-                </button>
+                  <ArrowRight className="w-5 h-5 ml-3" />
+                </motion.button>
               )}
             </div>
           </div>
-        </div>
+        </motion.div>
       </div>
     </div>
   )

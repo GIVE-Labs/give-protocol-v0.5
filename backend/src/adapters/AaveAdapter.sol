@@ -197,6 +197,9 @@ contract AaveAdapter is IYieldAdapter, AccessControl, ReentrancyGuard, Pausable 
                 uint256 withdrawn = aavePool.withdraw(address(asset), profit, vault);
                 profit = withdrawn; // Use actual withdrawn amount
 
+                // Update totalInvested to reflect the withdrawn profit
+                totalInvested = currentBalance - profit;
+
                 cumulativeYield += profit;
                 totalHarvested += profit;
             }
@@ -218,15 +221,19 @@ contract AaveAdapter is IYieldAdapter, AccessControl, ReentrancyGuard, Pausable 
      * @dev Emergency withdrawal of all assets
      * @return returned Amount of assets returned
      */
-    function emergencyWithdraw() external override onlyRole(EMERGENCY_ROLE) nonReentrant returns (uint256 returned) {
+    function emergencyWithdraw() external override nonReentrant returns (uint256 returned) {
+        // Allow both EMERGENCY_ROLE and VAULT_ROLE to call this function
+        if (!hasRole(EMERGENCY_ROLE, msg.sender) && !hasRole(VAULT_ROLE, msg.sender)) {
+            revert AccessControlUnauthorizedAccount(msg.sender, EMERGENCY_ROLE);
+        }
         uint256 aTokenBalance = aToken.balanceOf(address(this));
         if (aTokenBalance == 0) return 0;
 
         // Activate emergency mode
         emergencyMode = true;
 
-        // Withdraw all available assets
-        returned = aavePool.withdraw(address(asset), type(uint256).max, vault);
+        // Withdraw all available assets (use aToken balance to avoid overflow)
+        returned = aavePool.withdraw(address(asset), aTokenBalance, vault);
 
         // Reset state
         totalInvested = 0;

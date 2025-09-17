@@ -9,13 +9,13 @@ import { useNGODetails } from '../hooks/useNGORegistryWagmi';
 import { NGO } from '../types';
 import StakingProgressModal from '../components/staking/StakingProgressModal';
 import { fetchMetadataFromIPFS, getIPFSUrl, NGOMetadata } from '../services/ipfs';
-import { CONTRACT_ADDRESSES } from '../config/contracts';
+import { CONTRACT_ADDRESSES, MOCK_WETH, MOCK_USDC } from '../config/contracts';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 
 // Use dynamic contract addresses based on active network
 const STAKING_CONTRACT = CONTRACT_ADDRESSES.VAULT;
-const WETH_ADDRESS = CONTRACT_ADDRESSES.TOKENS.WETH;
-const USDC_ADDRESS = CONTRACT_ADDRESSES.TOKENS.USDC;
+const WETH_ADDRESS = MOCK_WETH;
+const USDC_ADDRESS = MOCK_USDC;
 const CONTRACT_ADDRESS = CONTRACT_ADDRESSES.VAULT;
 
 export default function NGODetails() {

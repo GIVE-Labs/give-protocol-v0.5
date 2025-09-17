@@ -53,7 +53,7 @@ contract StrategyManager is AccessControl, ReentrancyGuard, Pausable {
             revert Errors.ZeroAddress();
         }
 
-        vault = GiveVault4626(_vault);
+        vault = GiveVault4626(payable(_vault));
 
         _grantRole(DEFAULT_ADMIN_ROLE, _admin);
         _grantRole(STRATEGY_MANAGER_ROLE, _admin);

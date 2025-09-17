@@ -8,7 +8,7 @@ import NGORegistryABI from '../abis/NGORegistry.json';
 import GiveVault4626ABI from '../abis/GiveVault4626.json';
 import { erc20Abi } from '../abis/erc20';
 
-import { CONTRACT_ADDRESSES, CURRENT_NETWORK } from '../config/contracts';
+import { CONTRACT_ADDRESSES, CURRENT_NETWORK, ETH_VAULT, MOCK_ETH, MOCK_WETH, MOCK_USDC } from '../config/contracts';
 import { NGO } from '../types';
 import Button from '../components/ui/Button';
 import { fetchMetadataFromIPFS, NGOMetadata } from '../services/ipfs';
@@ -24,7 +24,6 @@ export default function CampaignStaking() {
   const [stakeAmount, setStakeAmount] = useState('0');
   const [lockPeriod, setLockPeriod] = useState(12);
   const [yieldSharingRatio, setYieldSharingRatio] = useState(75);
-  const [selectedToken, setSelectedToken] = useState<string>(CONTRACT_ADDRESSES.TOKENS.USDC);
   const [activeTab, setActiveTab] = useState<'details' | 'donate'>('donate');
   const [isTokenDropdownOpen, setIsTokenDropdownOpen] = useState(false);
   const [showFullDescription, setShowFullDescription] = useState(false);
@@ -34,15 +33,16 @@ export default function CampaignStaking() {
 
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
 
-  // NOTE: The current vault is USDC-based (ERC20 with 6 decimals).
-  // To avoid failed deposits and incorrect approvals, only USDC is enabled for staking.
+  // NOTE: The current vault supports multiple tokens including USDC and ETH.
+  // USDC and ETH are now enabled for staking.
   const tokens = [
-    { symbol: 'USDC', address: CONTRACT_ADDRESSES.TOKENS.USDC, icon: '/src/assets/token/usd-coin-usdc-logo.svg', decimals: 6 },
+    { symbol: 'USDC', address: MOCK_USDC, icon: '/src/assets/token/usd-coin-usdc-logo.svg', decimals: 6 },
+    { symbol: 'ETH', address: MOCK_ETH, icon: '/src/assets/token/ethereum-eth-icon.svg', decimals: 18 },
     // Future support:
-    // { symbol: 'ETH', address: CONTRACT_ADDRESSES.TOKENS.ETH, icon: '/src/assets/token/ethereum-eth-icon.svg', decimals: 18 },
-    // { symbol: 'WETH', address: CONTRACT_ADDRESSES.TOKENS.WETH, icon: '/src/assets/token/weth-1671744457-logotic-brand.svg', decimals: 18 }
+    // { symbol: 'WETH', address: MOCK_WETH, icon: '/src/assets/token/weth-1671744457-logotic-brand.svg', decimals: 18 }
   ];
 
+  const [selectedToken, setSelectedToken] = useState<string>(tokens[0].address);
   const selectedTokenInfo = tokens.find(token => token.address === selectedToken) || tokens[0];
 
   // Fetch NGO information
@@ -59,7 +59,7 @@ export default function CampaignStaking() {
   // Get user's token balance
   const { data: tokenBalance } = useBalance({
     address: address,
-    token: selectedToken === CONTRACT_ADDRESSES.TOKENS.ETH ? undefined : selectedToken as `0x${string}`,
+    token: selectedToken === MOCK_ETH ? undefined : selectedToken as `0x${string}`,
     query: {
       enabled: !!address,
     },
@@ -159,11 +159,11 @@ export default function CampaignStaking() {
     // Token-specific fallback rates based on typical DeFi yields
     const getTokenBaseRate = () => {
       switch (selectedToken) {
-        case CONTRACT_ADDRESSES.TOKENS.USDC:
+        case MOCK_USDC:
           return { base: 4, name: 'USDC' }; // Stable coin base rate
-        case CONTRACT_ADDRESSES.TOKENS.ETH:
+        case MOCK_ETH:
           return { base: 6, name: 'ETH' }; // ETH staking-like rate
-        case CONTRACT_ADDRESSES.TOKENS.WETH:
+        case MOCK_WETH:
           return { base: 5.5, name: 'WETH' }; // Slightly lower than ETH
         default:
           return { base: 4, name: 'Token' };
@@ -239,37 +239,48 @@ export default function CampaignStaking() {
       return;
     }
 
-    // Enforce USDC-only staking while the vault asset is USDC
-    if (selectedToken !== CONTRACT_ADDRESSES.TOKENS.USDC) {
-      setError('Only USDC is supported for staking at the moment.');
-      return;
-    }
+    // Determine which vault to use based on selected token
+    const isETH = selectedToken === MOCK_ETH;
+    const vaultAddress = isETH ? ETH_VAULT : CONTRACT_ADDRESSES.VAULT;
 
     try {
-      // First approve the vault to spend tokens (exact amount, no infinite allowance)
-      await approveToken({
-        address: selectedToken as `0x${string}`,
-        abi: erc20Abi,
-        functionName: 'approve',
-        args: [CONTRACT_ADDRESSES.VAULT, stakeAmountUnits],
-      });
+      if (isETH) {
+        // For ETH, we need to handle native ETH deposits differently
+        // ETH vault should accept native ETH deposits directly
+        depositToVault({
+          address: vaultAddress,
+          abi: GiveVault4626ABI,
+          functionName: 'deposit',
+          args: [stakeAmountUnits, address!],
+          value: stakeAmountUnits, // Send ETH value with the transaction
+        });
+      } else {
+        // For ERC20 tokens (USDC), first approve then deposit
+        await approveToken({
+          address: selectedToken as `0x${string}`,
+          abi: erc20Abi,
+          functionName: 'approve',
+          args: [vaultAddress, stakeAmountUnits],
+        });
+      }
     } catch (error) {
-      console.error('Approval failed:', error);
-      setError('Failed to approve token spending');
+      console.error('Transaction failed:', error);
+      setError(`Failed to ${isETH ? 'deposit ETH' : 'approve token spending'}`);
     }
   };
 
-  // Auto-deposit after approval
+  // Auto-deposit after approval (only for ERC20 tokens, not ETH)
   useEffect(() => {
-    if (isApprovalSuccess && !isDepositing && !isDepositingTx) {
+    if (isApprovalSuccess && !isDepositing && !isDepositingTx && selectedToken !== MOCK_ETH) {
+      const vaultAddress = selectedToken === MOCK_ETH ? ETH_VAULT : CONTRACT_ADDRESSES.VAULT;
       depositToVault({
-        address: CONTRACT_ADDRESSES.VAULT,
+        address: vaultAddress,
         abi: GiveVault4626ABI,
         functionName: 'deposit',
         args: [stakeAmountUnits, address!],
       });
     }
-  }, [isApprovalSuccess, isDepositing, isDepositingTx, depositToVault, stakeAmountUnits, address]);
+  }, [isApprovalSuccess, isDepositing, isDepositingTx, depositToVault, stakeAmountUnits, address, selectedToken]);
 
   const isLoading = isApproving || isDepositing || isApprovingTx || isDepositingTx;
 

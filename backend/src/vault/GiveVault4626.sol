@@ -9,6 +9,7 @@ import "@openzeppelin/contracts/utils/Pausable.sol";
 import "../adapters/IYieldAdapter.sol";
 import "../donation/DonationRouter.sol";
 import "../utils/Errors.sol";
+import "../utils/IWETH.sol";
 
 /**
  * @title GiveVault4626
@@ -31,6 +32,7 @@ contract GiveVault4626 is ERC4626, AccessControl, ReentrancyGuard, Pausable {
     // === State Variables ===
     IYieldAdapter public activeAdapter;
     address public donationRouter;
+    address public wrappedNative; // Optional: if set and equals asset(), enables ETH convenience methods
 
     uint256 public cashBufferBps = 100; // 1% default
     uint256 public slippageBps = 50; // 0.5% default
@@ -53,6 +55,7 @@ contract GiveVault4626 is ERC4626, AccessControl, ReentrancyGuard, Pausable {
     event InvestPaused(bool paused);
     event HarvestPaused(bool paused);
     event EmergencyWithdraw(uint256 amount);
+    event WrappedNativeSet(address indexed token);
 
     // === Constructor ===
     constructor(IERC20 _asset, string memory _name, string memory _symbol, address _admin)
@@ -66,6 +69,13 @@ contract GiveVault4626 is ERC4626, AccessControl, ReentrancyGuard, Pausable {
         _grantRole(PAUSER_ROLE, _admin);
 
         _lastHarvestTime = block.timestamp;
+    }
+
+    // Receive only allowed for unwrapping WETH
+    receive() external payable {
+        if (wrappedNative == address(0) || msg.sender != wrappedNative) {
+            revert Errors.InvalidConfiguration();
+        }
     }
 
     // === Modifiers ===
@@ -91,16 +101,79 @@ contract GiveVault4626 is ERC4626, AccessControl, ReentrancyGuard, Pausable {
     }
 
     /**
+     * @dev Deposit assets and mint shares with reentrancy protection
+     */
+    function deposit(uint256 assets, address receiver) 
+        public 
+        override 
+        nonReentrant 
+        whenNotPaused 
+        returns (uint256) 
+    {
+        return super.deposit(assets, receiver);
+    }
+
+    /**
+     * @dev Mint shares for assets with reentrancy protection
+     */
+    function mint(uint256 shares, address receiver) 
+        public 
+        override 
+        nonReentrant 
+        whenNotPaused 
+        returns (uint256) 
+    {
+        return super.mint(shares, receiver);
+    }
+
+    /**
+     * @dev Withdraw assets by burning shares with reentrancy protection
+     */
+    function withdraw(uint256 assets, address receiver, address owner) 
+        public 
+        override 
+        nonReentrant 
+        whenNotPaused 
+        returns (uint256) 
+    {
+        return super.withdraw(assets, receiver, owner);
+    }
+
+    /**
+     * @dev Redeem shares for assets with reentrancy protection
+     */
+    function redeem(uint256 shares, address receiver, address owner) 
+        public 
+        override 
+        nonReentrant 
+        whenNotPaused 
+        returns (uint256) 
+    {
+        return super.redeem(shares, receiver, owner);
+    }
+
+    /**
      * @dev Hook called after deposit to invest excess cash and update user shares
      */
     function _deposit(address caller, address receiver, uint256 assets, uint256 shares)
         internal
         override
-        nonReentrant
         whenNotPaused
     {
         super._deposit(caller, receiver, assets, shares);
         
+        // Update user shares in donation router for yield distribution
+        if (donationRouter != address(0)) {
+            DonationRouter(payable(donationRouter)).updateUserShares(receiver, asset(), balanceOf(receiver));
+        }
+        
+        _investExcessCash();
+    }
+
+    /**
+     * @dev Internal function to handle post-deposit logic
+     */
+    function _afterDeposit(address caller, address receiver, uint256 assets, uint256 shares) internal {
         // Update user shares in donation router for yield distribution
         if (donationRouter != address(0)) {
             DonationRouter(payable(donationRouter)).updateUserShares(receiver, asset(), balanceOf(receiver));
@@ -115,7 +188,6 @@ contract GiveVault4626 is ERC4626, AccessControl, ReentrancyGuard, Pausable {
     function _withdraw(address caller, address receiver, address owner, uint256 assets, uint256 shares)
         internal
         override
-        nonReentrant
         whenNotPaused
     {
         _ensureSufficientCash(assets);
@@ -128,6 +200,15 @@ contract GiveVault4626 is ERC4626, AccessControl, ReentrancyGuard, Pausable {
     }
 
     // === Vault Management ===
+    /**
+     * @dev Set wrapped native token address (e.g., WETH). Must match vault asset.
+     */
+    function setWrappedNative(address _wrapped) external onlyRole(VAULT_MANAGER_ROLE) {
+        if (_wrapped == address(0)) revert Errors.ZeroAddress();
+        if (_wrapped != address(asset())) revert Errors.InvalidConfiguration();
+        wrappedNative = _wrapped;
+        emit WrappedNativeSet(_wrapped);
+    }
 
     /**
      * @dev Sets the active yield adapter
@@ -349,5 +430,110 @@ contract GiveVault4626 is ERC4626, AccessControl, ReentrancyGuard, Pausable {
         )
     {
         return (cashBufferBps, slippageBps, maxLossBps, investPaused, harvestPaused);
+    }
+
+    // === Native ETH Convenience Methods ===
+
+    /**
+     * @dev Deposit native ETH, wrap to WETH, and mint shares to receiver.
+     *      Requires `wrappedNative` to be set and equal to vault asset.
+     * @param receiver Address receiving shares
+     * @param minShares Minimum acceptable shares to protect from rounding
+     */
+    function depositETH(address receiver, uint256 minShares)
+        external
+        payable
+        nonReentrant
+        whenNotPaused
+        returns (uint256 shares)
+    {
+        if (wrappedNative == address(0) || wrappedNative != address(asset())) {
+            revert Errors.InvalidConfiguration();
+        }
+        if (receiver == address(0)) revert Errors.InvalidReceiver();
+        if (msg.value == 0) revert Errors.InvalidAmount();
+
+        // Calculate shares before wrapping to avoid double-counting
+        shares = previewDeposit(msg.value);
+        if (shares < minShares) revert Errors.SlippageExceeded(minShares, shares);
+
+        // Wrap ETH to WETH into this contract
+        IWETH(wrappedNative).deposit{value: msg.value}();
+
+        // Mint shares directly since WETH is already in vault
+        _mint(receiver, shares);
+
+        // Call deposit hook for user share tracking and investment
+        _afterDeposit(msg.sender, receiver, msg.value, shares);
+
+        emit Deposit(msg.sender, receiver, msg.value, shares);
+
+        return shares;
+    }
+
+    /**
+     * @dev Redeem shares for native ETH. Burns shares and unwraps WETH to ETH.
+     * @param shares Amount of shares to redeem
+     * @param receiver ETH recipient
+     * @param owner Shares owner
+     * @param minAssets Minimum acceptable assets to receive
+     */
+    function redeemETH(uint256 shares, address receiver, address owner, uint256 minAssets)
+        external
+        nonReentrant
+        whenNotPaused
+        returns (uint256 assets)
+    {
+        if (wrappedNative == address(0) || wrappedNative != address(asset())) {
+            revert Errors.InvalidConfiguration();
+        }
+        if (receiver == address(0)) revert Errors.InvalidReceiver();
+        if (shares == 0) revert Errors.InvalidAmount();
+
+        assets = previewRedeem(shares);
+        if (assets < minAssets) revert Errors.SlippageExceeded(minAssets, assets);
+
+        // Withdraw WETH to this contract using our overridden function
+        _withdraw(msg.sender, address(this), owner, assets, shares);
+
+        // Unwrap and send ETH
+        IWETH(wrappedNative).withdraw(assets);
+        (bool ok, ) = payable(receiver).call{value: assets}("");
+        if (!ok) revert Errors.TransferFailed();
+
+        return assets;
+    }
+
+    /**
+     * @dev Withdraw specified asset amount as native ETH. Burns corresponding shares.
+     * @param assets Asset amount to withdraw
+     * @param receiver ETH recipient
+     * @param owner Shares owner
+     * @param maxShares Max shares to burn to protect from rounding up
+     */
+    function withdrawETH(uint256 assets, address receiver, address owner, uint256 maxShares)
+        external
+        nonReentrant
+        whenNotPaused
+        returns (uint256 shares)
+    {
+        if (wrappedNative == address(0) || wrappedNative != address(asset())) {
+            revert Errors.InvalidConfiguration();
+        }
+        if (receiver == address(0)) revert Errors.InvalidReceiver();
+        if (assets == 0) revert Errors.InvalidAmount();
+
+        shares = previewWithdraw(assets);
+        if (shares > maxShares) revert Errors.SlippageExceeded(shares, maxShares);
+
+        // Withdraw WETH to this contract using our overridden function
+        _withdraw(msg.sender, address(this), owner, assets, shares);
+
+        // Unwrap and send ETH
+        IWETH(wrappedNative).withdraw(assets);
+        (bool ok, ) = payable(receiver).call{value: assets}("");
+        if (!ok) revert Errors.TransferFailed();
+
+        return shares;
     }
 }
