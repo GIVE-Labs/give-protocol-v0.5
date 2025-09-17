@@ -1,6 +1,6 @@
 import { useReadContract, useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
 import { parseUnits, formatUnits } from 'viem';
-import { CONTRACT_ADDRESSES, MOCK_USDC } from '../config/contracts';
+import { CONTRACT_ADDRESSES, MOCK_USDC, NGO_REGISTRY } from '../config/contracts';
 import GiveVault4626ABI from '../abis/GiveVault4626.json';
 import DonationRouterABI from '../abis/DonationRouter.json';
 import StrategyManagerABI from '../abis/StrategyManager.json';
@@ -210,12 +210,23 @@ export function useNGORegistry() {
   });
 
   const registerNGO = async (ngoAddress: string, metadataCid: string, kycHash: string, attestor: string) => {
-    return writeContract({
-      address: CONTRACT_ADDRESSES.NGO_REGISTRY as `0x${string}`,
-      abi: NGORegistryABI,
-      functionName: 'addNGO',
-      args: [ngoAddress as `0x${string}`, metadataCid as `0x${string}`, kycHash as `0x${string}`, attestor as `0x${string}`],
-    });
+    try {
+      return await writeContract({
+        address: NGO_REGISTRY as `0x${string}`,
+        abi: NGORegistryABI,
+        functionName: 'addNGO',
+        args: [ngoAddress as `0x${string}`, metadataCid, kycHash as `0x${string}`, attestor as `0x${string}`],
+      });
+    } catch (err: any) {
+      // Decode common error messages
+      if (err.message?.includes('0x8133f3ae')) {
+        throw new Error('NGO is already approved in the registry');
+      }
+      if (err.message?.includes('circuit breaker')) {
+        throw new Error('Contract is paused or circuit breaker is active');
+      }
+      throw err;
+    }
   };
 
   return {
@@ -227,6 +238,24 @@ export function useNGORegistry() {
     isConfirmed,
     error,
     hash,
+  };
+}
+
+// Hook to check if an NGO is already approved
+export function useNGOApprovalStatus(ngoAddress?: string) {
+  const { data: isApproved, isLoading } = useReadContract({
+    address: NGO_REGISTRY as `0x${string}`,
+    abi: NGORegistryABI,
+    functionName: 'isApproved',
+    args: ngoAddress ? [ngoAddress as `0x${string}`] : undefined,
+    query: {
+      enabled: !!ngoAddress,
+    },
+  });
+
+  return {
+    isApproved: isApproved as boolean,
+    isLoading,
   };
 }
 

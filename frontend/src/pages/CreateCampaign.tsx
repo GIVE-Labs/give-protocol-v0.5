@@ -4,11 +4,12 @@ import { ArrowLeft, ArrowRight, Upload, X, Check, Camera, AlertCircle } from 'lu
 import { Link, useNavigate } from 'react-router-dom'
 import { createNGOMetadata, validateImages } from '../services/ipfs'
 import { useAccount } from 'wagmi'
-import { useNGORegistry } from '../hooks/useContracts'
+import { useNGORegistry, useNGOApprovalStatus } from '../hooks/useContracts'
 import { keccak256, toBytes } from 'viem'
 
 interface FormData {
   // Basic Info
+  ngoAddress: string
   ngoName: string
   missionStatement: string
   category: string
@@ -59,6 +60,7 @@ const STEPS = [
 export default function CreateCampaign() {
   const [currentStep, setCurrentStep] = useState(1)
   const [formData, setFormData] = useState<FormData>({
+    ngoAddress: '',
     ngoName: '',
     missionStatement: '',
     category: '',
@@ -81,6 +83,7 @@ export default function CreateCampaign() {
   const navigate = useNavigate()
   const { address } = useAccount()
   const { registerNGO, isPending: isRegistering, isConfirming, isConfirmed, error: registrationError } = useNGORegistry()
+  const { isApproved: isNGOApproved, isLoading: isCheckingApproval } = useNGOApprovalStatus(formData.ngoAddress as `0x${string}`)
 
   // Handle transaction confirmation
   useEffect(() => {
@@ -193,6 +196,11 @@ export default function CreateCampaign() {
     const errors: string[] = []
     
     // Basic validation
+    if (!formData.ngoAddress.trim()) {
+      errors.push('NGO address is required')
+    } else if (!/^0x[a-fA-F0-9]{40}$/.test(formData.ngoAddress)) {
+      errors.push('NGO address must be a valid Ethereum address')
+    }
     if (!formData.ngoName.trim()) errors.push('NGO name is required')
     if (!formData.missionStatement.trim()) errors.push('Mission statement is required')
     if (!formData.category) errors.push('Category is required')
@@ -227,6 +235,12 @@ export default function CreateCampaign() {
       return
     }
 
+    // Check if NGO is already approved
+    if (isNGOApproved) {
+      setSubmitError('This NGO address is already approved and registered. Please use a different address or contact support if this is an error.')
+      return
+    }
+
     setIsSubmitting(true)
     setSubmitError(null)
     
@@ -239,7 +253,7 @@ export default function CreateCampaign() {
       // Register NGO on blockchain
       console.log('Registering NGO on blockchain...')
       const kycHash = keccak256(toBytes('mock-kyc-hash')) // Mock KYC hash for development
-      await registerNGO(address, metadataHash, kycHash, address)
+      await registerNGO(formData.ngoAddress as `0x${string}`, metadataHash, kycHash, address)
       
       // Wait for transaction confirmation
       console.log('Waiting for transaction confirmation...')
@@ -263,6 +277,34 @@ export default function CreateCampaign() {
             className="space-y-6"
           >
             <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  NGO Address *
+                </label>
+                <div className="relative">
+                  <input
+                    type="text"
+                    value={formData.ngoAddress}
+                    onChange={(e) => updateFormData('ngoAddress', e.target.value)}
+                    placeholder="0x... (Ethereum address of the NGO)"
+                    className="w-full px-4 py-3 pr-32 border border-gray-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-colors font-mono text-sm"
+                    required
+                  />
+                  {address && (
+                    <button
+                      type="button"
+                      onClick={() => updateFormData('ngoAddress', address)}
+                      className="absolute right-2 top-1/2 transform -translate-y-1/2 px-3 py-1 text-xs bg-emerald-100 text-emerald-700 rounded-lg hover:bg-emerald-200 transition-colors"
+                    >
+                      Use Wallet
+                    </button>
+                  )}
+                </div>
+                <p className="text-xs text-gray-500 mt-1">
+                  The Ethereum address that will be registered as the NGO. This can be different from your connected wallet.
+                </p>
+              </div>
+
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   NGO Name / Project Title *
@@ -575,6 +617,7 @@ export default function CreateCampaign() {
             <div className="bg-gray-50 rounded-xl p-6 space-y-4">
               <div>
                 <h4 className="font-medium text-gray-900">Basic Information</h4>
+                <p className="text-gray-600">NGO Address: <span className="font-mono text-sm">{formData.ngoAddress}</span></p>
                 <p className="text-gray-600">Name: {formData.ngoName}</p>
                 <p className="text-gray-600">Category: {formData.category}</p>
                 <p className="text-gray-600">Mission: {formData.missionStatement}</p>
@@ -873,15 +916,15 @@ export default function CreateCampaign() {
               {currentStep === STEPS.length ? (
                 <motion.button
                   onClick={handleSubmit}
-                  disabled={isSubmitting || isRegistering}
+                  disabled={isSubmitting || isRegistering || isCheckingApproval}
                   className="flex items-center px-10 py-4 bg-gradient-to-r from-emerald-600 via-cyan-600 to-teal-600 text-white rounded-2xl hover:from-emerald-700 hover:via-cyan-700 hover:to-teal-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300 shadow-xl hover:shadow-2xl font-bold font-unbounded"
                   whileHover={{ scale: 1.02 }}
                   whileTap={{ scale: 0.98 }}
                 >
-                  {(isSubmitting || isRegistering) ? (
+                  {(isSubmitting || isRegistering || isCheckingApproval) ? (
                     <>
                       <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-white mr-3" />
-                      {isSubmitting ? 'Uploading to IPFS...' : 'Registering on Blockchain...'}
+                      {isCheckingApproval ? 'Checking NGO Status...' : isSubmitting ? 'Uploading to IPFS...' : 'Registering on Blockchain...'}
                     </>
                   ) : (
                     <>
@@ -893,7 +936,7 @@ export default function CreateCampaign() {
               ) : (
                 <motion.button
                   onClick={nextStep}
-                  disabled={isSubmitting || isRegistering || isConfirming}
+                  disabled={isSubmitting || isRegistering || isConfirming || isCheckingApproval}
                   className="flex items-center px-8 py-4 bg-gradient-to-r from-emerald-600 via-cyan-600 to-teal-600 text-white rounded-2xl hover:from-emerald-700 hover:via-cyan-700 hover:to-teal-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300 shadow-xl hover:shadow-2xl font-bold font-unbounded"
                   whileHover={{ scale: 1.02 }}
                   whileTap={{ scale: 0.98 }}
