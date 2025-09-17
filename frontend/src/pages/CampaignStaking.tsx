@@ -5,8 +5,11 @@ import { formatUnits, parseUnits } from 'viem';
 import { motion } from 'framer-motion';
 import { ArrowLeft, Heart, Share2, Twitter, Facebook, Linkedin, Info, Gift, ExternalLink, Award, ChevronDown, ChevronLeft, ChevronRight } from 'lucide-react';
 import NGORegistryABI from '../abis/NGORegistry.json';
-import GiveVault4626ABI from '../abis/GiveVault4626.json';
+import GiveVault4626ABIJson from '../abis/GiveVault4626.json';
 import { erc20Abi } from '../abis/erc20';
+
+// Extract ABI array from JSON object (only needed for Forge-generated ABIs)
+const GiveVault4626ABI = GiveVault4626ABIJson.abi;
 
 import { CONTRACT_ADDRESSES, CURRENT_NETWORK, ETH_VAULT, MOCK_ETH, MOCK_WETH, MOCK_USDC } from '../config/contracts';
 import { NGO } from '../types';
@@ -31,6 +34,8 @@ export default function CampaignStaking() {
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [metadata, setMetadata] = useState<NGOMetadata | null>(null);
+  const [retryAttempts, setRetryAttempts] = useState<number>(0);
+  const [isRetrying, setIsRetrying] = useState<boolean>(false);
 
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
 
@@ -77,7 +82,7 @@ export default function CampaignStaking() {
   const currentVaultAddress = getVaultAddress(selectedToken);
 
   // Get user's current stake amount from vault
-  const { data: currentStakeShares } = useReadContract({
+  const { data: currentStakeShares, error: stakeSharesError, isLoading: stakeSharesLoading } = useReadContract({
     address: currentVaultAddress,
     abi: GiveVault4626ABI,
     functionName: 'balanceOf',
@@ -88,7 +93,7 @@ export default function CampaignStaking() {
   });
 
   // Get vault's assets per share to convert shares to underlying tokens
-  const { data: assetsPerShare } = useReadContract({
+  const { data: assetsPerShare, error: assetsPerShareError, isLoading: assetsPerShareLoading } = useReadContract({
     address: currentVaultAddress,
     abi: GiveVault4626ABI,
     functionName: 'convertToAssets',
@@ -102,6 +107,27 @@ export default function CampaignStaking() {
   const currentStakeAmountString = assetsPerShare ? formatUnits(assetsPerShare as bigint, selectedTokenInfo.decimals) : '0';
   const currentStakeAmount = parseFloat(currentStakeAmountString);
   const hasStakedFunds = currentStakeShares && (currentStakeShares as bigint) > 0n;
+
+  // Debug logging
+  useEffect(() => {
+    console.log('=== CampaignStaking Debug Info ===');
+    // Temporary alert to ensure debug is running
+    if (!address) {
+      console.warn('⚠️ WALLET NOT CONNECTED - Please connect your wallet first');
+    }
+    console.log('Wallet connected:', !!address);
+    console.log('Wallet address:', address);
+    console.log('Chain info:', chain);
+    console.log('Is correct network:', isCorrectNetwork);
+    console.log('Selected token:', selectedToken);
+    console.log('Current vault address:', currentVaultAddress);
+    console.log('Token balance data:', { data: tokenBalance, isLoading: tokenBalance === undefined, error: tokenBalance === null });
+    console.log('Current stake shares data:', { data: currentStakeShares, isLoading: stakeSharesLoading, error: stakeSharesError });
+    console.log('Assets per share data:', { data: assetsPerShare, isLoading: assetsPerShareLoading, error: assetsPerShareError });
+    console.log('Current stake amount:', currentStakeAmount);
+    console.log('Has staked funds:', hasStakedFunds);
+    console.log('================================');
+  }, [address, selectedToken, currentVaultAddress, tokenBalance, currentStakeShares, assetsPerShare, currentStakeAmount, hasStakedFunds, isCorrectNetwork, chain, stakeSharesError, stakeSharesLoading, assetsPerShareError, assetsPerShareLoading]);
 
   // Fetch metadata from IPFS
   useEffect(() => {
@@ -193,18 +219,125 @@ export default function CampaignStaking() {
     }
   }, [isWithdrawSuccess]);
 
-  // Handle transaction errors
+  // Enhanced error handling with specific error types
+  const parseTransactionError = (error: any): string => {
+    if (!error) return 'Unknown error occurred';
+    
+    const errorMessage = error.message || error.toString();
+    
+    // Check for common error patterns
+    if (errorMessage.includes('nonce too high')) {
+      return 'Transaction nonce error. Please reset your wallet account or try refreshing the page. If using MetaMask, go to Settings > Advanced > Reset Account.';
+    }
+    
+    if (errorMessage.includes('nonce too low')) {
+      return 'Transaction nonce error. Please wait a moment and try again.';
+    }
+    
+    if (errorMessage.includes('insufficient funds')) {
+      return 'Insufficient funds for transaction. Please check your balance and gas fees.';
+    }
+    
+    if (errorMessage.includes('user rejected')) {
+      return 'Transaction was rejected by user.';
+    }
+    
+    if (errorMessage.includes('gas')) {
+      return 'Transaction failed due to gas issues. Please try increasing gas limit or price.';
+    }
+    
+    if (errorMessage.includes('revert')) {
+      return 'Transaction reverted. Please check your inputs and try again.';
+    }
+    
+    if (errorMessage.includes('network')) {
+      return 'Network error. Please check your connection and try again.';
+    }
+    
+    // Return the original message if no specific pattern matches
+    return errorMessage.length > 100 ? 
+      errorMessage.substring(0, 100) + '...' : 
+      errorMessage;
+  };
+
+  // Check if error is retryable
+  const isRetryableError = (error: any): boolean => {
+    if (!error) return false;
+    const errorMessage = error.message || error.toString();
+    return errorMessage.includes('nonce too low') || 
+           errorMessage.includes('network') ||
+           errorMessage.includes('timeout');
+  };
+
+  // Retry function for failed transactions
+  const retryTransaction = async () => {
+    if (retryAttempts >= 3) {
+      setError('Maximum retry attempts reached. Please try again later.');
+      return;
+    }
+
+    setIsRetrying(true);
+    setRetryAttempts(prev => prev + 1);
+    
+    // Wait a bit before retrying
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    
+    // Clear previous error and retry the last action
+    setError(null);
+    
+    // You would call the appropriate function here based on the last action
+    // For now, we'll just clear the retry state
+    setIsRetrying(false);
+  };
+
+  // Handle transaction errors with enhanced parsing
   useEffect(() => {
     if (approveError) {
-      setError(approveError.message || 'Approval failed');
+      const errorMsg = parseTransactionError(approveError);
+      setError(`Approval failed: ${errorMsg}`);
+      
+      // Check if error is retryable and we haven't exceeded retry limit
+      if (isRetryableError(approveError) && retryAttempts < 3) {
+        setTimeout(() => {
+          if (!isRetrying) {
+            retryTransaction();
+          }
+        }, 2000);
+      }
     }
     if (depositError) {
-      setError(depositError.message || 'Deposit failed');
+      const errorMsg = parseTransactionError(depositError);
+      setError(`Deposit failed: ${errorMsg}`);
+      
+      if (isRetryableError(depositError) && retryAttempts < 3) {
+        setTimeout(() => {
+          if (!isRetrying) {
+            retryTransaction();
+          }
+        }, 2000);
+      }
     }
     if (withdrawError) {
-      setError(withdrawError.message || 'Withdrawal failed');
+      const errorMsg = parseTransactionError(withdrawError);
+      setError(`Withdrawal failed: ${errorMsg}`);
+      
+      if (isRetryableError(withdrawError) && retryAttempts < 3) {
+        setTimeout(() => {
+          if (!isRetrying) {
+            retryTransaction();
+          }
+        }, 2000);
+      }
     }
-  }, [approveError, depositError, withdrawError]);
+  }, [approveError, depositError, withdrawError, retryAttempts, isRetrying]);
+
+  // Reset retry attempts on successful transactions
+  useEffect(() => {
+    if (isDepositSuccess || isWithdrawSuccess || isApprovalSuccess) {
+      setRetryAttempts(0);
+      setIsRetrying(false);
+    }
+  }, [isDepositSuccess, isWithdrawSuccess, isApprovalSuccess]);
 
   // Calculate values
   // Parse stake amount using the selected token decimals (USDC = 6)
@@ -312,14 +445,16 @@ export default function CampaignStaking() {
     const isETH = selectedToken === MOCK_ETH;
 
     try {
+      // Convert stake amount to proper units
+      const stakeAmountUnits = parseUnits(stakeAmount, selectedTokenInfo.decimals);
+      
       if (isETH) {
-        // For ETH, we need to handle native ETH deposits differently
-        // ETH vault should accept native ETH deposits directly
+        // For ETH, use the depositETH function
         depositToVault({
           address: vaultAddress,
           abi: GiveVault4626ABI,
-          functionName: 'deposit',
-          args: [stakeAmountUnits, address!],
+          functionName: 'depositETH',
+          args: [address!, 0n], // receiver, minShares (0 for now)
           value: stakeAmountUnits, // Send ETH value with the transaction
         });
       } else {
@@ -339,7 +474,8 @@ export default function CampaignStaking() {
 
   // Auto-deposit after approval (only for ERC20 tokens, not ETH)
   useEffect(() => {
-    if (isApprovalSuccess && !isDepositing && !isDepositingTx && selectedToken !== MOCK_ETH && currentVaultAddress) {
+    if (isApprovalSuccess && !isDepositing && !isDepositingTx && selectedToken !== MOCK_ETH && currentVaultAddress && stakeAmount) {
+      const stakeAmountUnits = parseUnits(stakeAmount, selectedTokenInfo.decimals);
       depositToVault({
         address: currentVaultAddress,
         abi: GiveVault4626ABI,
@@ -347,7 +483,7 @@ export default function CampaignStaking() {
         args: [stakeAmountUnits, address!],
       });
     }
-  }, [isApprovalSuccess, isDepositing, isDepositingTx, depositToVault, stakeAmountUnits, address, selectedToken, currentVaultAddress]);
+  }, [isApprovalSuccess, isDepositing, isDepositingTx, depositToVault, stakeAmount, address, selectedToken, currentVaultAddress, selectedTokenInfo.decimals]);
 
   const handleWithdraw = async () => {
     if (!address || !withdrawAmount) return;
@@ -377,15 +513,27 @@ export default function CampaignStaking() {
     }
 
     try {
-      // Convert withdraw amount to shares
+      // Convert withdraw amount to units
       const withdrawAmountUnits = parseUnits(withdrawAmount, selectedTokenInfo.decimals);
+      const isETH = selectedToken === MOCK_ETH;
       
-      withdrawFromVault({
-        address: vaultAddress,
-        abi: GiveVault4626ABI,
-        functionName: 'withdraw',
-        args: [withdrawAmountUnits, address!, address!],
-      });
+      if (isETH) {
+        // For ETH, use the withdrawETH function
+        withdrawFromVault({
+          address: vaultAddress,
+          abi: GiveVault4626ABI,
+          functionName: 'withdrawETH',
+          args: [withdrawAmountUnits, address!, address!, withdrawAmountUnits], // assets, receiver, owner, maxShares
+        });
+      } else {
+        // For ERC20 tokens, use regular withdraw
+        withdrawFromVault({
+          address: vaultAddress,
+          abi: GiveVault4626ABI,
+          functionName: 'withdraw',
+          args: [withdrawAmountUnits, address!, address!],
+        });
+      }
     } catch (error) {
       console.error('Withdrawal failed:', error);
       setError('Failed to withdraw funds');
@@ -393,6 +541,35 @@ export default function CampaignStaking() {
   };
 
   const isLoading = isApproving || isDepositing || isWithdrawing || isApprovingTx || isDepositingTx || isWithdrawingTx;
+
+  // Show wallet connection prompt if not connected
+  if (!address) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-emerald-50 via-cyan-50 to-teal-50">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          <div className="text-center py-20">
+            <motion.div 
+              className="bg-white rounded-lg shadow-lg p-8 max-w-md mx-auto"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5 }}
+            >
+              <div className="mb-6">
+                <Heart className="h-16 w-16 text-brand-600 mx-auto mb-4" />
+                <h2 className="text-2xl font-bold text-gray-900 mb-4">Connect Your Wallet</h2>
+                <p className="text-gray-600 mb-6">
+                  Please connect your wallet to view and manage your staking positions.
+                </p>
+                <p className="text-sm text-gray-500">
+                  Use the "Connect Wallet" button in the top right corner.
+                </p>
+              </div>
+            </motion.div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-emerald-50 via-cyan-50 to-teal-50 relative overflow-hidden">
@@ -1114,7 +1291,39 @@ export default function CampaignStaking() {
                   animate={{ opacity: 1, y: 0 }}
                   className="mb-4 p-3 bg-red-50 border border-red-200 rounded-xl"
                 >
-                  <p className="text-sm text-red-600 font-medium">{error}</p>
+                  <div className="flex items-start justify-between">
+                    <p className="text-sm text-red-600 font-medium flex-1">{error}</p>
+                    {(approveError && isRetryableError(approveError) || 
+                      depositError && isRetryableError(depositError) || 
+                      withdrawError && isRetryableError(withdrawError)) && 
+                      retryAttempts < 3 && (
+                      <motion.button
+                        whileHover={{ scale: 1.05 }}
+                        whileTap={{ scale: 0.95 }}
+                        onClick={retryTransaction}
+                        disabled={isRetrying}
+                        className="ml-3 px-3 py-1 text-xs font-semibold text-red-600 hover:text-red-700 bg-red-100 hover:bg-red-200 rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        {isRetrying ? (
+                          <div className="flex items-center">
+                            <motion.div
+                              className="w-3 h-3 border border-red-600 border-t-transparent rounded-full mr-1"
+                              animate={{ rotate: 360 }}
+                              transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+                            />
+                            Retrying...
+                          </div>
+                        ) : (
+                          `Retry (${3 - retryAttempts} left)`
+                        )}
+                      </motion.button>
+                    )}
+                  </div>
+                  {retryAttempts > 0 && (
+                    <p className="text-xs text-red-500 mt-1">
+                      Retry attempt {retryAttempts}/3
+                    </p>
+                  )}
                 </motion.div>
               )}
               

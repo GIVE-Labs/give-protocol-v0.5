@@ -1,11 +1,14 @@
 import { useReadContract, useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
 import { parseUnits, formatUnits } from 'viem';
 import { CONTRACT_ADDRESSES, MOCK_USDC, NGO_REGISTRY } from '../config/contracts';
-import GiveVault4626ABI from '../abis/GiveVault4626.json';
+import GiveVault4626ABIJson from '../abis/GiveVault4626.json';
 import DonationRouterABI from '../abis/DonationRouter.json';
 import StrategyManagerABI from '../abis/StrategyManager.json';
 import NGORegistryABI from '../abis/NGORegistry.json';
 import { erc20Abi } from '../abis/erc20';
+
+// Extract ABI array from JSON object (only needed for Forge-generated ABIs)
+const GiveVault4626ABI = GiveVault4626ABIJson.abi;
 
 // Hook for Vault operations
 export function useVault() {
