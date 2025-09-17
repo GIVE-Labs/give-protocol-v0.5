@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useAccount, useReadContract, useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
 import { parseUnits, formatUnits } from 'viem';
-import { CONTRACT_ADDRESSES } from '../../config/contracts';
+import { CONTRACT_ADDRESSES, MOCK_WETH } from '../../config/contracts';
 import { erc20Abi } from '../../abis/erc20';
 import GiveVault4626ABI from '../../abis/GiveVault4626.json';
 import NGORegistryABI from '../../abis/NGORegistry.json';
@@ -15,7 +15,7 @@ export default function StakeWETH() {
   const [mode, setMode] = useState<'stake' | 'unstake'>('stake');
   const [selectedNGO, setSelectedNGO] = useState<`0x${string}` | ''>('');
 
-  const weth = CONTRACT_ADDRESSES.TOKENS.WETH as `0x${string}`;
+  const weth = MOCK_WETH as `0x${string}`;
   const vault = CONTRACT_ADDRESSES.VAULT as `0x${string}`;
   const registry = CONTRACT_ADDRESSES.NGO_REGISTRY as `0x${string}`;
   const router = CONTRACT_ADDRESSES.DONATION_ROUTER as `0x${string}`;

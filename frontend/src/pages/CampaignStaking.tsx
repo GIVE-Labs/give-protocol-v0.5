@@ -22,8 +22,9 @@ export default function CampaignStaking() {
   const isCorrectNetwork = chain?.id === CURRENT_NETWORK.chainId;
   const networkError = isConnected && !isCorrectNetwork ? `Please switch to ${CURRENT_NETWORK.name}` : null;
   const [stakeAmount, setStakeAmount] = useState('0');
-  const [lockPeriod, setLockPeriod] = useState(12);
-  const [yieldSharingRatio, setYieldSharingRatio] = useState(75);
+  const [withdrawAmount, setWithdrawAmount] = useState('0');
+  const [lockPeriod, setLockPeriod] = useState<number>(12);
+  const [yieldSharingRatio, setYieldSharingRatio] = useState<number>(75);
   const [activeTab, setActiveTab] = useState<'details' | 'donate'>('donate');
   const [isTokenDropdownOpen, setIsTokenDropdownOpen] = useState(false);
   const [showFullDescription, setShowFullDescription] = useState(false);
@@ -65,6 +66,43 @@ export default function CampaignStaking() {
     },
   });
 
+  // Get vault address with proper type safety
+  const getVaultAddress = (tokenAddress: string): `0x${string}` | undefined => {
+    if (tokenAddress === MOCK_ETH) {
+      return ETH_VAULT as `0x${string}` | undefined;
+    }
+    return CONTRACT_ADDRESSES.VAULT as `0x${string}`;
+  };
+
+  const currentVaultAddress = getVaultAddress(selectedToken);
+
+  // Get user's current stake amount from vault
+  const { data: currentStakeShares } = useReadContract({
+    address: currentVaultAddress,
+    abi: GiveVault4626ABI,
+    functionName: 'balanceOf',
+    args: [address as `0x${string}`],
+    query: {
+      enabled: !!address && !!currentVaultAddress,
+    },
+  });
+
+  // Get vault's assets per share to convert shares to underlying tokens
+  const { data: assetsPerShare } = useReadContract({
+    address: currentVaultAddress,
+    abi: GiveVault4626ABI,
+    functionName: 'convertToAssets',
+    args: [(currentStakeShares as bigint) || 0n],
+    query: {
+      enabled: !!currentStakeShares && (currentStakeShares as bigint) > 0n && !!currentVaultAddress,
+    },
+  });
+
+  // Calculate current stake amount in tokens
+  const currentStakeAmountString = assetsPerShare ? formatUnits(assetsPerShare as bigint, selectedTokenInfo.decimals) : '0';
+  const currentStakeAmount = parseFloat(currentStakeAmountString);
+  const hasStakedFunds = currentStakeShares && (currentStakeShares as bigint) > 0n;
+
   // Fetch metadata from IPFS
   useEffect(() => {
     console.log('CampaignStaking - ngoInfo changed:', ngoInfo);
@@ -97,8 +135,10 @@ export default function CampaignStaking() {
   // Contract interactions with enhanced error handling
   const { writeContract: approveToken, data: approveHash, isPending: isApproving, error: approveError } = useWriteContract();
   const { writeContract: depositToVault, data: depositHash, isPending: isDepositing, error: depositError } = useWriteContract();
+  const { writeContract: withdrawFromVault, data: withdrawHash, isPending: isWithdrawing, error: withdrawError } = useWriteContract();
   const { isLoading: isApprovingTx, isSuccess: isApprovalSuccess } = useWaitForTransactionReceipt({ hash: approveHash });
   const { isLoading: isDepositingTx, isSuccess: isDepositSuccess } = useWaitForTransactionReceipt({ hash: depositHash });
+  const { isLoading: isWithdrawingTx, isSuccess: isWithdrawSuccess } = useWaitForTransactionReceipt({ hash: withdrawHash });
 
   // Input validation
   const validateStakeAmount = (amount: string): string | null => {
@@ -110,6 +150,19 @@ export default function CampaignStaking() {
     }
     if (parseFloat(amount) < 0.000001) {
       return 'Minimum stake amount is 0.000001';
+    }
+    return null;
+  };
+
+  const validateWithdrawAmount = (amount: string): string | null => {
+    if (!amount || parseFloat(amount) <= 0) {
+      return 'Please enter a valid withdraw amount';
+    }
+    if (parseFloat(amount) > currentStakeAmount) {
+      return 'Insufficient staked balance';
+    }
+    if (parseFloat(amount) < 0.000001) {
+      return 'Minimum withdraw amount is 0.000001';
     }
     return null;
   };
@@ -133,6 +186,13 @@ export default function CampaignStaking() {
     }
   }, [isDepositSuccess]);
 
+  useEffect(() => {
+    if (isWithdrawSuccess) {
+      setSuccessMessage('Withdrawal completed successfully!');
+      setWithdrawAmount('');
+    }
+  }, [isWithdrawSuccess]);
+
   // Handle transaction errors
   useEffect(() => {
     if (approveError) {
@@ -141,7 +201,10 @@ export default function CampaignStaking() {
     if (depositError) {
       setError(depositError.message || 'Deposit failed');
     }
-  }, [approveError, depositError]);
+    if (withdrawError) {
+      setError(withdrawError.message || 'Withdrawal failed');
+    }
+  }, [approveError, depositError, withdrawError]);
 
   // Calculate values
   // Parse stake amount using the selected token decimals (USDC = 6)
@@ -239,9 +302,14 @@ export default function CampaignStaking() {
       return;
     }
 
-    // Determine which vault to use based on selected token
+    // Get vault address with proper validation
+    const vaultAddress = currentVaultAddress;
+    if (!vaultAddress) {
+      setError('Vault not available for selected token');
+      return;
+    }
+
     const isETH = selectedToken === MOCK_ETH;
-    const vaultAddress = isETH ? ETH_VAULT : CONTRACT_ADDRESSES.VAULT;
 
     try {
       if (isETH) {
@@ -271,18 +339,60 @@ export default function CampaignStaking() {
 
   // Auto-deposit after approval (only for ERC20 tokens, not ETH)
   useEffect(() => {
-    if (isApprovalSuccess && !isDepositing && !isDepositingTx && selectedToken !== MOCK_ETH) {
-      const vaultAddress = selectedToken === MOCK_ETH ? ETH_VAULT : CONTRACT_ADDRESSES.VAULT;
+    if (isApprovalSuccess && !isDepositing && !isDepositingTx && selectedToken !== MOCK_ETH && currentVaultAddress) {
       depositToVault({
-        address: vaultAddress,
+        address: currentVaultAddress,
         abi: GiveVault4626ABI,
         functionName: 'deposit',
         args: [stakeAmountUnits, address!],
       });
     }
-  }, [isApprovalSuccess, isDepositing, isDepositingTx, depositToVault, stakeAmountUnits, address, selectedToken]);
+  }, [isApprovalSuccess, isDepositing, isDepositingTx, depositToVault, stakeAmountUnits, address, selectedToken, currentVaultAddress]);
 
-  const isLoading = isApproving || isDepositing || isApprovingTx || isDepositingTx;
+  const handleWithdraw = async () => {
+    if (!address || !withdrawAmount) return;
+
+    // Clear previous messages
+    setError(null);
+    setSuccessMessage(null);
+
+    // Validate network
+    if (!isCorrectNetwork) {
+      setError(`Please switch to ${CURRENT_NETWORK.name}`);
+      return;
+    }
+    
+    // Validate input
+    const validationError = validateWithdrawAmount(withdrawAmount);
+    if (validationError) {
+      setError(validationError);
+      return;
+    }
+
+    // Get vault address with proper validation
+    const vaultAddress = currentVaultAddress;
+    if (!vaultAddress) {
+      setError('Vault not available for selected token');
+      return;
+    }
+
+    try {
+      // Convert withdraw amount to shares
+      const withdrawAmountUnits = parseUnits(withdrawAmount, selectedTokenInfo.decimals);
+      
+      withdrawFromVault({
+        address: vaultAddress,
+        abi: GiveVault4626ABI,
+        functionName: 'withdraw',
+        args: [withdrawAmountUnits, address!, address!],
+      });
+    } catch (error) {
+      console.error('Withdrawal failed:', error);
+      setError('Failed to withdraw funds');
+    }
+  };
+
+  const isLoading = isApproving || isDepositing || isWithdrawing || isApprovingTx || isDepositingTx || isWithdrawingTx;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-emerald-50 via-cyan-50 to-teal-50 relative overflow-hidden">
@@ -680,7 +790,7 @@ export default function CampaignStaking() {
                   </motion.div>
                 )}
 
-                {activeTab === 'donate' && (
+                {activeTab === 'donate' ? (
                   <motion.div
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
@@ -792,57 +902,56 @@ export default function CampaignStaking() {
                        )}
                      </div>
 
-              {/* Lock Period */}
-              <div className="mb-5">
-                <label className="block text-xs font-semibold text-gray-700 mb-3">Select lock-in period:</label>
-                <div className="grid grid-cols-3 gap-2">
-                  {[6, 12, 24].map((months) => (
-                    <motion.button
-                      key={months}
-                      onClick={() => setLockPeriod(months)}
-                      className={`py-2 px-3 rounded-xl text-xs font-semibold transition-all shadow-lg ${
-                        lockPeriod === months
-                          ? 'bg-gradient-to-r from-emerald-500 to-cyan-500 text-white shadow-emerald-200'
-                          : 'bg-white/80 text-gray-700 hover:bg-emerald-50 border border-emerald-200'
-                      }`}
-                      whileHover={{ scale: 1.05, y: -2 }}
-                      whileTap={{ scale: 0.95 }}
-                    >
-                      {months} Months
-                    </motion.button>
-                  ))}
-                </div>
-              </div>
+                     {/* Lock Period */}
+                     <div className="mb-5">
+                       <label className="block text-xs font-semibold text-gray-700 mb-3">Select lock-in period:</label>
+                       <div className="grid grid-cols-3 gap-2">
+                         {[6, 12, 24].map((months) => (
+                           <motion.button
+                             key={months}
+                             onClick={() => setLockPeriod(months)}
+                             className={`py-2 px-3 rounded-xl text-xs font-semibold transition-all shadow-lg ${
+                               lockPeriod === months
+                                 ? 'bg-gradient-to-r from-emerald-500 to-cyan-500 text-white shadow-emerald-200'
+                                 : 'bg-white/80 text-gray-700 hover:bg-emerald-50 border border-emerald-200'
+                             }`}
+                             whileHover={{ scale: 1.05, y: -2 }}
+                             whileTap={{ scale: 0.95 }}
+                           >
+                             <span>{months} Months</span>
+                           </motion.button>
+                         ))}
+                       </div>
+                     </div>
 
-              {/* Yield Sharing Ratio */}
-              <div className="mb-5">
-                <label className="block text-xs font-semibold text-gray-700 mb-3">Select yield-sharing ratio:</label>
-                <div className="grid grid-cols-3 gap-2">
-                  {[50, 75, 100].map((ratio) => (
-                    <motion.button
-                      key={ratio}
-                      onClick={() => setYieldSharingRatio(ratio)}
-                      className={`py-2 px-3 rounded-xl text-xs font-semibold transition-all shadow-lg ${
-                        yieldSharingRatio === ratio
-                          ? 'bg-gradient-to-r from-emerald-500 to-cyan-500 text-white shadow-emerald-200'
-                          : 'bg-white/80 text-gray-700 hover:bg-emerald-50 border border-emerald-200'
-                      }`}
-                      whileHover={{ scale: 1.05, y: -2 }}
-                      whileTap={{ scale: 0.95 }}
-                    >
-                      {ratio}%
-                    </motion.button>
-                  ))}
-                </div>
-              </div>
+                     <div className="mb-5">
+                       <label className="block text-xs font-semibold text-gray-700 mb-3">Select yield-sharing ratio:</label>
+                       <div className="grid grid-cols-3 gap-2">
+                         {[50, 75, 100].map((ratio) => (
+                           <motion.button
+                             key={ratio}
+                             onClick={() => setYieldSharingRatio(ratio)}
+                             className={`py-2 px-3 rounded-xl text-xs font-semibold transition-all shadow-lg ${
+                               yieldSharingRatio === ratio
+                                 ? 'bg-gradient-to-r from-emerald-500 to-cyan-500 text-white shadow-emerald-200'
+                                 : 'bg-white/80 text-gray-700 hover:bg-emerald-50 border border-emerald-200'
+                             }`}
+                             whileHover={{ scale: 1.05, y: -2 }}
+                             whileTap={{ scale: 0.95 }}
+                           >
+                             <span>{ratio}%</span>
+                           </motion.button>
+                         ))}
+                       </div>
+                     </div>
 
-              {/* Yield Breakdown */}
-              <motion.div 
-                className="bg-gradient-to-br from-emerald-50 to-cyan-50 rounded-xl p-4 mb-5 border border-emerald-100"
-                initial={{ opacity: 0, scale: 0.95 }}
-                animate={{ opacity: 1, scale: 1 }}
-                transition={{ duration: 0.5, delay: 0.4 }}
-              >
+                     {/* Yield Breakdown */}
+                     <motion.div 
+                       className="bg-gradient-to-br from-emerald-50 to-cyan-50 rounded-xl p-4 mb-5 border border-emerald-100"
+                       initial={{ opacity: 0, scale: 0.95 }}
+                       animate={{ opacity: 1, scale: 1 }}
+                       transition={{ duration: 0.5, delay: 0.4 }}
+                     >
                 <div className="space-y-3">
                   <div className="flex justify-between items-center">
                     <span className="text-xs text-gray-600 font-medium">Lock Period:</span>
@@ -894,6 +1003,131 @@ export default function CampaignStaking() {
                 </div>
               </motion.div>
 
+              {/* Current Stake Display */}
+              {hasStakedFunds && (
+                <motion.div 
+                  className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl p-4 mb-5 border border-blue-100"
+                  initial={{ opacity: 0, scale: 0.95 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  transition={{ duration: 0.5 }}
+                >
+                  <div className="flex items-center justify-between mb-3">
+                    <h4 className="text-sm font-bold text-gray-800 flex items-center">
+                      <Gift className="w-4 h-4 mr-2 text-blue-600" />
+                      Your Current Stake
+                    </h4>
+                    <div className="flex items-center space-x-1">
+                      <img src={selectedTokenInfo.icon} alt={selectedTokenInfo.symbol} className="w-4 h-4" />
+                      <span className="text-lg font-bold text-blue-600">
+                        {currentStakeAmount.toFixed(6).replace(/\.?0+$/, '')}
+                      </span>
+                      <span className="text-sm text-gray-600 font-medium">{selectedTokenInfo.symbol}</span>
+                    </div>
+                  </div>
+                  
+                  {/* Withdraw Section */}
+                  <div className="space-y-3">
+                    <label className="block text-xs font-semibold text-gray-700">Withdraw Amount:</label>
+                    <div className="flex items-stretch">
+                      <motion.input
+                        type="number"
+                        value={withdrawAmount}
+                        onChange={(e) => {
+                          const value = e.target.value;
+                          if (value === '' || /^\d*\.?\d{0,6}$/.test(value)) {
+                            setWithdrawAmount(value);
+                          }
+                        }}
+                        className="flex-1 px-4 py-2 text-sm border-2 border-blue-200 rounded-l-xl border-r-0 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white/80 backdrop-blur-sm transition-all [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                        placeholder="0"
+                      />
+                      <motion.button
+                        type="button"
+                        onClick={() => {
+                          const maxAmount = currentStakeAmount.toFixed(6).replace(/\.?0+$/, '');
+                          setWithdrawAmount(maxAmount);
+                        }}
+                        className="px-3 text-xs font-semibold text-blue-600 hover:text-blue-700 bg-white/80 hover:bg-blue-50 border-t-2 border-b-2 border-blue-200 transition-all backdrop-blur-sm"
+                      >
+                        MAX
+                      </motion.button>
+                      <div className="px-3 py-2 text-sm font-medium border-2 border-blue-200 rounded-r-xl border-l-2 bg-white/80 text-gray-600 flex items-center">
+                        {selectedTokenInfo.symbol}
+                      </div>
+                    </div>
+                    
+                    {withdrawAmount && (
+                      <div className="mt-2">
+                        {parseFloat(withdrawAmount) > currentStakeAmount ? (
+                          <p className="text-xs text-red-500 font-medium">
+                            Insufficient staked balance.
+                          </p>
+                        ) : parseFloat(withdrawAmount) < 0.000001 ? (
+                          <p className="text-xs text-orange-500 font-medium">
+                            Minimum withdraw amount is 0.000001 {selectedTokenInfo.symbol}
+                          </p>
+                        ) : null}
+                      </div>
+                    )}
+                    
+                    <motion.div
+                      whileHover={{ scale: 1.02 }}
+                      whileTap={{ scale: 0.98 }}
+                    >
+                      <Button
+                        onClick={handleWithdraw}
+                        disabled={!withdrawAmount || isLoading || !!validateWithdrawAmount(withdrawAmount)}
+                        className={`w-full font-bold py-2 px-4 rounded-xl transition-all shadow-lg text-sm ${
+                          !withdrawAmount || !!validateWithdrawAmount(withdrawAmount)
+                            ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                            : isLoading
+                            ? 'bg-gradient-to-r from-blue-400 to-blue-500 text-white cursor-wait'
+                            : 'bg-gradient-to-r from-blue-500 to-indigo-500 hover:from-blue-600 hover:to-indigo-600 text-white hover:shadow-xl'
+                        }`}
+                      >
+                        {!withdrawAmount ? (
+                          'Enter Withdraw Amount'
+                        ) : validateWithdrawAmount(withdrawAmount) ? (
+                          validateWithdrawAmount(withdrawAmount)
+                        ) : isWithdrawing || isWithdrawingTx ? (
+                          <div className="flex items-center justify-center">
+                            <motion.div
+                              className="w-4 h-4 border-2 border-white border-t-transparent rounded-full mr-2"
+                              animate={{ rotate: 360 }}
+                              transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+                            />
+                            Withdrawing...
+                          </div>
+                        ) : (
+                          'Withdraw Funds'
+                        )}
+                      </Button>
+                    </motion.div>
+                  </div>
+                </motion.div>
+              )}
+
+              {/* Error and Success Messages */}
+              {error && (
+                <motion.div
+                  initial={{ opacity: 0, y: -10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="mb-4 p-3 bg-red-50 border border-red-200 rounded-xl"
+                >
+                  <p className="text-sm text-red-600 font-medium">{error}</p>
+                </motion.div>
+              )}
+              
+              {successMessage && (
+                <motion.div
+                  initial={{ opacity: 0, y: -10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="mb-4 p-3 bg-green-50 border border-green-200 rounded-xl"
+                >
+                  <p className="text-sm text-green-600 font-medium">{successMessage}</p>
+                </motion.div>
+              )}
+
               {/* Stake Button */}
               <motion.div
                 whileHover={{ scale: 1.02 }}
@@ -944,11 +1178,11 @@ export default function CampaignStaking() {
                 </Button>
               </motion.div>
 
-                       <p className="text-xs text-gray-500 text-center mt-3 font-medium">
-                         🔒 Secure payment via smart contract
-                       </p>
+                    <p className="text-xs text-gray-500 text-center mt-3 font-medium">
+                      🔒 Secure payment via smart contract
+                    </p>
                   </motion.div>
-                )}
+                ) : null}
               </div>
             </motion.div>
           </div>

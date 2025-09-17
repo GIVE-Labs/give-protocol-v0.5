@@ -1,6 +1,6 @@
 import { useReadContract, useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
 import { parseUnits, formatUnits } from 'viem';
-import { CONTRACT_ADDRESSES } from '../config/contracts';
+import { CONTRACT_ADDRESSES, MOCK_USDC } from '../config/contracts';
 import GiveVault4626ABI from '../abis/GiveVault4626.json';
 import DonationRouterABI from '../abis/DonationRouter.json';
 import StrategyManagerABI from '../abis/StrategyManager.json';
@@ -236,14 +236,14 @@ export function useUSDC() {
   const { isLoading: isConfirming, isSuccess: isConfirmed } = useWaitForTransactionReceipt({ hash });
 
   const { data: balance } = useReadContract({
-    address: CONTRACT_ADDRESSES.TOKENS.USDC as `0x${string}`,
+    address: MOCK_USDC as `0x${string}`,
     abi: erc20Abi,
     functionName: 'balanceOf',
     args: ['0x0000000000000000000000000000000000000000'], // Will be replaced with actual user address
   });
 
   const { data: allowance } = useReadContract({
-    address: CONTRACT_ADDRESSES.TOKENS.USDC as `0x${string}`,
+    address: MOCK_USDC as `0x${string}`,
     abi: erc20Abi,
     functionName: 'allowance',
     args: [
@@ -255,7 +255,7 @@ export function useUSDC() {
   const approve = (amount: string) => {
     const amountBigInt = parseUnits(amount, 6);
     writeContract({
-      address: CONTRACT_ADDRESSES.TOKENS.USDC as `0x${string}`,
+      address: MOCK_USDC as `0x${string}`,
       abi: erc20Abi,
       functionName: 'approve',
       args: [CONTRACT_ADDRESSES.VAULT as `0x${string}`, amountBigInt],
