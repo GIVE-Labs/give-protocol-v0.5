@@ -5,6 +5,47 @@ All notable changes to the GIVE Protocol will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.2] - 2025-09-18
+
+### Added - Sepolia Testnet Deployment
+
+#### Contract Deployment
+- **Successfully deployed all core contracts to Ethereum Sepolia testnet**
+  - GiveVault4626 (USDC): `0x9816de1f27c15AAe597548f09E2188d16752C4C8`
+  - StrategyManager: `0x42cB507dfe0f7D8a01c9ad9e1b18B84CCf0A41B9`
+  - AaveAdapter: `0xFc03875B2B2a84D9D1Bd24E41281fF371b3A1948`
+  - NGORegistry: `0x77182f2C8E86233D3B0095446Da20ecDecF96Cc2`
+  - DonationRouter: `0x33952be800FbBc7f8198A0efD489204720f64A4C`
+- **All contracts verified on Sepolia Etherscan**
+- **Integrated with Aave V3 Sepolia pool** for real yield generation
+
+#### Infrastructure Improvements
+- **Fixed account-based deployment** for better security practices
+  - Resolved `vm.addr: private key cannot be 0` errors
+  - Implemented proper account management vs private key deployment
+- **Updated asset configurations** for Aave Sepolia compatibility
+  - USDC: `0x94a9D9AC8a22534E3FaCa9F4e7F2E2cf85d5E4C8`
+  - WETH: `0xC558DBdd856501FCd9aaF1E62eae57A9F0629a3c`
+- **Resolved access control issues** in deployment scripts
+
+#### Frontend Configuration
+- **Updated Sepolia configuration** with deployed contract addresses
+- **Fixed TypeScript import conflicts** in contract configuration files
+- **Improved network configuration management** for multi-network support
+
+### Fixed
+- **Deploy.s.sol**: Fixed admin role assignments for account-based deployment
+- **HelperConfig.s.sol**: Updated with correct Aave Sepolia asset addresses
+- **Frontend config files**: Resolved circular dependency issues in contract imports
+- **Asset validation**: Fixed `InvalidAsset()` errors with correct Aave pool addresses
+
+### Technical Details
+- **Network**: Ethereum Sepolia (Chain ID: 11155111)
+- **Block**: 9226021
+- **Total Gas Used**: 11,555,506 gas
+- **Deployment Cost**: 0.000011555771776638 ETH
+- **Admin Address**: `0xe45d65267F0DDA5e6163ED6D476F72049972ce3b`
+
 ## [0.1.1] - 2025-01-15
 
 ### Added - Deployment Infrastructure & Documentation

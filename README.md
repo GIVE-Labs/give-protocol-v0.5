@@ -117,6 +117,20 @@ cd backend
 make deploy-local
 ```
 
+#### Testnet Deployment (Ethereum Sepolia)
+```bash
+cd backend
+# Ensure ETHERSCAN_API_KEY is set in .env
+make deploy-sepolia
+```
+
+**Deployed Addresses (Sepolia Testnet - September 18, 2025):**
+- **GiveVault4626 (USDC):** [`0x9816de1f27c15AAe597548f09E2188d16752C4C8`](https://sepolia.etherscan.io/address/0x9816de1f27c15aae597548f09e2188d16752c4c8)
+- **StrategyManager:** [`0x42cB507dfe0f7D8a01c9ad9e1b18B84CCf0A41B9`](https://sepolia.etherscan.io/address/0x42cb507dfe0f7d8a01c9ad9e1b18b84ccf0a41b9)
+- **AaveAdapter:** [`0xFc03875B2B2a84D9D1Bd24E41281fF371b3A1948`](https://sepolia.etherscan.io/address/0xfc03875b2b2a84d9d1bd24e41281ff371b3a1948)
+- **NGORegistry:** [`0x77182f2C8E86233D3B0095446Da20ecDecF96Cc2`](https://sepolia.etherscan.io/address/0x77182f2c8e86233d3b0095446da20ecdecf96cc2)
+- **DonationRouter:** [`0x33952be800FbBc7f8198A0efD489204720f64A4C`](https://sepolia.etherscan.io/address/0x33952be800fbbc7f8198a0efd489204720f64a4c)
+
 #### Testnet Deployment (Scroll Sepolia)
 ```bash
 cd backend
@@ -126,19 +140,17 @@ make deploy-scroll
 
 #### Other Networks
 ```bash
-# Ethereum Sepolia
-make deploy-sepolia
-
 # Custom network
 make deploy NETWORK=custom RPC_URL=your_rpc_url
 ```
 
 ## Tech Stack
 
-- Frontend: Next.js + TypeScript + TailwindCSS
-- Contracts: Foundry + Solidity (ERC-4626 vault, adapters, registry/router)
-- Chain: Scroll Sepolia (test/deploy targets configurable)
-- Tokens: Asset-specific vaults (e.g., USDC, wstETH)
+- Frontend: Next.js + TypeScript + TailwindCSS + Viem/Wagmi
+- Contracts: Foundry + Solidity (ERC-4626 vault, Aave adapters, registry/router)
+- Networks: Ethereum Sepolia (deployed), Scroll Sepolia (configurable)
+- DeFi Integration: Aave V3 for yield generation
+- Tokens: Asset-specific vaults (USDC deployed, wstETH configurable)
 
 ## Project Structure
 
@@ -206,8 +218,11 @@ pnpm type-check    # TypeScript check
 ## Current Status
 
 - ✅ Docs updated for GIVE Protocol architecture
-- 🔄 Implementing v0.1: GiveVault4626 + Aave adapter + Registry/Router
-- 🎯 Testnet deployment plan after unit/fork tests
+- ✅ Implemented v0.1: GiveVault4626 + Aave adapter + Registry/Router
+- ✅ **Deployed to Sepolia testnet** (September 18, 2025)
+- ✅ All contracts verified on Etherscan
+- 🔄 Frontend integration with testnet deployment
+- 🎯 User testing and feedback collection
 
 ## Getting Started
 

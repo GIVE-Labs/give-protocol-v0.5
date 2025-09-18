@@ -123,11 +123,13 @@ deploy-local:
 # Sepolia deployment
 deploy-sepolia:
 	@echo "$(YELLOW)Deploying to Ethereum Sepolia...$(NC)"
-	@if [ -z "$(ETHERSCAN_API_KEY)" ]; then \
+	@set -a && [ -f .env ] && . ./.env && set +a; \
+	if [ -z "$$ETHERSCAN_API_KEY" ]; then \
 		echo "$(RED)Error: ETHERSCAN_API_KEY is required for Sepolia deployment$(NC)"; \
 		exit 1; \
-	fi
-	@$(MAKE) deploy NETWORK=sepolia
+	fi; \
+	forge script script/Deploy.s.sol:Deploy --rpc-url "$$SEPOLIA_RPC" --account default --broadcast --verify --etherscan-api-key "$$ETHERSCAN_API_KEY"
+	@echo "$(GREEN)Deployment completed!$(NC)"
 
 # Scroll Sepolia deployment
 deploy-scroll:
