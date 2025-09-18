@@ -166,16 +166,18 @@ export default function FeaturedNGO() {
                transition={{ duration: 0.6, delay: 0.4 }}
                className="flex justify-center"
              >
-               <motion.a
-                 href="/campaign/0xe45d65267F0DDA5e6163ED6D476F72049972ce3b"
+               <motion.button
+                 onClick={() => {
+                   window.location.href = "https://give-protocol-v0.vercel.app/campaign/0x28c50Bcdb2288fCdcf84DF4198F06Df92Dad6DFc";
+                 }}
                  whileHover={{ scale: 1.05, y: -2 }}
                  whileTap={{ scale: 0.95 }}
-                 className="bg-gradient-to-r from-green-500 to-emerald-600 text-white px-10 py-4 rounded-2xl font-bold text-lg font-unbounded hover:from-green-600 hover:to-emerald-700 transition-all duration-300 shadow-lg hover:shadow-xl flex items-center space-x-3 group"
+                 className="bg-gradient-to-r from-green-500 to-emerald-600 text-white px-10 py-4 rounded-2xl font-bold text-lg font-unbounded hover:from-green-600 hover:to-emerald-700 transition-all duration-300 shadow-lg hover:shadow-xl flex items-center space-x-3 group cursor-pointer"
                >
                  <Heart className="w-6 h-6 group-hover:scale-110 transition-transform" />
                  <span>Donate Now</span>
                  <ArrowRight className="w-6 h-6 group-hover:translate-x-1 transition-transform" />
-               </motion.a>
+               </motion.button>
              </motion.div>
           </motion.div>
         </div>

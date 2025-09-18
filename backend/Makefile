@@ -146,6 +146,17 @@ register-ngo:
 	@forge script script/RegisterTestNGO.s.sol:RegisterTestNGO --rpc-url $(RPC_URL) --private-key $(PRIVATE_KEY) --broadcast
 	@echo "$(GREEN)Test NGO registered!$(NC)"
 
+# Register NGO on Sepolia
+register-ngo-sepolia:
+	@echo "$(YELLOW)Registering NGO on Sepolia...$(NC)"
+	@source .env; \
+	if [ -z "$$ETHERSCAN_API_KEY" ]; then \
+		echo "$(RED)Error: ETHERSCAN_API_KEY is required for Sepolia registration$(NC)"; \
+		exit 1; \
+	fi; \
+	forge script script/RegisterSepoliaNGO.s.sol:RegisterSepoliaNGO --rpc-url "$$SEPOLIA_RPC" --account default --broadcast
+	@echo "$(GREEN)NGO registered on Sepolia!$(NC)"
+
 # Update NGO metadata
 update-metadata:
 	@echo "$(YELLOW)Updating NGO metadata...$(NC)"
