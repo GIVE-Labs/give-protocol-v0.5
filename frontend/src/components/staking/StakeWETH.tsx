@@ -3,10 +3,13 @@ import { useAccount, useReadContract, useWriteContract, useWaitForTransactionRec
 import { parseUnits, formatUnits } from 'viem';
 import { CONTRACT_ADDRESSES, MOCK_WETH } from '../../config/contracts';
 import { erc20Abi } from '../../abis/erc20';
-import GiveVault4626ABI from '../../abis/GiveVault4626.json';
+import GiveVault4626ABIJson from '../../abis/GiveVault4626.json';
 import NGORegistryABI from '../../abis/NGORegistry.json';
 import DonationRouterABI from '../../abis/DonationRouter.json';
 import { motion } from 'framer-motion';
+
+// Extract ABI array from JSON object (only needed for Forge-generated ABIs)
+const GiveVault4626ABI = GiveVault4626ABIJson.abi;
 
 export default function StakeWETH() {
   const { address } = useAccount();

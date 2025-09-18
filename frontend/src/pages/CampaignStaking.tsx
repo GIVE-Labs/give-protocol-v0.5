@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAccount, useReadContract, useWriteContract, useWaitForTransactionReceipt, useBalance } from 'wagmi';
 import { formatUnits, parseUnits } from 'viem';
@@ -339,17 +339,6 @@ export default function CampaignStaking() {
     }
   }, [isDepositSuccess, isWithdrawSuccess, isApprovalSuccess]);
 
-  // Calculate values
-  // Parse stake amount using the selected token decimals (USDC = 6)
-  const stakeAmountUnits = useMemo(() => {
-    try {
-      return parseUnits(stakeAmount || '0', selectedTokenInfo.decimals);
-    } catch {
-      return 0n;
-    }
-  }, [stakeAmount, selectedTokenInfo.decimals]);
-  // Removed unused mock values
-  
   // Calculate APY based on lock period
   const calculateAPY = (lockPeriod: number) => {
     // Token-specific fallback rates based on typical DeFi yields

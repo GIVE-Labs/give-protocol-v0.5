@@ -3,7 +3,7 @@ import { useParams } from 'react-router-dom';
 import { useAccount, useReadContract, useWriteContract, useWaitForTransactionReceipt, useBalance } from 'wagmi';
 import { parseEther, parseUnits, formatUnits } from 'viem';
 import { erc20Abi } from 'viem';
-import GiveVault4626ABI from '../abis/GiveVault4626.json';
+import GiveVault4626ABIJson from '../abis/GiveVault4626.json';
 import NGORegistryABI from '../abis/NGORegistry.json';
 import { useNGODetails } from '../hooks/useNGORegistryWagmi';
 import { NGO } from '../types';
@@ -11,6 +11,9 @@ import StakingProgressModal from '../components/staking/StakingProgressModal';
 import { fetchMetadataFromIPFS, getIPFSUrl, NGOMetadata } from '../services/ipfs';
 import { CONTRACT_ADDRESSES, MOCK_WETH, MOCK_USDC } from '../config/contracts';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
+
+// Extract ABI array from JSON object (only needed for Forge-generated ABIs)
+const GiveVault4626ABI = GiveVault4626ABIJson.abi;
 
 // Use dynamic contract addresses based on active network
 const STAKING_CONTRACT = CONTRACT_ADDRESSES.VAULT;
