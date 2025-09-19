@@ -83,7 +83,7 @@ export default function Home() {
 
       {/* Hero Section */}
       <motion.div 
-        className="container mx-auto px-4 pt-16 pb-16 lg:pt-24 lg:pb-24 relative z-10" // Reduced top padding
+        className="container px-4 pt-16 pb-16 lg:pt-24 lg:pb-24 relative z-10" // Reduced top padding
         variants={containerVariants}
         initial="hidden"
         animate="visible"
