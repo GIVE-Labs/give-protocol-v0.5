@@ -910,7 +910,39 @@ export default function CreateCampaign() {
               )}
             </AnimatePresence>
 
-            {/* Loading State */}
+            {/* Error Messages */}
+            <AnimatePresence>
+              {(submitError || validationErrors.length > 0) && (
+                <motion.div
+                  initial={{ opacity: 0, y: -20, scale: 0.95 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, y: -20, scale: 0.95 }}
+                  className="mb-6 p-6 bg-gradient-to-r from-red-50 to-pink-50 border-2 border-red-200 rounded-2xl shadow-lg"
+                >
+                  <div className="flex items-start">
+                    <div className="w-8 h-8 bg-gradient-to-r from-red-500 to-pink-500 rounded-full flex items-center justify-center mr-4 flex-shrink-0">
+                      <AlertCircle className="w-5 h-5 text-white" />
+                    </div>
+                    <div>
+                      <h3 className="text-red-800 font-bold text-lg mb-2 font-unbounded">Action Required</h3>
+                      {submitError && (
+                        <p className="text-red-700 font-semibold mb-2">{submitError}</p>
+                      )}
+                      {validationErrors.length > 0 && (
+                        <div>
+                          <p className="text-red-700 font-semibold mb-2">Please fix the following errors:</p>
+                          <ul className="list-disc list-inside text-red-600 space-y-1">
+                            {validationErrors.map((error, index) => (
+                              <li key={index} className="font-semibold">{error}</li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
             <AnimatePresence>
               {(isSubmitting || isRegistering || isConfirming) && (
                 <motion.div
