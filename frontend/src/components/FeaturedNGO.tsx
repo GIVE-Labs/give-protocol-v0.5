@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { ChevronLeft, ChevronRight, Heart, ArrowRight } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
 import garden1 from '../assets/IMG_4241.jpg'
 import garden2 from '../assets/IMG_5543.jpg'
 import garden3 from '../assets/IMG_5550.jpg'
@@ -13,6 +14,7 @@ const images = [
 
 export default function FeaturedNGO() {
   const [currentImage, setCurrentImage] = useState(0)
+  const navigate = useNavigate()
 
   // Auto-rotate images every 4 seconds
   useEffect(() => {
@@ -168,7 +170,7 @@ export default function FeaturedNGO() {
              >
                <motion.button
                  onClick={() => {
-                   window.location.href = "https://give-protocol-v0.vercel.app/campaign/0x28c50Bcdb2288fCdcf84DF4198F06Df92Dad6DFc";
+                   navigate("/campaign/0x28c50Bcdb2288fCdcf84DF4198F06Df92Dad6DFc");
                  }}
                  whileHover={{ scale: 1.05, y: -2 }}
                  whileTap={{ scale: 0.95 }}

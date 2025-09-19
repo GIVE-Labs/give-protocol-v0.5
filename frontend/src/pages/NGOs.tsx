@@ -147,7 +147,7 @@ function CampaignCard({ address, index }: { address: `0x${string}`, index: numbe
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: index * 0.1 }}
-      className="bg-white rounded-xl shadow-sm border overflow-hidden hover:shadow-lg transition-all duration-300 cursor-pointer group"
+      className="bg-white rounded-xl shadow-sm border overflow-hidden hover:shadow-lg transition-all duration-300 cursor-pointer group flex flex-col h-full"
       onClick={handleDonateClick}
     >
       {/* Campaign Image */}
@@ -173,7 +173,7 @@ function CampaignCard({ address, index }: { address: `0x${string}`, index: numbe
       </div>
 
       {/* Campaign Content */}
-      <div className="p-6">
+  <div className="p-6 flex flex-col flex-1">
         <div className="flex items-center justify-between mb-3">
           <span className="px-3 py-1 bg-emerald-100 text-emerald-800 text-xs font-medium rounded-full">
             {metadata?.category || 'General'}
@@ -189,8 +189,9 @@ function CampaignCard({ address, index }: { address: `0x${string}`, index: numbe
           {metadata?.description || metadata?.missionStatement || 'No description available'}
         </p>
         
-        {/* Progress Bar */}
-        <div className="mb-4">
+        {/* Progress Bar and CTA - pushed to bottom for consistent alignment */}
+        <div className="mt-auto">
+          <div className="mb-4">
           <div className="flex justify-between items-center mb-2">
             <span className="text-sm font-semibold text-gray-900">
               ${totalReceived.toLocaleString()} raised
@@ -212,13 +213,14 @@ function CampaignCard({ address, index }: { address: `0x${string}`, index: numbe
               {mockSupporters} supporters
             </div>
           </div>
+          </div>
+          
+          {/* Donate Button */}
+          <button className="w-full bg-gradient-to-r from-emerald-500 to-teal-500 text-white py-3 px-4 rounded-lg hover:from-emerald-600 hover:to-teal-600 transition-all duration-200 font-semibold text-sm group-hover:shadow-lg flex items-center justify-center">
+            <Heart className="w-4 h-4 mr-2" />
+            Support This Cause
+          </button>
         </div>
-        
-        {/* Donate Button */}
-        <button className="w-full bg-gradient-to-r from-emerald-500 to-teal-500 text-white py-3 px-4 rounded-lg hover:from-emerald-600 hover:to-teal-600 transition-all duration-200 font-semibold text-sm group-hover:shadow-lg flex items-center justify-center">
-          <Heart className="w-4 h-4 mr-2" />
-          Support This Cause
-        </button>
       </div>
     </motion.div>
   );
