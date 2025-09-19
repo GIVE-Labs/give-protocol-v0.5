@@ -36,17 +36,11 @@ contract Deploy is Script {
         ) = helperConfig.getActiveNetworkConfig();
 
         // Use environment variables if available, otherwise use msg.sender for account-based deployment
-        address admin = vm.envOr(
-            "ADMIN_ADDRESS",
-            deployerKey == 0 ? msg.sender : vm.addr(deployerKey)
-        );
+        address admin = vm.envOr("ADMIN_ADDRESS", deployerKey == 0 ? msg.sender : vm.addr(deployerKey));
         address assetAddress = vm.envOr("ASSET_ADDRESS", usdc);
 
         // Optional naming overrides for the vault
-        string memory assetName = vm.envOr(
-            "ASSET_NAME",
-            string("GIVE Vault USDC")
-        );
+        string memory assetName = vm.envOr("ASSET_NAME", string("GIVE Vault USDC"));
         string memory assetSymbol = vm.envOr("ASSET_SYMBOL", string("gvUSDC"));
         address feeRecipient = vm.envOr("FEE_RECIPIENT_ADDRESS", admin);
 
@@ -68,20 +62,9 @@ contract Deploy is Script {
         }
 
         NGORegistry registry = new NGORegistry(admin); // Use environment admin as admin
-        DonationRouter router = new DonationRouter(
-            admin,
-            address(registry),
-            feeRecipient,
-            admin,
-            feeBps
-        ); // Use admin from environment for role management
+        DonationRouter router = new DonationRouter(admin, address(registry), feeRecipient, admin, feeBps); // Use admin from environment for role management
 
-        GiveVault4626 vault = new GiveVault4626(
-            IERC20(assetAddress),
-            assetName,
-            assetSymbol,
-            admin
-        );
+        GiveVault4626 vault = new GiveVault4626(IERC20(assetAddress), assetName, assetSymbol, admin);
         StrategyManager manager = new StrategyManager(address(vault), admin);
 
         // Use MockYieldAdapter for Anvil (chainid 31337), AaveAdapter for other networks
@@ -90,22 +73,14 @@ contract Deploy is Script {
             adapter = new MockYieldAdapter(assetAddress, address(vault), admin);
             console.log("Using MockYieldAdapter for local testing");
         } else {
-            adapter = new AaveAdapter(
-                assetAddress,
-                address(vault),
-                aavePool,
-                admin
-            );
+            adapter = new AaveAdapter(assetAddress, address(vault), aavePool, admin);
             console.log("Using AaveAdapter for live network");
         }
 
         // Wire roles & params
         console.log("Deployer address:", deployer);
         console.log("Admin address:", admin);
-        console.log(
-            "Has DEFAULT_ADMIN_ROLE:",
-            registry.hasRole(registry.DEFAULT_ADMIN_ROLE(), admin)
-        );
+        console.log("Has DEFAULT_ADMIN_ROLE:", registry.hasRole(registry.DEFAULT_ADMIN_ROLE(), admin));
         registry.grantRole(registry.DONATION_RECORDER_ROLE(), address(router));
         router.setAuthorizedCaller(address(vault), true);
 
@@ -125,13 +100,12 @@ contract Deploy is Script {
         console.log("NGORegistry:", address(registry));
         console.log("DonationRouter:", address(router));
 
-        return
-            Deployed({
-                vault: address(vault),
-                manager: address(manager),
-                adapter: address(adapter),
-                registry: address(registry),
-                router: address(router)
-            });
+        return Deployed({
+            vault: address(vault),
+            manager: address(manager),
+            adapter: address(adapter),
+            registry: address(registry),
+            router: address(router)
+        });
     }
 }

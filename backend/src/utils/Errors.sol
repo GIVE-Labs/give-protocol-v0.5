@@ -91,7 +91,7 @@ library Errors {
     error MathOverflow();
     error MathUnderflow();
     error DivisionByZero();
-    
+
     // === User Preference Errors ===
     error InvalidAllocationPercentage(uint8 percentage);
     error UnauthorizedCaller(address caller);

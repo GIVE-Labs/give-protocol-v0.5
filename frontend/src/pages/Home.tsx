@@ -121,7 +121,7 @@ export default function Home() {
                 className="text-5xl lg:text-6xl xl:text-6xl font-bold leading-tight font-unbounded"
                 variants={itemVariants}
               >
-                <span className="text-gray-900">Giving Without</span>
+                <span className="text-gray-900">Turn Savings</span>
                 <motion.span 
                   className="block text-transparent bg-gradient-to-r from-emerald-600 via-cyan-600 to-teal-600 bg-clip-text pb-1"
                   animate={{
@@ -136,7 +136,7 @@ export default function Home() {
                     backgroundSize: '200% 200%'
                   }}
                 >
-                  Losing
+                  into Givings
                 </motion.span>
               </motion.h1>
               
@@ -144,9 +144,9 @@ export default function Home() {
                 className="text-xl lg:text-2xl text-gray-700 leading-relaxed font-medium flex flex-col gap-2 font-unbounded"
                 variants={itemVariants}
               >
-                <span>Donate while keeping your principal.</span>
+                <span>Fund a cause transparently.</span>
                 <span className="font-bold text-transparent bg-gradient-to-r from-emerald-600 to-cyan-600 bg-clip-text">
-                  Distribute yield for good causes.
+                  All while keeping your principal.
                 </span>
               </motion.p>
             </motion.div>

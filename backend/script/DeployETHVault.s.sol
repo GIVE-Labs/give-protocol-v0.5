@@ -32,11 +32,11 @@ contract DeployETHVault is Script {
     function run() external returns (ETHVaultDeployment memory deployment) {
         console.log("=== Deploying ETH Vault System ===");
         console.log("Chain ID:", block.chainid);
-        
+
         HelperConfig helperConfig = new HelperConfig();
         (
             address wethUsdPriceFeed,
-            address wbtcUsdPriceFeed, 
+            address wbtcUsdPriceFeed,
             address weth,
             address wbtc,
             address usdc,
@@ -47,11 +47,11 @@ contract DeployETHVault is Script {
         // Configuration parameters
         address admin = vm.envOr("ADMIN_ADDRESS", vm.addr(deployerKey));
         address feeRecipient = vm.envOr("FEE_RECIPIENT_ADDRESS", admin);
-        
+
         // ETH Vault specific parameters
         string memory ethVaultName = vm.envOr("ETH_VAULT_NAME", string("GIVE ETH Vault"));
         string memory ethVaultSymbol = vm.envOr("ETH_VAULT_SYMBOL", string("gvETH"));
-        
+
         uint256 cashBufferBps = vm.envOr("CASH_BUFFER_BPS", uint256(100)); // 1%
         uint256 slippageBps = vm.envOr("SLIPPAGE_BPS", uint256(50)); // 0.5%
         uint256 maxLossBps = vm.envOr("MAX_LOSS_BPS", uint256(50)); // 0.5%
@@ -67,11 +67,11 @@ contract DeployETHVault is Script {
         // Deploy or reuse existing registry and router
         NGORegistry registry;
         DonationRouter router;
-        
+
         // Check if we should reuse existing contracts
         address existingRegistry = vm.envOr("EXISTING_REGISTRY", address(0));
         address existingRouter = vm.envOr("EXISTING_ROUTER", address(0));
-        
+
         if (existingRegistry != address(0) && existingRouter != address(0)) {
             console.log("Using existing Registry:", existingRegistry);
             console.log("Using existing Router:", existingRouter);
@@ -81,7 +81,7 @@ contract DeployETHVault is Script {
             console.log("Deploying new Registry and Router...");
             registry = new NGORegistry(deployer);
             router = new DonationRouter(deployer, address(registry), feeRecipient, admin, feeBps);
-            
+
             // Setup registry roles
             registry.grantRole(registry.NGO_MANAGER_ROLE(), admin);
             registry.grantRole(registry.DONATION_RECORDER_ROLE(), address(router));
@@ -89,20 +89,15 @@ contract DeployETHVault is Script {
 
         // Deploy ETH Vault with WETH as underlying asset
         console.log("Deploying ETH Vault...");
-        GiveVault4626 ethVault = new GiveVault4626(
-            IERC20(weth), 
-            ethVaultName, 
-            ethVaultSymbol, 
-            deployer
-        );
-        
+        GiveVault4626 ethVault = new GiveVault4626(IERC20(weth), ethVaultName, ethVaultSymbol, deployer);
+
         // Set WETH as wrapped native for ETH convenience methods
         ethVault.setWrappedNative(weth);
-        
+
         // Deploy Strategy Manager for ETH Vault
         console.log("Deploying ETH Vault Strategy Manager...");
         StrategyManager ethVaultManager = new StrategyManager(address(ethVault), deployer);
-        
+
         // Deploy appropriate adapter based on network
         IYieldAdapter ethVaultAdapter;
         if (block.chainid == 31337) {
@@ -117,7 +112,7 @@ contract DeployETHVault is Script {
 
         // Configure ETH Vault
         console.log("Configuring ETH Vault...");
-        
+
         // Grant roles
         ethVault.grantRole(ethVault.VAULT_MANAGER_ROLE(), address(ethVaultManager));
         ethVault.setDonationRouter(address(router));
@@ -139,14 +134,14 @@ contract DeployETHVault is Script {
         console.log("NGO Registry:", address(registry));
         console.log("Donation Router:", address(router));
         console.log("WETH Token:", weth);
-        
+
         // Verify configuration
         console.log("\n=== Configuration Verification ===");
         console.log("Vault asset:", address(ethVault.asset()));
         console.log("Vault wrapped native:", ethVault.wrappedNative());
         console.log("Active adapter:", address(ethVault.activeAdapter()));
         console.log("Donation router:", ethVault.donationRouter());
-        
+
         (uint256 cashBuffer, uint256 slippage, uint256 maxLoss,,) = ethVault.getConfiguration();
         console.log("Cash buffer (bps):", cashBuffer);
         console.log("Slippage (bps):", slippage);
@@ -167,15 +162,15 @@ contract DeployETHVault is Script {
      */
     function verifyDeployment(ETHVaultDeployment memory deployment) external view {
         console.log("\n=== Deployment Verification ===");
-        
+
         GiveVault4626 vault = GiveVault4626(payable(deployment.ethVault));
-        
+
         // Check basic configuration
         require(address(vault.asset()) == deployment.weth, "Asset mismatch");
         require(vault.wrappedNative() == deployment.weth, "Wrapped native mismatch");
         require(address(vault.activeAdapter()) == deployment.ethVaultAdapter, "Adapter mismatch");
         require(vault.donationRouter() == deployment.router, "Router mismatch");
-        
+
         console.log("All verifications passed!");
     }
 }

@@ -113,7 +113,7 @@ contract MockWETH is ERC20("Wrapped Ether", "WETH") {
 
     function withdraw(uint256 amount) external {
         _burn(msg.sender, amount);
-        (bool ok, ) = payable(msg.sender).call{value: amount}("");
+        (bool ok,) = payable(msg.sender).call{value: amount}("");
         require(ok, "ETH transfer failed");
     }
 }
@@ -183,4 +183,3 @@ contract MockAdapter is IYieldAdapter {
         return investedAmount;
     }
 }
-

@@ -13,10 +13,7 @@ contract RegisterSepoliaNGO is Script {
     function run() external {
         // Use environment variable for admin address or fallback to deployerKey
         uint256 deployerKey = vm.envOr("DEPLOYER_KEY", uint256(0));
-        address admin = vm.envOr(
-            "ADMIN_ADDRESS",
-            deployerKey == 0 ? msg.sender : vm.addr(deployerKey)
-        );
+        address admin = vm.envOr("ADMIN_ADDRESS", deployerKey == 0 ? msg.sender : vm.addr(deployerKey));
 
         // NGORegistry address from Sepolia deployment
         address registryAddress = 0x77182f2C8E86233D3B0095446Da20ecDecF96Cc2;
@@ -24,8 +21,7 @@ contract RegisterSepoliaNGO is Script {
 
         // NGO details
         address ngoAddress = 0x28c50Bcdb2288fCdcf84DF4198F06Df92Dad6DFc;
-        string
-            memory metadataCid = "bafkreid444vhsv55pwwyz6ls4raf5hjadckwjo4qwdvbfs5gdedd2pmjxm";
+        string memory metadataCid = "bafkreid444vhsv55pwwyz6ls4raf5hjadckwjo4qwdvbfs5gdedd2pmjxm";
 
         // Handle deployment based on whether we're using private key or account
         if (deployerKey == 0) {
@@ -45,10 +41,7 @@ contract RegisterSepoliaNGO is Script {
         bytes32 kycHash = keccak256(abi.encodePacked("kyc-hash-", ngoAddress));
 
         // Check if admin has the required role
-        console.log(
-            "Admin has NGO_MANAGER_ROLE:",
-            registry.hasRole(registry.NGO_MANAGER_ROLE(), admin)
-        );
+        console.log("Admin has NGO_MANAGER_ROLE:", registry.hasRole(registry.NGO_MANAGER_ROLE(), admin));
 
         // Register and approve the NGO
         registry.addNGO(ngoAddress, metadataCid, kycHash, admin);
@@ -57,10 +50,7 @@ contract RegisterSepoliaNGO is Script {
         console.log("KYC Hash:", vm.toString(kycHash));
 
         // Verify the NGO was registered
-        console.log(
-            "Verification - Is Approved:",
-            registry.isNGOApproved(ngoAddress)
-        );
+        console.log("Verification - Is Approved:", registry.isNGOApproved(ngoAddress));
 
         vm.stopBroadcast();
     }

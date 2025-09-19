@@ -20,22 +20,22 @@ contract DeployLocal is Script {
     function run() external {
         console.log("=== Deploying Give Protocol to Local Anvil ===");
         console.log("Chain ID:", block.chainid);
-        
+
         // Deploy the main USDC contracts using Deploy script
         console.log("\n=== Deploying USDC Vault System ===");
         Deploy deployer = new Deploy();
         Deploy.Deployed memory deployed = deployer.run();
-        
+
         // Deploy the ETH vault contracts using DeployETHVault script
         console.log("\n=== Deploying ETH Vault System ===");
         DeployETHVault ethDeployer = new DeployETHVault();
-        
+
         // Set environment variables to reuse existing registry and router
         vm.setEnv("EXISTING_REGISTRY", vm.toString(deployed.registry));
         vm.setEnv("EXISTING_ROUTER", vm.toString(deployed.router));
-        
+
         DeployETHVault.ETHVaultDeployment memory ethDeployed = ethDeployer.run();
-        
+
         // Get network config for additional setup
         HelperConfig helperConfig = new HelperConfig();
         (
@@ -47,54 +47,54 @@ contract DeployLocal is Script {
             address aavePool,
             uint256 deployerKey
         ) = helperConfig.getActiveNetworkConfig();
-        
+
         address deployer_addr = vm.addr(deployerKey);
-        
+
         console.log("\n=== Complete Deployment Summary ===");
         console.log("Deployer:", deployer_addr);
-        
+
         console.log("\n--- Token Addresses ---");
         console.log("USDC Token:", usdc);
         console.log("WETH Token:", weth);
         console.log("WBTC Token:", wbtc);
         console.log("ETH (Native):", address(0)); // Native ETH
-        
+
         console.log("\n--- USDC Vault System ---");
         console.log("VAULT:", deployed.vault);
         console.log("STRATEGY_MANAGER:", deployed.manager);
         console.log("AAVE_ADAPTER:", deployed.adapter);
-        
+
         console.log("\n--- ETH Vault System ---");
         console.log("ETH_VAULT:", ethDeployed.ethVault);
         console.log("ETH_VAULT_MANAGER:", ethDeployed.ethVaultManager);
         console.log("ETH_VAULT_ADAPTER:", ethDeployed.ethVaultAdapter);
-        
+
         console.log("\n--- Shared Contracts ---");
         console.log("NGO_REGISTRY:", deployed.registry);
         console.log("DONATION_ROUTER:", deployed.router);
-        
+
         // === Deploy Mock NGO ===
         console.log("\n=== DEPLOYING MOCK NGO ===");
-        
+
         // Mock NGO details
         address mockNGOAddress = 0x1234567890123456789012345678901234567890; // Mock NGO address
         string memory mockMetadataCid = "bafkreigojgaflin5ulvlej3uaurs36h5mskd3l4gxov4qsce3qhajwrkzy"; // Real IPFS CID from Pinata
         bytes32 mockKycHash = keccak256("MOCK_KYC_VERIFICATION_HASH"); // Mock KYC hash
         address mockAttestor = deployer_addr; // Use deployer as attestor for testing
-        
+
         // Register the mock NGO
         NGORegistry registry = NGORegistry(deployed.registry);
-        
+
         // Ensure deployer has NGO_MANAGER_ROLE
         vm.startBroadcast(deployerKey);
         if (!registry.hasRole(registry.NGO_MANAGER_ROLE(), deployer_addr)) {
             registry.grantRole(registry.NGO_MANAGER_ROLE(), deployer_addr);
             console.log("Granted NGO_MANAGER_ROLE to deployer");
         }
-        
+
         registry.addNGO(mockNGOAddress, mockMetadataCid, mockKycHash, mockAttestor);
         vm.stopBroadcast();
-        
+
         console.log("Mock NGO registered:");
         console.log("  Address:", mockNGOAddress);
         console.log("  Metadata CID:", mockMetadataCid);
@@ -136,7 +136,7 @@ contract DeployLocal is Script {
         console.log("Deployer WBTC balance:", IERC20(wbtc).balanceOf(deployer_addr));
         console.log("Deployer ETH balance:", deployer_addr.balance);
         console.log("Mock NGO:", mockNGOAddress);
-        
+
         console.log("\n=== Local Suite Deployment Complete ===");
         console.log("Both USDC and ETH vault systems deployed!");
         console.log("Ready for testing with Anvil!");

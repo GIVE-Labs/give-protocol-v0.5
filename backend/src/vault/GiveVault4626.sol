@@ -103,38 +103,26 @@ contract GiveVault4626 is ERC4626, AccessControl, ReentrancyGuard, Pausable {
     /**
      * @dev Deposit assets and mint shares with reentrancy protection
      */
-    function deposit(uint256 assets, address receiver) 
-        public 
-        override 
-        nonReentrant 
-        whenNotPaused 
-        returns (uint256) 
-    {
+    function deposit(uint256 assets, address receiver) public override nonReentrant whenNotPaused returns (uint256) {
         return super.deposit(assets, receiver);
     }
 
     /**
      * @dev Mint shares for assets with reentrancy protection
      */
-    function mint(uint256 shares, address receiver) 
-        public 
-        override 
-        nonReentrant 
-        whenNotPaused 
-        returns (uint256) 
-    {
+    function mint(uint256 shares, address receiver) public override nonReentrant whenNotPaused returns (uint256) {
         return super.mint(shares, receiver);
     }
 
     /**
      * @dev Withdraw assets by burning shares with reentrancy protection
      */
-    function withdraw(uint256 assets, address receiver, address owner) 
-        public 
-        override 
-        nonReentrant 
-        whenNotPaused 
-        returns (uint256) 
+    function withdraw(uint256 assets, address receiver, address owner)
+        public
+        override
+        nonReentrant
+        whenNotPaused
+        returns (uint256)
     {
         return super.withdraw(assets, receiver, owner);
     }
@@ -142,12 +130,12 @@ contract GiveVault4626 is ERC4626, AccessControl, ReentrancyGuard, Pausable {
     /**
      * @dev Redeem shares for assets with reentrancy protection
      */
-    function redeem(uint256 shares, address receiver, address owner) 
-        public 
-        override 
-        nonReentrant 
-        whenNotPaused 
-        returns (uint256) 
+    function redeem(uint256 shares, address receiver, address owner)
+        public
+        override
+        nonReentrant
+        whenNotPaused
+        returns (uint256)
     {
         return super.redeem(shares, receiver, owner);
     }
@@ -161,12 +149,12 @@ contract GiveVault4626 is ERC4626, AccessControl, ReentrancyGuard, Pausable {
         whenNotPaused
     {
         super._deposit(caller, receiver, assets, shares);
-        
+
         // Update user shares in donation router for yield distribution
         if (donationRouter != address(0)) {
             DonationRouter(payable(donationRouter)).updateUserShares(receiver, asset(), balanceOf(receiver));
         }
-        
+
         _investExcessCash();
     }
 
@@ -178,7 +166,7 @@ contract GiveVault4626 is ERC4626, AccessControl, ReentrancyGuard, Pausable {
         if (donationRouter != address(0)) {
             DonationRouter(payable(donationRouter)).updateUserShares(receiver, asset(), balanceOf(receiver));
         }
-        
+
         _investExcessCash();
     }
 
@@ -192,7 +180,7 @@ contract GiveVault4626 is ERC4626, AccessControl, ReentrancyGuard, Pausable {
     {
         _ensureSufficientCash(assets);
         super._withdraw(caller, receiver, owner, assets, shares);
-        
+
         // Update user shares in donation router after withdrawal
         if (donationRouter != address(0)) {
             DonationRouter(payable(donationRouter)).updateUserShares(owner, asset(), balanceOf(owner));
@@ -216,8 +204,12 @@ contract GiveVault4626 is ERC4626, AccessControl, ReentrancyGuard, Pausable {
      */
     function setActiveAdapter(IYieldAdapter _adapter) external onlyRole(VAULT_MANAGER_ROLE) {
         if (address(_adapter) != address(0)) {
-            if (_adapter.asset() != IERC20(asset())) revert Errors.InvalidAsset();
-            if (_adapter.vault() != address(this)) revert Errors.InvalidAdapter();
+            if (_adapter.asset() != IERC20(asset())) {
+                revert Errors.InvalidAsset();
+            }
+            if (_adapter.vault() != address(this)) {
+                revert Errors.InvalidAdapter();
+            }
         }
 
         address oldAdapter = address(activeAdapter);
@@ -373,7 +365,9 @@ contract GiveVault4626 is ERC4626, AccessControl, ReentrancyGuard, Pausable {
 
         if (currentCash >= needed) return;
 
-        if (address(activeAdapter) == address(0)) revert Errors.InsufficientCash();
+        if (address(activeAdapter) == address(0)) {
+            revert Errors.InsufficientCash();
+        }
 
         uint256 shortfall = needed - currentCash;
         uint256 returned = activeAdapter.divest(shortfall);
@@ -455,7 +449,9 @@ contract GiveVault4626 is ERC4626, AccessControl, ReentrancyGuard, Pausable {
 
         // Calculate shares before wrapping to avoid double-counting
         shares = previewDeposit(msg.value);
-        if (shares < minShares) revert Errors.SlippageExceeded(minShares, shares);
+        if (shares < minShares) {
+            revert Errors.SlippageExceeded(minShares, shares);
+        }
 
         // Wrap ETH to WETH into this contract
         IWETH(wrappedNative).deposit{value: msg.value}();
@@ -491,14 +487,16 @@ contract GiveVault4626 is ERC4626, AccessControl, ReentrancyGuard, Pausable {
         if (shares == 0) revert Errors.InvalidAmount();
 
         assets = previewRedeem(shares);
-        if (assets < minAssets) revert Errors.SlippageExceeded(minAssets, assets);
+        if (assets < minAssets) {
+            revert Errors.SlippageExceeded(minAssets, assets);
+        }
 
         // Withdraw WETH to this contract using our overridden function
         _withdraw(msg.sender, address(this), owner, assets, shares);
 
         // Unwrap and send ETH
         IWETH(wrappedNative).withdraw(assets);
-        (bool ok, ) = payable(receiver).call{value: assets}("");
+        (bool ok,) = payable(receiver).call{value: assets}("");
         if (!ok) revert Errors.TransferFailed();
 
         return assets;
@@ -524,14 +522,16 @@ contract GiveVault4626 is ERC4626, AccessControl, ReentrancyGuard, Pausable {
         if (assets == 0) revert Errors.InvalidAmount();
 
         shares = previewWithdraw(assets);
-        if (shares > maxShares) revert Errors.SlippageExceeded(shares, maxShares);
+        if (shares > maxShares) {
+            revert Errors.SlippageExceeded(shares, maxShares);
+        }
 
         // Withdraw WETH to this contract using our overridden function
         _withdraw(msg.sender, address(this), owner, assets, shares);
 
         // Unwrap and send ETH
         IWETH(wrappedNative).withdraw(assets);
-        (bool ok, ) = payable(receiver).call{value: assets}("");
+        (bool ok,) = payable(receiver).call{value: assets}("");
         if (!ok) revert Errors.TransferFailed();
 
         return shares;

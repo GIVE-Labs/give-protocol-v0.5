@@ -54,7 +54,7 @@ contract VaultRouterTest is Test {
         // Approve NGO and set as current
         vm.prank(admin);
         registry.addNGO(ngo, "NGO", bytes32("kyc"), admin);
-        
+
         // Ensure NGO is set as current (should happen automatically in addNGO)
         vm.prank(admin);
         registry.emergencySetCurrentNGO(ngo);
@@ -84,7 +84,7 @@ contract VaultRouterTest is Test {
         vm.startPrank(user);
         usdc.approve(address(vault), amount);
         vault.deposit(amount, user);
-        
+
         // Set user preference to donate to NGO
         router.setUserPreference(ngo, 100); // 100% to NGO
         vm.stopPrank();

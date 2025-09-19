@@ -20,11 +20,11 @@ contract NGORegistry is AccessControl, Pausable {
 
     // === State Variables ===
     using EnumerableSet for EnumerableSet.AddressSet;
-    
+
     mapping(address => bool) public isApproved;
     mapping(address => NGOInfo) public ngoInfo;
     EnumerableSet.AddressSet private _approvedNGOs;
-    
+
     // Legacy getter for backward compatibility
     address[] public approvedNGOs;
     address public currentNGO; // Single NGO for v0.1
@@ -33,14 +33,14 @@ contract NGORegistry is AccessControl, Pausable {
     uint256 public constant TIMELOCK_DELAY = 24 hours; // 24h timelock for governance changes
 
     struct NGOInfo {
-        string metadataCid;      // IPFS/Arweave hash for name/description
-        bytes32 kycHash;         // Hash of attestation docs or EAS UID
-        address attestor;        // Who verified the NGO
-        uint256 createdAt;       // Creation timestamp
-        uint256 updatedAt;       // Last update timestamp
-        uint256 version;         // Version for tracking changes
-        uint256 totalReceived;   // Total donations received
-        bool isActive;           // Whether NGO is active
+        string metadataCid; // IPFS/Arweave hash for name/description
+        bytes32 kycHash; // Hash of attestation docs or EAS UID
+        address attestor; // Who verified the NGO
+        uint256 createdAt; // Creation timestamp
+        uint256 updatedAt; // Last update timestamp
+        uint256 version; // Version for tracking changes
+        uint256 totalReceived; // Total donations received
+        bool isActive; // Whether NGO is active
     }
 
     // === Events ===
@@ -140,7 +140,7 @@ contract NGORegistry is AccessControl, Pausable {
         if (bytes(newMetadataCid).length == 0) revert Errors.InvalidMetadataCid();
 
         string memory oldMetadataCid = ngoInfo[ngo].metadataCid;
-        
+
         ngoInfo[ngo].metadataCid = newMetadataCid;
         if (newKycHash != bytes32(0)) {
             ngoInfo[ngo].kycHash = newKycHash;
@@ -175,7 +175,7 @@ contract NGORegistry is AccessControl, Pausable {
 
         address oldNGO = currentNGO;
         currentNGO = pendingCurrentNGO;
-        
+
         // Reset timelock state
         pendingCurrentNGO = address(0);
         currentNGOChangeETA = 0;
@@ -194,7 +194,7 @@ contract NGORegistry is AccessControl, Pausable {
 
         address oldNGO = currentNGO;
         currentNGO = ngo;
-        
+
         // Reset any pending changes
         pendingCurrentNGO = address(0);
         currentNGOChangeETA = 0;
@@ -209,11 +209,7 @@ contract NGORegistry is AccessControl, Pausable {
      * @param ngo The NGO that received the donation
      * @param amount The donation amount
      */
-    function recordDonation(address ngo, uint256 amount) 
-        external 
-        onlyRole(DONATION_RECORDER_ROLE) 
-        whenNotPaused 
-    {
+    function recordDonation(address ngo, uint256 amount) external onlyRole(DONATION_RECORDER_ROLE) whenNotPaused {
         if (!isApproved[ngo]) revert Errors.NGONotApproved();
         if (amount == 0) revert Errors.InvalidAmount();
 
@@ -280,7 +276,7 @@ contract NGORegistry is AccessControl, Pausable {
     {
         uint256 totalDonated = 0;
         uint256 length = _approvedNGOs.length();
-        
+
         for (uint256 i = 0; i < length; i++) {
             address ngo = _approvedNGOs.at(i);
             totalDonated += ngoInfo[ngo].totalReceived;

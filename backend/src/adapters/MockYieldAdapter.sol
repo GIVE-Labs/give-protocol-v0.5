@@ -71,10 +71,10 @@ contract MockYieldAdapter is IYieldAdapter, AccessControl {
      */
     function invest(uint256 assets) external override onlyRole(VAULT_ROLE) {
         require(assets > 0, "MockYieldAdapter: Cannot invest zero assets");
-        
+
         _asset.safeTransferFrom(_vault, address(this), assets);
         _totalAssets += assets;
-        
+
         emit Invested(assets);
     }
 
@@ -86,12 +86,12 @@ contract MockYieldAdapter is IYieldAdapter, AccessControl {
     function divest(uint256 assets) external override onlyRole(VAULT_ROLE) returns (uint256 returned) {
         require(assets > 0, "MockYieldAdapter: Cannot divest zero assets");
         require(assets <= _totalAssets, "MockYieldAdapter: Insufficient assets");
-        
+
         returned = assets;
         _totalAssets -= assets;
-        
+
         _asset.safeTransfer(_vault, returned);
-        
+
         emit Divested(assets, returned);
     }
 
@@ -118,7 +118,7 @@ contract MockYieldAdapter is IYieldAdapter, AccessControl {
             profit = (_totalAssets * _yieldRate) / 10000;
             _totalAssets += profit;
             loss = 0;
-            
+
             // Mint profit tokens to simulate yield
             if (profit > 0) {
                 // In a real adapter, this would come from the protocol
@@ -138,11 +138,11 @@ contract MockYieldAdapter is IYieldAdapter, AccessControl {
     function emergencyWithdraw() external override onlyRole(EMERGENCY_ROLE) returns (uint256 returned) {
         returned = _totalAssets;
         _totalAssets = 0;
-        
+
         if (returned > 0) {
             _asset.safeTransfer(_vault, returned);
         }
-        
+
         emit EmergencyWithdraw(returned);
     }
 

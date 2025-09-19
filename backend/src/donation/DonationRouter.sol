@@ -31,8 +31,8 @@ contract DonationRouter is AccessControl, ReentrancyGuard, Pausable {
 
     // User preferences for NGO allocation
     struct UserPreference {
-        address selectedNGO;           // User's chosen NGO
-        uint8 allocationPercentage;    // 50, 75, or 100
+        address selectedNGO; // User's chosen NGO
+        uint8 allocationPercentage; // 50, 75, or 100
         uint256 lastUpdated;
     }
 
@@ -41,7 +41,7 @@ contract DonationRouter is AccessControl, ReentrancyGuard, Pausable {
     mapping(address => uint256) public totalAssetShares; // asset => total shares
     mapping(address => address[]) public usersWithShares; // asset => array of users with shares
     mapping(address => mapping(address => bool)) public hasShares; // asset => user => has shares
-    
+
     mapping(address => uint256) public totalDonated; // Total donated per asset
     mapping(address => uint256) public totalFeeCollected; // Total fees per asset
     mapping(address => uint256) public totalProtocolFees; // Total protocol fees per asset
@@ -49,7 +49,7 @@ contract DonationRouter is AccessControl, ReentrancyGuard, Pausable {
 
     uint256 public totalDistributions;
     uint256 public totalNGOsSupported;
-    
+
     // Valid allocation percentages
     uint8[] public validAllocations = [50, 75, 100];
 
@@ -59,17 +59,17 @@ contract DonationRouter is AccessControl, ReentrancyGuard, Pausable {
     );
 
     event UserYieldDistributed(
-        address indexed user, address indexed asset, address indexed ngo, 
-        uint256 ngoAmount, uint256 treasuryAmount, uint256 protocolAmount
+        address indexed user,
+        address indexed asset,
+        address indexed ngo,
+        uint256 ngoAmount,
+        uint256 treasuryAmount,
+        uint256 protocolAmount
     );
 
-    event UserPreferenceUpdated(
-        address indexed user, address indexed ngo, uint8 allocationPercentage
-    );
+    event UserPreferenceUpdated(address indexed user, address indexed ngo, uint8 allocationPercentage);
 
-    event UserSharesUpdated(
-        address indexed user, address indexed asset, uint256 shares, uint256 totalShares
-    );
+    event UserSharesUpdated(address indexed user, address indexed asset, uint256 shares, uint256 totalShares);
 
     event FeeCollected(address indexed asset, address indexed recipient, uint256 amount);
 
@@ -87,9 +87,9 @@ contract DonationRouter is AccessControl, ReentrancyGuard, Pausable {
 
     // === Constructor ===
     constructor(
-        address _admin, 
-        address _ngoRegistry, 
-        address _feeRecipient, 
+        address _admin,
+        address _ngoRegistry,
+        address _feeRecipient,
         address _protocolTreasury,
         uint256 _feeBps
     ) {
@@ -119,10 +119,10 @@ contract DonationRouter is AccessControl, ReentrancyGuard, Pausable {
      * @return treasuryAmount Amount going to the treasury
      * @return protocolAmount Amount going to protocol fees
      */
-    function calculateUserDistribution(address user, uint256 userYield) 
-        public 
-        view 
-        returns (uint256 ngoAmount, uint256 treasuryAmount, uint256 protocolAmount) 
+    function calculateUserDistribution(address user, uint256 userYield)
+        public
+        view
+        returns (uint256 ngoAmount, uint256 treasuryAmount, uint256 protocolAmount)
     {
         if (userYield == 0) {
             return (0, 0, 0);
@@ -133,7 +133,7 @@ contract DonationRouter is AccessControl, ReentrancyGuard, Pausable {
         uint256 netYield = userYield - protocolAmount;
 
         UserPreference memory pref = userPreferences[user];
-        
+
         // If user has no preference or NGO is not approved, all goes to treasury
         if (pref.selectedNGO == address(0) || !ngoRegistry.isApproved(pref.selectedNGO)) {
             ngoAmount = 0;
@@ -150,11 +150,7 @@ contract DonationRouter is AccessControl, ReentrancyGuard, Pausable {
      * @param asset The asset to distribute
      * @param totalYield The total yield amount to distribute
      */
-    function distributeUserYield(address asset, uint256 totalYield) 
-        external 
-        nonReentrant 
-        whenNotPaused 
-    {
+    function distributeUserYield(address asset, uint256 totalYield) external nonReentrant whenNotPaused {
         if (!authorizedCallers[msg.sender]) revert Errors.UnauthorizedCaller(msg.sender);
         if (asset == address(0)) revert Errors.ZeroAddress();
         if (totalYield == 0) revert Errors.InvalidAmount();
@@ -174,12 +170,7 @@ contract DonationRouter is AccessControl, ReentrancyGuard, Pausable {
     /**
      * @dev Internal function to distribute yield to all users
      */
-    function _distributeToAllUsers(
-        address asset, 
-        uint256 totalYield, 
-        uint256 totalShares, 
-        IERC20 token
-    ) internal {
+    function _distributeToAllUsers(address asset, uint256 totalYield, uint256 totalShares, IERC20 token) internal {
         // This is a simplified implementation
         // In production, you'd need to track users and paginate
         // For now, we'll implement a batch distribution function
@@ -191,11 +182,7 @@ contract DonationRouter is AccessControl, ReentrancyGuard, Pausable {
      * @param asset The asset address
      * @param userYield The user's portion of yield
      */
-    function distributeForUser(address user, address asset, uint256 userYield) 
-        external 
-        nonReentrant 
-        whenNotPaused 
-    {
+    function distributeForUser(address user, address asset, uint256 userYield) external nonReentrant whenNotPaused {
         if (!authorizedCallers[msg.sender]) revert Errors.UnauthorizedCaller(msg.sender);
         if (user == address(0) || asset == address(0)) revert Errors.ZeroAddress();
         if (userYield == 0) revert Errors.InvalidAmount();
@@ -215,15 +202,15 @@ contract DonationRouter is AccessControl, ReentrancyGuard, Pausable {
 
         // Calculate protocol fee (always 1%)
         uint256 protocolFee = (userYield * PROTOCOL_FEE_BPS) / 10000;
-        
+
         // Calculate NGO allocation based on user preference
         uint256 ngoAmount = (userYield * pref.allocationPercentage * (10000 - PROTOCOL_FEE_BPS)) / 1000000;
-        
+
         // Remaining goes to treasury
         uint256 treasuryAmount = userYield - protocolFee - ngoAmount;
 
         IERC20 token = IERC20(asset);
-        
+
         // Transfer protocol fee
         if (protocolFee > 0) {
             token.safeTransfer(protocolTreasury, protocolFee);
@@ -271,110 +258,110 @@ contract DonationRouter is AccessControl, ReentrancyGuard, Pausable {
                 IERC20(asset).safeTransfer(feeRecipient, totalYield);
                 return totalYield;
             }
-            
+
             // Calculate fee and donation
             uint256 feeAmount = (totalYield * feeBps) / 10_000;
             uint256 netDonation = totalYield - feeAmount;
-            
+
             IERC20 assetToken = IERC20(asset);
-            
+
             // Transfer to NGO
             if (netDonation > 0) {
                 assetToken.safeTransfer(currentNGO, netDonation);
                 totalDonated[asset] += netDonation;
                 ngoRegistry.recordDonation(currentNGO, netDonation);
             }
-            
+
             // Transfer fee
             if (feeAmount > 0) {
                 assetToken.safeTransfer(feeRecipient, feeAmount);
                 totalFeeCollected[asset] += feeAmount;
                 emit FeeCollected(asset, feeRecipient, feeAmount);
             }
-            
+
             totalDistributions++;
             emit DonationDistributed(asset, currentNGO, netDonation, feeAmount, totalDistributions);
-            
+
             return totalYield;
         }
 
         // Get all users with shares for this asset
         address[] memory users = getUsersWithShares(asset);
-        
+
         // Continue with user-based distribution
-        
+
         uint256 totalNGOAmount = 0;
         uint256 totalTreasuryAmount = 0;
         uint256 totalProtocolAmount = 0;
-        
+
         // Calculate distributions for each user
         for (uint256 i = 0; i < users.length; i++) {
             address user = users[i];
             uint256 userShares = userAssetShares[user][asset];
-            
+
             if (userShares > 0) {
                 // Calculate user's proportional yield
                 uint256 userYield = (totalYield * userShares) / totalShares;
-                
+
                 if (userYield > 0) {
-                    (uint256 ngoAmount, uint256 treasuryAmount, uint256 protocolAmount) = 
+                    (uint256 ngoAmount, uint256 treasuryAmount, uint256 protocolAmount) =
                         calculateUserDistribution(user, userYield);
-                    
+
                     totalNGOAmount += ngoAmount;
                     totalTreasuryAmount += treasuryAmount;
                     totalProtocolAmount += protocolAmount;
-                    
+
                     // Emit event for this user's distribution
                     UserPreference memory pref = userPreferences[user];
-                    emit UserYieldDistributed(
-                        user, asset, pref.selectedNGO, ngoAmount, treasuryAmount, protocolAmount
-                    );
+                    emit UserYieldDistributed(user, asset, pref.selectedNGO, ngoAmount, treasuryAmount, protocolAmount);
                 }
             }
         }
-        
+
         IERC20 userDistributionToken = IERC20(asset);
-        
+
         // Execute transfers
         if (totalProtocolAmount > 0) {
             userDistributionToken.safeTransfer(protocolTreasury, totalProtocolAmount);
             totalProtocolFees[asset] += totalProtocolAmount;
             emit ProtocolFeeCollected(asset, totalProtocolAmount);
         }
-        
+
         if (totalNGOAmount > 0) {
             // Group by NGO and transfer
             _distributeToNGOs(asset, users, totalYield, totalShares);
         }
-        
+
         if (totalTreasuryAmount > 0) {
             userDistributionToken.safeTransfer(feeRecipient, totalTreasuryAmount);
             totalFeeCollected[asset] += totalTreasuryAmount;
         }
-        
+
         totalDistributions++;
-        
+
         return totalNGOAmount + totalTreasuryAmount + totalProtocolAmount;
     }
-    
+
     /**
      * @dev Internal function to distribute to NGOs efficiently
      */
-    function _distributeToNGOs(address asset, address[] memory users, uint256 totalYield, uint256 totalShares) internal {
+    function _distributeToNGOs(address asset, address[] memory users, uint256 totalYield, uint256 totalShares)
+        internal
+    {
         IERC20 token = IERC20(asset);
-        
+
         // Simple approach: transfer to each NGO individually
         // In production, you might want to batch transfers to the same NGO
         for (uint256 i = 0; i < users.length; i++) {
             address user = users[i];
             uint256 userShares = userAssetShares[user][asset];
-            
+
             if (userShares > 0) {
                 UserPreference memory pref = userPreferences[user];
                 if (pref.selectedNGO != address(0) && ngoRegistry.isNGOApproved(pref.selectedNGO)) {
                     uint256 userYield = (totalYield * userShares) / totalShares;
                     (uint256 ngoAmount,,) = calculateUserDistribution(user, userYield);
-                    
+
                     if (ngoAmount > 0) {
                         token.safeTransfer(pref.selectedNGO, ngoAmount);
                         totalDonated[asset] += ngoAmount;
@@ -526,8 +513,6 @@ contract DonationRouter is AccessControl, ReentrancyGuard, Pausable {
 
     // === View Functions ===
 
-
-
     /**
      * @dev Gets user's shares for a specific asset
      * @param user The user address
@@ -555,8 +540,6 @@ contract DonationRouter is AccessControl, ReentrancyGuard, Pausable {
         return validAllocations;
     }
 
-
-
     /**
      * @dev Gets all users who have shares for a specific asset
      * @param asset The asset address
@@ -565,8 +548,6 @@ contract DonationRouter is AccessControl, ReentrancyGuard, Pausable {
     function getUsersWithShares(address asset) public view returns (address[] memory) {
         return usersWithShares[asset];
     }
-
-
 
     // === Admin Functions ===
 
@@ -594,10 +575,10 @@ contract DonationRouter is AccessControl, ReentrancyGuard, Pausable {
      */
     function setProtocolTreasury(address _protocolTreasury) external onlyRole(DEFAULT_ADMIN_ROLE) {
         if (_protocolTreasury == address(0)) revert Errors.ZeroAddress();
-        
+
         address oldTreasury = protocolTreasury;
         protocolTreasury = _protocolTreasury;
-        
+
         emit ProtocolTreasuryUpdated(oldTreasury, _protocolTreasury);
     }
 
@@ -607,13 +588,13 @@ contract DonationRouter is AccessControl, ReentrancyGuard, Pausable {
      */
     function withdrawProtocolFees(address asset) external onlyRole(DEFAULT_ADMIN_ROLE) {
         if (asset == address(0)) revert Errors.ZeroAddress();
-        
+
         uint256 feeAmount = totalProtocolFees[asset];
         if (feeAmount == 0) revert Errors.InsufficientBalance();
-        
+
         totalProtocolFees[asset] = 0;
         IERC20(asset).safeTransfer(protocolTreasury, feeAmount);
-        
+
         emit ProtocolFeeCollected(asset, feeAmount);
     }
 
@@ -721,7 +702,7 @@ contract DonationRouter is AccessControl, ReentrancyGuard, Pausable {
     // === Receive Function ===
 
     // === User Preference Functions ===
-    
+
     /**
      * @notice Set user's NGO preference and allocation percentage
      * @param selectedNGO The NGO address to donate to
@@ -734,16 +715,16 @@ contract DonationRouter is AccessControl, ReentrancyGuard, Pausable {
         if (allocationPercentage != 50 && allocationPercentage != 75 && allocationPercentage != 100) {
             revert Errors.InvalidAllocationPercentage(allocationPercentage);
         }
-        
+
         userPreferences[msg.sender] = UserPreference({
             selectedNGO: selectedNGO,
             allocationPercentage: allocationPercentage,
             lastUpdated: block.timestamp
         });
-        
+
         emit UserPreferenceUpdated(msg.sender, selectedNGO, allocationPercentage);
     }
-    
+
     /**
      * @notice Get user's current preference
      * @param user The user address
@@ -752,7 +733,7 @@ contract DonationRouter is AccessControl, ReentrancyGuard, Pausable {
     function getUserPreference(address user) external view returns (UserPreference memory preference) {
         return userPreferences[user];
     }
-    
+
     /**
      * @notice Update user's asset shares (called by vault)
      * @param user The user address
@@ -763,13 +744,13 @@ contract DonationRouter is AccessControl, ReentrancyGuard, Pausable {
         if (!authorizedCallers[msg.sender]) {
             revert Errors.UnauthorizedCaller(msg.sender);
         }
-        
+
         uint256 oldShares = userAssetShares[user][asset];
         userAssetShares[user][asset] = newShares;
-        
+
         // Update total shares
         totalAssetShares[asset] = totalAssetShares[asset] - oldShares + newShares;
-        
+
         // Update users with shares tracking
         if (oldShares == 0 && newShares > 0) {
             // User is getting shares for the first time
@@ -792,7 +773,7 @@ contract DonationRouter is AccessControl, ReentrancyGuard, Pausable {
                 hasShares[asset][user] = false;
             }
         }
-        
+
         emit UserSharesUpdated(user, asset, newShares, totalAssetShares[asset]);
     }
 
