@@ -6,10 +6,10 @@ import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/access/AccessControl.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/utils/Pausable.sol";
-import "../adapters/IYieldAdapter.sol";
+import "../interfaces/IYieldAdapter.sol";
 import "../donation/DonationRouter.sol";
 import "../utils/Errors.sol";
-import "../utils/IWETH.sol";
+import "../interfaces/IWETH.sol";
 
 /**
  * @title GiveVault4626

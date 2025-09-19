@@ -5,7 +5,7 @@ import "forge-std/Test.sol";
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "../src/vault/GiveVault4626.sol";
 import "../src/manager/StrategyManager.sol";
-import "../src/adapters/IYieldAdapter.sol";
+import "../src/interfaces/IYieldAdapter.sol";
 
 contract StrategyManagerBasicTest is Test {
     GiveVault4626 public vault;

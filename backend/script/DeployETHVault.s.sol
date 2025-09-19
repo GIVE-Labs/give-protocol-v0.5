@@ -9,7 +9,7 @@ import {GiveVault4626} from "../src/vault/GiveVault4626.sol";
 import {StrategyManager} from "../src/manager/StrategyManager.sol";
 import {AaveAdapter} from "../src/adapters/AaveAdapter.sol";
 import {MockYieldAdapter} from "../src/adapters/MockYieldAdapter.sol";
-import {IYieldAdapter} from "../src/adapters/IYieldAdapter.sol";
+import {IYieldAdapter} from "../src/interfaces/IYieldAdapter.sol";
 import {NGORegistry} from "../src/donation/NGORegistry.sol";
 import {DonationRouter} from "../src/donation/DonationRouter.sol";
 import {HelperConfig} from "./HelperConfig.s.sol";

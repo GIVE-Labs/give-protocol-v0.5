@@ -9,9 +9,9 @@ import "../src/vault/GiveVault4626.sol";
 import "../src/donation/NGORegistry.sol";
 import "../src/donation/DonationRouter.sol";
 import "../src/adapters/AaveAdapter.sol";
-import "../src/adapters/IYieldAdapter.sol";
+import "../src/interfaces/IYieldAdapter.sol";
 import "../src/manager/StrategyManager.sol";
-import "../src/utils/IWETH.sol";
+import "../src/interfaces/IWETH.sol";
 
 /**
  * @title VaultETH_AaveTest

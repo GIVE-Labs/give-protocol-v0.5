@@ -5,7 +5,7 @@ import "@openzeppelin/contracts/access/AccessControl.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/utils/Pausable.sol";
 import "../vault/GiveVault4626.sol";
-import "../adapters/IYieldAdapter.sol";
+import "../interfaces/IYieldAdapter.sol";
 import "../utils/Errors.sol";
 
 /**
