@@ -47,7 +47,11 @@ interface NGOMetadata {
 
 
 
-function CampaignCard({ address, index }: { address: `0x${string}`, index: number }) {
+function CampaignCard({ address, index, onMetadataLoad }: { 
+  address: `0x${string}`, 
+  index: number,
+  onMetadataLoad?: (address: string, metadata: NGOMetadata | null) => void
+}) {
   const navigate = useNavigate();
   const [metadata, setMetadata] = useState<NGOMetadata | null>(null);
   const [, setMetadataLoading] = useState(false);
@@ -86,6 +90,11 @@ function CampaignCard({ address, index }: { address: `0x${string}`, index: numbe
         const fetchedMetadata = await fetchMetadataFromIPFS(metadataCid);
         console.log('Fetched metadata for', address, ':', fetchedMetadata);
         setMetadata(fetchedMetadata);
+        
+        // Call parent callback to update metadata in parent component
+        if (onMetadataLoad) {
+          onMetadataLoad(address, fetchedMetadata);
+        }
       } catch (error) {
         console.warn('Failed to fetch metadata for NGO:', address, error);
       } finally {
@@ -227,11 +236,64 @@ function CampaignCard({ address, index }: { address: `0x${string}`, index: numbe
 }
 
 export default function NGOsPage() {
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState('All Causes');
+  const [ngoMetadata, setNgoMetadata] = useState<Record<string, NGOMetadata | null>>({});
+  
   const { data: approvedNGOs, isLoading: loadingList } = useReadContract({
     address: CONTRACT_ADDRESSES.NGO_REGISTRY as `0x${string}`,
     abi: NGORegistryABI,
     functionName: 'getApprovedNGOs',
   });
+
+  // Callback to receive metadata from CampaignCard components
+  const handleMetadataLoad = (address: string, metadata: NGOMetadata | null) => {
+    setNgoMetadata(prev => ({
+      ...prev,
+      [address]: metadata
+    }));
+  };
+
+  // Filter NGOs based on search query and category
+  const filteredNGOs = approvedNGOs ? (approvedNGOs as any[]).filter((ngoAddress) => {
+    const metadata = ngoMetadata[ngoAddress];
+    
+    // Search filter
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase();
+      const name = metadata?.name?.toLowerCase() || '';
+      const description = metadata?.description?.toLowerCase() || '';
+      const missionStatement = metadata?.missionStatement?.toLowerCase() || '';
+      const category = metadata?.category?.toLowerCase() || '';
+      
+      const matchesSearch = name.includes(query) || 
+                           description.includes(query) || 
+                           missionStatement.includes(query) ||
+                           category.includes(query);
+      
+      if (!matchesSearch) return false;
+    }
+    
+    // Category filter
+    if (selectedCategory !== 'All Causes') {
+      const ngoCategory = metadata?.category || '';
+      // Map display names to potential metadata categories
+      const categoryMap: Record<string, string[]> = {
+        'Education': ['Education', 'education'],
+        'Healthcare': ['Healthcare', 'Health', 'healthcare', 'health'],
+        'Environment': ['Environment', 'environmental', 'environment'],
+        'Poverty': ['Poverty Alleviation', 'Poverty', 'poverty'],
+        'Emergency': ['Emergency', 'emergency', 'disaster', 'relief']
+      };
+      
+      const allowedCategories = categoryMap[selectedCategory] || [selectedCategory];
+      if (!allowedCategories.some(cat => ngoCategory.toLowerCase().includes(cat.toLowerCase()))) {
+        return false;
+      }
+    }
+    
+    return true;
+  }) : [];
 
   // Debug logging
   console.log('NGO Registry Address:', CONTRACT_ADDRESSES.NGO_REGISTRY);
@@ -290,6 +352,8 @@ export default function NGOsPage() {
                 <input 
                   type="text" 
                   placeholder="Search campaigns..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
                   className="w-full pl-10 pr-4 py-3 rounded-2xl text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-emerald-300 shadow-lg bg-white/90 backdrop-blur-sm"
                 />
               </div>
@@ -309,11 +373,12 @@ export default function NGOsPage() {
           transition={{ delay: 0.2 }}
           className="flex flex-wrap gap-3 mb-8 justify-center"
         >
-          {['All Causes', 'Education', 'Healthcare', 'Environment', 'Poverty', 'Emergency'].map((category, index) => (
+          {['All Causes', 'Education', 'Healthcare', 'Environment', 'Poverty', 'Emergency'].map((category) => (
             <button 
               key={category}
+              onClick={() => setSelectedCategory(category)}
               className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${
-                index === 0 
+                selectedCategory === category 
                   ? 'bg-emerald-500 text-white shadow-lg' 
                   : 'bg-white text-gray-600 border border-gray-200 hover:border-emerald-300 hover:text-emerald-600'
               }`}
@@ -373,12 +438,29 @@ export default function NGOsPage() {
               </motion.div>
             ))}
           </div>
-        ) : approvedNGOs && (approvedNGOs as any[]).length > 0 ? (
+        ) : filteredNGOs.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {(approvedNGOs as any[]).map((ngo, index) => (
-              <CampaignCard key={ngo} address={ngo} index={index} />
+            {filteredNGOs.map((ngo, index) => (
+              <CampaignCard 
+                key={ngo} 
+                address={ngo} 
+                index={index} 
+                onMetadataLoad={handleMetadataLoad}
+              />
             ))}
           </div>
+        ) : approvedNGOs && (approvedNGOs as any[]).length > 0 ? (
+          <motion.div 
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="bg-white rounded-xl border p-12 text-center"
+          >
+            <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <Search className="w-8 h-8 text-gray-400" />
+            </div>
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">No campaigns match your search</h3>
+            <p className="text-gray-600">Try adjusting your search terms or category filter!</p>
+          </motion.div>
         ) : (
           <motion.div 
             initial={{ opacity: 0, y: 20 }}
