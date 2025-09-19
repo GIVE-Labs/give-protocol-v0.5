@@ -6,6 +6,7 @@ import { createNGOMetadata, validateImages } from '../services/ipfs'
 import { useAccount } from 'wagmi'
 import { useNGORegistry, useNGOApprovalStatus } from '../hooks/useContracts'
 import { keccak256, toBytes } from 'viem'
+import { DotLottieReact } from '@lottiefiles/dotlottie-react'
 
 interface FormData {
   // Basic Info
@@ -79,6 +80,7 @@ export default function CreateCampaign() {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [submitError, setSubmitError] = useState<string | null>(null)
   const [validationErrors, setValidationErrors] = useState<string[]>([])
+  const [showFailureModal, setShowFailureModal] = useState(false)
   
   const navigate = useNavigate()
   const { address } = useAccount()
@@ -98,8 +100,22 @@ export default function CreateCampaign() {
   useEffect(() => {
     if (registrationError) {
       console.error('Registration error:', registrationError)
-      setSubmitError(registrationError.message || 'Failed to register NGO')
+      
+      // Extract user-friendly error message
+      let errorMessage = 'Failed to register NGO'
+      const fullError = registrationError.message || ''
+      
+      if (fullError.includes('User rejected') || fullError.includes('User denied')) {
+        errorMessage = 'Transaction was rejected by user'
+      } else if (fullError.includes('insufficient funds')) {
+        errorMessage = 'Insufficient funds for transaction'
+      } else if (fullError.includes('network')) {
+        errorMessage = 'Network connection error'
+      }
+      
+      setSubmitError(errorMessage)
       setIsSubmitting(false)
+      setShowFailureModal(true)
     }
   }, [registrationError])
 
@@ -107,7 +123,39 @@ export default function CreateCampaign() {
     setFormData(prev => ({ ...prev, [field]: value }))
   }
 
-  const nextStep = () => {
+  const nextStep = async () => {
+    // Validate step 1 (NGO address) before proceeding
+    if (currentStep === 1) {
+      // Clear any previous errors
+      setSubmitError(null)
+      setValidationErrors([])
+      
+      // Basic validation for step 1
+      const errors: string[] = []
+      if (!formData.ngoAddress.trim()) {
+        errors.push('NGO address is required')
+      } else if (!/^0x[a-fA-F0-9]{40}$/.test(formData.ngoAddress)) {
+        errors.push('NGO address must be a valid Ethereum address')
+      }
+      
+      if (errors.length > 0) {
+        setValidationErrors(errors)
+        return
+      }
+      
+      // Check if NGO is already approved
+      if (isNGOApproved) {
+        setSubmitError('This NGO address is already approved and registered. Please use a different address.')
+        return
+      }
+      
+      // Don't proceed if we're still checking approval status
+      if (isCheckingApproval) {
+        return
+      }
+    }
+    
+    // Proceed to next step
     if (currentStep < STEPS.length) {
       setCurrentStep(currentStep + 1)
     }
@@ -261,8 +309,24 @@ export default function CreateCampaign() {
       
     } catch (error) {
       console.error('Error creating campaign:', error)
-      setSubmitError(error instanceof Error ? error.message : 'Failed to create campaign')
+      
+      // Extract user-friendly error message
+      let errorMessage = 'Failed to create campaign'
+      const fullError = error instanceof Error ? error.message : ''
+      
+      if (fullError.includes('User rejected') || fullError.includes('User denied')) {
+        errorMessage = 'Transaction was rejected by user'
+      } else if (fullError.includes('insufficient funds')) {
+        errorMessage = 'Insufficient funds for transaction'
+      } else if (fullError.includes('network')) {
+        errorMessage = 'Network connection error'
+      } else if (fullError.includes('IPFS')) {
+        errorMessage = 'Failed to upload campaign data'
+      }
+      
+      setSubmitError(errorMessage)
       setIsSubmitting(false)
+      setShowFailureModal(true)
     }
   }
 
@@ -278,7 +342,7 @@ export default function CreateCampaign() {
           >
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-semibold text-gray-700 mb-2 font-unbounded">
                   NGO Address *
                 </label>
                 <div className="relative">
@@ -287,7 +351,13 @@ export default function CreateCampaign() {
                     value={formData.ngoAddress}
                     onChange={(e) => updateFormData('ngoAddress', e.target.value)}
                     placeholder="0x... (Ethereum address of the NGO)"
-                    className="w-full px-4 py-3 pr-32 border border-gray-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-colors font-mono text-sm"
+                    className={`w-full px-4 py-3 pr-32 border rounded-xl focus:ring-2 transition-colors font-mono text-sm ${
+                      formData.ngoAddress && !/^0x[a-fA-F0-9]{40}$/.test(formData.ngoAddress)
+                        ? 'border-red-300 focus:ring-red-500 focus:border-red-500'
+                        : isNGOApproved
+                        ? 'border-red-300 focus:ring-red-500 focus:border-red-500'
+                        : 'border-gray-300 focus:ring-emerald-500 focus:border-emerald-500'
+                    }`}
                     required
                   />
                   {address && (
@@ -300,13 +370,40 @@ export default function CreateCampaign() {
                     </button>
                   )}
                 </div>
-                <p className="text-xs text-gray-500 mt-1">
-                  The Ethereum address that will be registered as the NGO. This can be different from your connected wallet.
-                </p>
+                  <div className="mt-1 space-y-1">
+                  <p className="text-xs text-gray-500 font-medium">
+                    The Ethereum address that will be registered as the NGO. This can be different from your connected wallet.
+                  </p>                  {/* Real-time validation feedback */}
+                  {formData.ngoAddress && (
+                    <div className="flex items-center space-x-2">
+                      {!/^0x[a-fA-F0-9]{40}$/.test(formData.ngoAddress) ? (
+                        <div className="flex items-center text-red-600 text-xs">
+                          <X className="w-3 h-3 mr-1" />
+                          Invalid Ethereum address format
+                        </div>
+                      ) : isCheckingApproval ? (
+                        <div className="flex items-center text-blue-600 text-xs">
+                          <div className="animate-spin rounded-full h-3 w-3 border-b border-blue-600 mr-1" />
+                          Checking if address is available...
+                        </div>
+                      ) : isNGOApproved ? (
+                        <div className="flex items-center text-red-600 text-xs">
+                          <X className="w-3 h-3 mr-1" />
+                          This address is already registered
+                        </div>
+                      ) : (
+                        <div className="flex items-center text-green-600 text-xs">
+                          <Check className="w-3 h-3 mr-1" />
+                          Address is available
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-semibold text-gray-700 mb-2 font-unbounded">
                   NGO Name / Project Title *
                 </label>
                 <input
@@ -320,7 +417,7 @@ export default function CreateCampaign() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-semibold text-gray-700 mb-2 font-unbounded">
                   Mission Statement *
                 </label>
                 <textarea
@@ -334,7 +431,7 @@ export default function CreateCampaign() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-semibold text-gray-700 mb-2 font-unbounded">
                   Category *
                 </label>
                 <select
@@ -351,7 +448,7 @@ export default function CreateCampaign() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-semibold text-gray-700 mb-2 font-unbounded">
                   Detailed Description *
                 </label>
                 <textarea
@@ -377,7 +474,7 @@ export default function CreateCampaign() {
           >
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-semibold text-gray-700 mb-2 font-unbounded">
                   Funding Goal (USD) *
                 </label>
                 <input
@@ -391,7 +488,7 @@ export default function CreateCampaign() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-semibold text-gray-700 mb-2 font-unbounded">
                   Campaign Duration (days) *
                 </label>
                 <input
@@ -416,7 +513,7 @@ export default function CreateCampaign() {
             className="space-y-6"
           >
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-4">
+              <label className="block text-sm font-semibold text-gray-700 mb-4 font-unbounded">
                 Campaign Images (1-3 images) *
               </label>
               
@@ -440,7 +537,7 @@ export default function CreateCampaign() {
                 {formData.images.length < 3 && (
                   <label className="border-2 border-dashed border-gray-300 rounded-xl p-8 text-center cursor-pointer hover:border-emerald-500 transition-colors">
                     <Camera className="w-8 h-8 mx-auto mb-2 text-gray-400" />
-                    <span className="text-sm text-gray-600">Upload Image</span>
+                    <span className="text-sm text-gray-600 font-medium">Upload Image</span>
                     <input
                       type="file"
                       accept="image/*"
@@ -452,13 +549,13 @@ export default function CreateCampaign() {
                 )}
               </div>
               
-              <p className="text-sm text-gray-500">
+              <p className="text-sm text-gray-500 font-medium">
                 Upload 1-3 high-quality images that represent your campaign. Recommended size: 1200x800px
               </p>
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-sm font-semibold text-gray-700 mb-2 font-unbounded">
                 Video URLs (Optional)
               </label>
               <input
@@ -479,10 +576,10 @@ export default function CreateCampaign() {
             className="space-y-6"
           >
             <div className="flex justify-between items-center">
-              <h3 className="text-lg font-semibold text-gray-900">Team Members</h3>
+              <h3 className="text-lg font-bold text-gray-900 font-unbounded">Team Members</h3>
               <button
                 onClick={addTeamMember}
-                className="bg-emerald-500 text-white px-4 py-2 rounded-lg hover:bg-emerald-600 transition-colors"
+                className="bg-emerald-500 text-white px-4 py-2 rounded-lg hover:bg-emerald-600 transition-colors font-semibold font-unbounded"
               >
                 Add Member
               </button>
@@ -491,7 +588,7 @@ export default function CreateCampaign() {
             {formData.teamMembers.map((member, index) => (
               <div key={index} className="border border-gray-200 rounded-xl p-4 space-y-4">
                 <div className="flex justify-between items-center">
-                  <h4 className="font-medium text-gray-900">Team Member {index + 1}</h4>
+                  <h4 className="font-semibold text-gray-900 font-unbounded">Team Member {index + 1}</h4>
                   {formData.teamMembers.length > 1 && (
                     <button
                       onClick={() => removeTeamMember(index)}
@@ -539,7 +636,7 @@ export default function CreateCampaign() {
             exit={{ opacity: 0, x: -20 }}
             className="space-y-6"
           >
-            <h3 className="text-lg font-semibold text-gray-900">Donation Tiers</h3>
+            <h3 className="text-lg font-bold text-gray-900 font-unbounded">Donation Tiers</h3>
             
             {formData.donationTiers.map((tier, tierIndex) => (
               <div key={tierIndex} className="border border-gray-200 rounded-xl p-4 space-y-4">
@@ -570,10 +667,10 @@ export default function CreateCampaign() {
                 
                 <div>
                   <div className="flex justify-between items-center mb-2">
-                    <label className="text-sm font-medium text-gray-700">Benefits</label>
+                    <label className="text-sm font-semibold text-gray-700 font-unbounded">Benefits</label>
                     <button
                       onClick={() => addBenefit(tierIndex)}
-                      className="text-emerald-500 hover:text-emerald-700 text-sm"
+                      className="text-emerald-500 hover:text-emerald-700 text-sm font-medium"
                     >
                       + Add Benefit
                     </button>
@@ -612,38 +709,37 @@ export default function CreateCampaign() {
             exit={{ opacity: 0, x: -20 }}
             className="space-y-6"
           >
-            <h3 className="text-lg font-semibold text-gray-900">Review Your Campaign</h3>
+            <h3 className="text-lg font-unbounded font-semibold text-gray-900">Review Your Campaign</h3>
             
             <div className="bg-gray-50 rounded-xl p-6 space-y-4">
               <div>
-                <h4 className="font-medium text-gray-900">Basic Information</h4>
-                <p className="text-gray-600">NGO Address: <span className="font-mono text-sm">{formData.ngoAddress}</span></p>
-                <p className="text-gray-600">Name: {formData.ngoName}</p>
-                <p className="text-gray-600">Category: {formData.category}</p>
-                <p className="text-gray-600">Mission: {formData.missionStatement}</p>
+                <h4 className="font-semibold text-gray-900 font-unbounded">Basic Information</h4>
+                <p className="text-gray-600 font-medium">NGO Address: <span className="font-mono text-sm">{formData.ngoAddress}</span></p>
+                <p className="text-gray-600 font-medium">Name: {formData.ngoName}</p>
+                <p className="text-gray-600 font-medium">Category: {formData.category}</p>
+                <p className="text-gray-600 font-medium">Mission: {formData.missionStatement}</p>
               </div>
               
               <div>
-                <h4 className="font-medium text-gray-900">Funding</h4>
-                <p className="text-gray-600">Goal: ${formData.fundingGoal}</p>
-                <p className="text-gray-600">Duration: {formData.fundingDuration} days</p>
+                <h4 className="font-semibold text-gray-900 font-unbounded">Funding</h4>
+                <p className="text-gray-600 font-medium">Goal: ${formData.fundingGoal}</p>
+                <p className="text-gray-600 font-medium">Duration: {formData.fundingDuration} days</p>
               </div>
               
               <div>
-                <h4 className="font-medium text-gray-900">Media</h4>
-                <p className="text-gray-600">{formData.images.length} images uploaded</p>
+                <h4 className="font-semibold text-gray-900 font-unbounded">Media</h4>
+                <p className="text-gray-600 font-medium">{formData.images.length} images uploaded</p>
               </div>
               
               <div>
-                <h4 className="font-medium text-gray-900">Team</h4>
-                <p className="text-gray-600">{formData.teamMembers.length} team members</p>
+                <h4 className="font-semibold text-gray-900 font-unbounded">Team</h4>
+                <p className="text-gray-600 font-medium">{formData.teamMembers.length} team members</p>
               </div>
             </div>
             
             <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-4">
-              <p className="text-yellow-800 text-sm">
-                <strong>Note:</strong> Once submitted, your campaign will be uploaded to IPFS and registered on the blockchain. 
-                This action cannot be undone.
+              <p className="text-yellow-800 text-sm font-medium">
+                <strong className="font-unbounded">Note:</strong> Once submitted, your campaign will be uploaded to IPFS and registered on the blockchain.
               </p>
             </div>
           </motion.div>
@@ -708,7 +804,7 @@ export default function CreateCampaign() {
         >
           <Link
             to="/"
-            className="inline-flex items-center text-emerald-600 hover:text-emerald-700 mb-6 font-medium transition-colors"
+            className="inline-flex items-center text-emerald-600 hover:text-emerald-700 mb-6 font-semibold transition-colors font-unbounded"
           >
             <ArrowLeft className="w-5 h-5 mr-2" />
             Back to Home
@@ -807,7 +903,7 @@ export default function CreateCampaign() {
                     </div>
                     <div>
                       <h3 className="text-emerald-800 font-bold text-lg mb-2 font-unbounded">Campaign Created Successfully!</h3>
-                      <p className="text-emerald-700 font-medium">Your NGO has been registered on the blockchain. Redirecting to your dashboard...</p>
+                      <p className="text-emerald-700 font-semibold">Your NGO has been registered on the blockchain. Redirecting to your dashboard...</p>
                     </div>
                   </div>
                 </motion.div>
@@ -833,45 +929,6 @@ export default function CreateCampaign() {
                          isRegistering ? 'Waiting for Wallet...' : 
                          'Confirming Transaction...'}
                       </h3>
-                      <p className="text-blue-700 font-medium">
-                        {isSubmitting ? 'Uploading your campaign data to decentralized storage.' : 
-                         isRegistering ? 'Please confirm the transaction in your wallet to register your NGO.' : 
-                         'Your transaction is being confirmed on the blockchain. This may take a few moments.'}
-                      </p>
-                    </div>
-                  </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
-
-            {/* Error Messages */}
-            <AnimatePresence>
-              {(submitError || validationErrors.length > 0) && (
-                <motion.div
-                  initial={{ opacity: 0, y: -20, scale: 0.95 }}
-                  animate={{ opacity: 1, y: 0, scale: 1 }}
-                  exit={{ opacity: 0, y: -20, scale: 0.95 }}
-                  className="mb-6 p-6 bg-gradient-to-r from-red-50 to-pink-50 border-2 border-red-200 rounded-2xl shadow-lg"
-                >
-                  <div className="flex items-start">
-                    <div className="w-8 h-8 bg-gradient-to-r from-red-500 to-pink-500 rounded-full flex items-center justify-center mr-4 flex-shrink-0">
-                      <AlertCircle className="w-5 h-5 text-white" />
-                    </div>
-                    <div>
-                      <h3 className="text-red-800 font-bold text-lg mb-2 font-unbounded">Action Required</h3>
-                      {submitError && (
-                        <p className="text-red-700 font-medium mb-2">{submitError}</p>
-                      )}
-                      {validationErrors.length > 0 && (
-                        <div>
-                          <p className="text-red-700 font-medium mb-2">Please fix the following errors:</p>
-                          <ul className="list-disc list-inside text-red-600 space-y-1">
-                            {validationErrors.map((error, index) => (
-                              <li key={index} className="font-medium">{error}</li>
-                            ))}
-                          </ul>
-                        </div>
-                      )}
                     </div>
                   </div>
                 </motion.div>
@@ -885,13 +942,124 @@ export default function CreateCampaign() {
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                   exit={{ opacity: 0 }}
-                  className="absolute inset-0 bg-white/80 backdrop-blur-sm flex items-center justify-center z-50 rounded-3xl"
+                  className="fixed inset-0 bg-white/20 backdrop-blur-md flex items-center justify-center z-50 rounded-lg"
                 >
-                  <div className="text-center">
-                    <div className="w-16 h-16 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin mx-auto mb-4"></div>
-                    <p className="text-lg font-semibold text-gray-700 font-unbounded">Creating your campaign...</p>
-                    <p className="text-sm text-gray-500 mt-2">Please wait while we process your information</p>
-                  </div>
+                  <motion.div
+                    initial={{ scale: 0.8, opacity: 0, y: 20 }}
+                    animate={{ scale: 1, opacity: 1, y: 0 }}
+                    exit={{ scale: 0.8, opacity: 0, y: 20 }}
+                    transition={{ type: "spring", damping: 25, stiffness: 300 }}
+                    className="bg-white/95 backdrop-blur-xl rounded-[2rem] p-8 shadow-lg border border-gray-100/50 max-w-md w-full mx-4"
+                  >
+                    <div className="text-center">
+                      {/* Lottie Animation */}
+                      <div className="w-32 h-32 mx-auto mb-6">
+                        <DotLottieReact
+                          src="https://lottie.host/9cacabce-843f-4d62-8100-336adcb35bfa/un9I86wPIp.lottie"
+                          loop
+                          autoplay
+                          className="w-full h-full"
+                        />
+                      </div>
+                      
+                      {/* Loading Text */}
+                      <h3 className="text-xl font-bold text-gray-900 mb-2 font-unbounded">
+                        {isSubmitting ? 'Submitting Campaign...' : 'Approving Transaction...'}
+                      </h3>
+                      {/* <p className="text-gray-600 font-medium">
+                        {isSubmitting 
+                          ? 'Uploading your campaign data to decentralized storage...' 
+                          : 'Please confirm the transaction in your wallet to register your NGO.'
+                        }
+                      </p> */}
+                      
+                      {/* Progress Dots */}
+                      <div className="flex justify-center mt-6 space-x-1">
+                        {[0, 1, 2].map((dot) => (
+                          <motion.div
+                            key={dot}
+                            className="w-2 h-2 bg-emerald-500 rounded-full"
+                            animate={{
+                              scale: [1, 1.2, 1],
+                              opacity: [0.5, 1, 0.5]
+                            }}
+                            transition={{
+                              duration: 1.5,
+                              repeat: Infinity,
+                              delay: dot * 0.2
+                            }}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  </motion.div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            {/* Failure Modal */}
+            <AnimatePresence>
+              {showFailureModal && (
+                <motion.div
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  className="fixed inset-0 bg-black/20 backdrop-blur-md flex items-center justify-center z-50"
+                >
+                  <motion.div
+                    initial={{ scale: 0.8, opacity: 0, y: 20 }}
+                    animate={{ scale: 1, opacity: 1, y: 0 }}
+                    exit={{ scale: 0.8, opacity: 0, y: 20 }}
+                    transition={{ type: "spring", damping: 25, stiffness: 300 }}
+                    className="bg-white/95 backdrop-blur-xl rounded-[2rem] p-8 shadow-lg border border-gray-100/50 max-w-md w-full mx-4"
+                  >
+                    <div className="text-center">
+                      {/* Error Lottie Animation */}
+                      <div className="w-32 h-32 mx-auto mb-6">
+                        <DotLottieReact
+                          src="https://lottie.host/d4bee4d9-e5c7-402c-9211-9a1925a46301/MiaRXnrFN4.lottie"
+                          loop
+                          autoplay
+                          className="w-full h-full"
+                        />
+                      </div>
+                      
+                      {/* Error Text */}
+                      <h3 className="text-2xl font-bold text-red-600 mb-2 font-unbounded">
+                        Transaction Failed
+                      </h3>
+                      <p className="text-gray-600 font-semibold mb-6">
+                        {submitError || 'Something went wrong with your transaction. You can review your information and submit again when ready.'}
+                      </p>
+                      
+                      {/* Action Buttons */}
+                      <div className="flex flex-col sm:flex-row gap-3">
+                        <motion.button
+                          onClick={() => {
+                            setShowFailureModal(false)
+                            setSubmitError(null)
+                          }}
+                          className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 px-6 py-3 rounded-xl font-semibold transition-colors font-unbounded"
+                          whileHover={{ scale: 1.02 }}
+                          whileTap={{ scale: 0.98 }}
+                        >
+                          Close
+                        </motion.button>
+                        <motion.button
+                          onClick={() => {
+                            setShowFailureModal(false)
+                            setSubmitError(null)
+                            // Don't automatically retry - let user manually try again from the form
+                          }}
+                          className="flex-1 bg-gradient-to-r from-emerald-500 to-cyan-500 hover:from-emerald-600 hover:to-cyan-600 text-white px-6 py-3 rounded-xl font-semibold transition-all font-unbounded"
+                          whileHover={{ scale: 1.02 }}
+                          whileTap={{ scale: 0.98 }}
+                        >
+                          Got It
+                        </motion.button>
+                      </div>
+                    </div>
+                  </motion.div>
                 </motion.div>
               )}
             </AnimatePresence>
@@ -941,8 +1109,17 @@ export default function CreateCampaign() {
                   whileHover={{ scale: 1.02 }}
                   whileTap={{ scale: 0.98 }}
                 >
-                  Next
-                  <ArrowRight className="w-5 h-5 ml-3" />
+                  {(currentStep === 1 && isCheckingApproval) ? (
+                    <>
+                      <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-3" />
+                      Checking Address...
+                    </>
+                  ) : (
+                    <>
+                      Next
+                      <ArrowRight className="w-5 h-5 ml-3" />
+                    </>
+                  )}
                 </motion.button>
               )}
             </div>
