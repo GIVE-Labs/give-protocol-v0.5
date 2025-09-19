@@ -1138,37 +1138,37 @@ export default function CampaignStaking() {
                   <div className="flex justify-between items-center">
                     <div className="flex items-center gap-1">
                       <span className="text-xs text-gray-600 font-medium">Total Yield:</span>
-                      <img src={selectedTokenInfo.icon} alt={selectedTokenInfo.symbol} className="w-3 h-3" />
-                      <span className="text-xs text-gray-600 font-medium">{selectedTokenInfo.symbol}</span>
                     </div>
-                    <span className="font-bold text-cyan-600 text-sm">{totalYield.toFixed(4)}</span>
+                    <span className="font-bold text-cyan-600 text-sm">{totalYield.toFixed(4)}
+                      <img src={selectedTokenInfo.icon} alt={selectedTokenInfo.symbol} className="w-3 h-3 inline ml-1" />
+                    </span>
                   </div>
                   <div className="border-t border-emerald-200 pt-3">
                     <div className="flex justify-between items-center text-emerald-600 mb-1">
                       <div className="flex items-center gap-1">
                         <span className="text-xs font-medium">To NGO ({yieldSharingRatio}%):</span>
-                        <img src={selectedTokenInfo.icon} alt={selectedTokenInfo.symbol} className="w-3 h-3" />
-                        <span className="text-xs font-medium">{selectedTokenInfo.symbol}</span>
                       </div>
-                      <span className="font-bold text-sm">{ngoShare.toFixed(4)}</span>
+                      <span className="font-bold text-sm">{ngoShare.toFixed(4)}
+                          <img src={selectedTokenInfo.icon} alt={selectedTokenInfo.symbol} className="w-3 h-3 inline ml-1" />
+                      </span>
                     </div>
                     <div className="flex justify-between items-center text-cyan-600">
                       <div className="flex items-center gap-1">
                         <span className="text-xs font-medium">To You ({100 - yieldSharingRatio}%):</span>
-                        <img src={selectedTokenInfo.icon} alt={selectedTokenInfo.symbol} className="w-3 h-3" />
-                        <span className="text-xs font-medium">{selectedTokenInfo.symbol}</span>
                       </div>
-                      <span className="font-bold text-sm">{userShare.toFixed(4)}</span>
+                      <span className="font-bold text-sm">{userShare.toFixed(4)}
+                        <img src={selectedTokenInfo.icon} alt={selectedTokenInfo.symbol} className="w-3 h-3 inline ml-1" />
+                      </span>
                     </div>
                   </div>
                   <div className="border-t border-emerald-200 pt-3">
                     <div className="flex justify-between items-center">
                       <div className="flex items-center gap-1">
                         <span className="text-xs font-bold text-gray-700">You Get Back:</span>
-                        <img src={selectedTokenInfo.icon} alt={selectedTokenInfo.symbol} className="w-4 h-4" />
-                        <span className="text-xs font-bold text-gray-700">{selectedTokenInfo.symbol}</span>
                       </div>
-                      <span className="font-bold text-base bg-gradient-to-r from-emerald-600 to-cyan-600 bg-clip-text text-transparent">{userGetBack.toFixed(4)}</span>
+                      <span className="font-bold text-base bg-gradient-to-r from-emerald-600 to-cyan-600 bg-clip-text text-transparent">{userGetBack.toFixed(4)}
+                        <img src={selectedTokenInfo.icon} alt={selectedTokenInfo.symbol} className="w-4 h-4 inline ml-1" />
+                      </span>
                     </div>
                   </div>
                 </div>
