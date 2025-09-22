@@ -11,6 +11,7 @@ import "../src/donation/DonationRouter.sol";
 import "../src/adapters/AaveAdapter.sol";
 import "../src/interfaces/IYieldAdapter.sol";
 import "../src/manager/StrategyManager.sol";
+import "../src/access/RoleManager.sol";
 import "../src/interfaces/IWETH.sol";
 
 /**
@@ -24,6 +25,7 @@ contract VaultETH_AaveTest is Test {
     NGORegistry public registry;
     DonationRouter public router;
     StrategyManager public manager;
+    RoleManager public roleManager;
     MockWETH public weth;
     AaveAdapter public aaveAdapter;
     MockAavePool public aavePool;
@@ -73,8 +75,14 @@ contract VaultETH_AaveTest is Test {
         // Deploy ETH vault with WETH as underlying asset
         ethVault = new GiveVault4626(IERC20(address(weth)), "GIVE ETH Vault", "gvETH", admin);
 
-        // Deploy strategy manager
-        manager = new StrategyManager(address(ethVault), admin);
+        // Deploy strategy manager with central role manager
+        roleManager = new RoleManager(admin);
+        vm.startPrank(admin);
+        roleManager.grantRole(roleManager.ROLE_STRATEGY_ADMIN(), admin);
+        roleManager.grantRole(roleManager.ROLE_GUARDIAN(), admin);
+        vm.stopPrank();
+
+        manager = new StrategyManager(address(ethVault), address(roleManager));
 
         // Deploy Aave adapter for WETH
         vm.prank(admin);

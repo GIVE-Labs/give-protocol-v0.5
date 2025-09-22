@@ -6,19 +6,29 @@ import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "../src/vault/GiveVault4626.sol";
 import "../src/manager/StrategyManager.sol";
 import "../src/interfaces/IYieldAdapter.sol";
+import "../src/access/RoleManager.sol";
+import "../src/donation/DonationRouter.sol";
+import "../src/donation/NGORegistry.sol";
 
 contract StrategyManagerBasicTest is Test {
     GiveVault4626 public vault;
     StrategyManager public manager;
     MockERC20 public usdc;
     MockAdapter public adapter;
+    RoleManager public roleManager;
 
     address public admin = address(0xA11CE);
 
     function setUp() public {
         usdc = new MockERC20("Test USDC", "TUSDC", 6);
         vault = new GiveVault4626(IERC20(address(usdc)), "GIVE USDC", "gvUSDC", admin);
-        manager = new StrategyManager(address(vault), admin);
+        roleManager = new RoleManager(admin);
+        vm.startPrank(admin);
+        roleManager.grantRole(roleManager.ROLE_STRATEGY_ADMIN(), admin);
+        roleManager.grantRole(roleManager.ROLE_GUARDIAN(), admin);
+        vm.stopPrank();
+
+        manager = new StrategyManager(address(vault), address(roleManager));
         adapter = new MockAdapter(IERC20(address(usdc)), address(vault));
 
         // Grant the manager permission to call vault setters invoked by manager

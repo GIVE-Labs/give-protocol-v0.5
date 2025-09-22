@@ -12,6 +12,7 @@ import {MockYieldAdapter} from "../src/adapters/MockYieldAdapter.sol";
 import {IYieldAdapter} from "../src/interfaces/IYieldAdapter.sol";
 import {NGORegistry} from "../src/donation/NGORegistry.sol";
 import {DonationRouter} from "../src/donation/DonationRouter.sol";
+import {RoleManager} from "../src/access/RoleManager.sol";
 import {HelperConfig} from "./HelperConfig.s.sol";
 
 /**
@@ -96,7 +97,19 @@ contract DeployETHVault is Script {
 
         // Deploy Strategy Manager for ETH Vault
         console.log("Deploying ETH Vault Strategy Manager...");
-        StrategyManager ethVaultManager = new StrategyManager(address(ethVault), deployer);
+        RoleManager roleManager = new RoleManager(deployer);
+        vm.startPrank(deployer);
+        roleManager.grantRole(roleManager.ROLE_STRATEGY_ADMIN(), deployer);
+        roleManager.grantRole(roleManager.ROLE_GUARDIAN(), deployer);
+        vm.stopPrank();
+        if (admin != deployer) {
+            vm.startPrank(deployer);
+            roleManager.grantRole(roleManager.ROLE_STRATEGY_ADMIN(), admin);
+            roleManager.grantRole(roleManager.ROLE_GUARDIAN(), admin);
+            vm.stopPrank();
+        }
+
+        StrategyManager ethVaultManager = new StrategyManager(address(ethVault), address(roleManager));
 
         // Deploy appropriate adapter based on network
         IYieldAdapter ethVaultAdapter;
@@ -130,6 +143,7 @@ contract DeployETHVault is Script {
         console.log("\n=== ETH Vault Deployment Complete ===");
         console.log("ETH Vault:", address(ethVault));
         console.log("ETH Vault Strategy Manager:", address(ethVaultManager));
+        console.log("RoleManager:", address(roleManager));
         console.log("ETH Vault Adapter:", address(ethVaultAdapter));
         console.log("NGO Registry:", address(registry));
         console.log("Donation Router:", address(router));

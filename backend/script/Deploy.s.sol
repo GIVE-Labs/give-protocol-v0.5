@@ -12,6 +12,7 @@ import {MockYieldAdapter} from "../src/adapters/MockYieldAdapter.sol";
 import {IYieldAdapter} from "../src/interfaces/IYieldAdapter.sol";
 import {NGORegistry} from "../src/donation/NGORegistry.sol";
 import {DonationRouter} from "../src/donation/DonationRouter.sol";
+import {RoleManager} from "../src/access/RoleManager.sol";
 import {HelperConfig} from "./HelperConfig.s.sol";
 
 contract Deploy is Script {
@@ -65,7 +66,13 @@ contract Deploy is Script {
         DonationRouter router = new DonationRouter(admin, address(registry), feeRecipient, admin, feeBps); // Use admin from environment for role management
 
         GiveVault4626 vault = new GiveVault4626(IERC20(assetAddress), assetName, assetSymbol, admin);
-        StrategyManager manager = new StrategyManager(address(vault), admin);
+        RoleManager roleManager = new RoleManager(admin);
+        vm.startPrank(admin);
+        roleManager.grantRole(roleManager.ROLE_STRATEGY_ADMIN(), admin);
+        roleManager.grantRole(roleManager.ROLE_GUARDIAN(), admin);
+        vm.stopPrank();
+
+        StrategyManager manager = new StrategyManager(address(vault), address(roleManager));
 
         // Use MockYieldAdapter for Anvil (chainid 31337), AaveAdapter for other networks
         IYieldAdapter adapter;
@@ -96,6 +103,7 @@ contract Deploy is Script {
 
         console.log("Vault:", address(vault));
         console.log("StrategyManager:", address(manager));
+        console.log("RoleManager:", address(roleManager));
         console.log("AaveAdapter:", address(adapter));
         console.log("NGORegistry:", address(registry));
         console.log("DonationRouter:", address(router));
