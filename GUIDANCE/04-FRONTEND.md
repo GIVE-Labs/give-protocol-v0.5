@@ -4,6 +4,12 @@
 
 The GIVE Protocol frontend is a modern React application built with Vite, providing users with an intuitive interface for no-loss giving through yield-generating vaults.
 
+## 🌐 Latest Updates
+- Sepolia contract addresses integrated
+- Multi-network configuration (Scroll Sepolia, Ethereum Sepolia)
+- TypeScript import and config fixes for contract ABIs
+- Improved asset validation and error handling
+
 ## 🛠️ Technology Stack
 
 ### **Core Framework**:

@@ -4,6 +4,11 @@
 
 GIVE Protocol employs a comprehensive testing strategy covering smart contracts, frontend components, and end-to-end user flows.
 
+## 🌐 Latest Testing Updates
+- All core contracts tested and verified on Sepolia
+- New test coverage for account-based deployment, asset validation, and access control
+- Updated test suite for multi-network support
+
 ## 🔧 Smart Contract Testing
 
 ### **Testing Framework: Foundry**

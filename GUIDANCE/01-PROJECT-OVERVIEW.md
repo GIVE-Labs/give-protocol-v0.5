@@ -4,7 +4,15 @@
 
 **GIVE Protocol** is a revolutionary no-loss giving platform that bridges traditional charitable giving with modern DeFi yield generation. Our mission is to enable sustainable funding for NGOs while preserving donor capital.
 
-## 💡 The Problem We Solve
+## � Latest Status
+
+**MVP deployed and live on Ethereum Sepolia testnet (Sepolia Chain ID: 11155111)**
+- All core contracts deployed and verified
+- Frontend and backend updated for Sepolia support
+- See deployment details in [06-DEPLOYMENT.md](06-DEPLOYMENT.md)
+
+
+## �💡 The Problem We Solve
 
 Traditional NGO donations suffer from several critical issues:
 - **Capital Loss**: Donors lose their money forever
@@ -20,6 +28,14 @@ GIVE Protocol enables users to:
 3. **Donate only the yield** to approved NGOs
 4. **Choose donation percentages** (50%, 75%, or 100% of yield)
 5. **Withdraw anytime** subject to vault liquidity
+
+## 🏗️ Deployed Contracts (Sepolia)
+
+- GiveVault4626 (USDC): `0x9816de1f27c15AAe597548f09E2188d16752C4C8`
+- StrategyManager: `0x42cB507dfe0f7D8a01c9ad9e1b18B84CCf0A41B9`
+- AaveAdapter: `0xFc03875B2B2a84D9D1Bd24E41281fF371b3A1948`
+- NGORegistry: `0x77182f2C8E86233D3B0095446Da20ecDecF96Cc2`
+- DonationRouter: `0x33952be800FbBc7f8198A0efD489204720f64A4C`
 
 ## 🏗️ How It Works
 

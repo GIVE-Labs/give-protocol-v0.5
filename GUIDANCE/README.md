@@ -22,9 +22,9 @@ Welcome to the GIVE Protocol repository guidance. This folder contains comprehen
 
 ## 🎯 Project Status
 
-**Current Version:** v0.1 MVP  
-**Network:** Scroll Sepolia (testnet)  
-**Status:** Production-ready MVP with core functionality
+**Current Version:** v0.1.2 MVP  
+**Network:** Ethereum Sepolia (testnet, all contracts deployed and verified), Scroll Sepolia (supported)  
+**Status:** Production-ready MVP with core functionality, live on Sepolia
 
 ## 📞 Support
 

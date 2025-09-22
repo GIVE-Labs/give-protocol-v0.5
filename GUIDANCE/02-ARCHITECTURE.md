@@ -4,6 +4,18 @@
 
 GIVE Protocol follows a modular, upgradeable architecture built on ERC-4626 vaults with pluggable yield adapters and a flexible donation distribution system.
 
+### 🌐 Multi-Network Support
+- Supports Scroll Sepolia, Ethereum Sepolia, and local Anvil deployments
+- All core contracts deployed and verified on Sepolia (see [06-DEPLOYMENT.md](06-DEPLOYMENT.md))
+- Frontend and backend auto-configure for selected network
+
+### 🏦 Latest Contract Addresses (Sepolia)
+- GiveVault4626 (USDC): `0x9816de1f27c15AAe597548f09E2188d16752C4C8`
+- StrategyManager: `0x42cB507dfe0f7D8a01c9ad9e1b18B84CCf0A41B9`
+- AaveAdapter: `0xFc03875B2B2a84D9D1Bd24E41281fF371b3A1948`
+- NGORegistry: `0x77182f2C8E86233D3B0095446Da20ecDecF96Cc2`
+- DonationRouter: `0x33952be800FbBc7f8198A0efD489204720f64A4C`
+
 ```
 ┌─────────────────────────────────────────────────────────────┐
 │                     GIVE Protocol                           │

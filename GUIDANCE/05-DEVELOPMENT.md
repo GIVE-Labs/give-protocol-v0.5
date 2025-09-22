@@ -12,6 +12,12 @@ Before you begin, ensure you have the following installed:
 - **Git** - [Download](https://git-scm.com/)
 - **VS Code** (recommended) - [Download](https://code.visualstudio.com/)
 
+## 🌐 Latest Development Infrastructure
+- Makefile supports multi-network deployment (Sepolia, Scroll Sepolia, local)
+- Automated contract verification and environment validation
+- Updated asset configs for Sepolia
+- Improved admin role assignment and access control in deployment scripts
+
 ### **Initial Setup**
 
 ```bash
