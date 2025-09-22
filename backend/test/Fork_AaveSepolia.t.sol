@@ -4,6 +4,7 @@ pragma solidity ^0.8.20;
 import "forge-std/Test.sol";
 import {AaveAdapter} from "../src/adapters/AaveAdapter.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {RoleManager} from "../src/access/RoleManager.sol";
 
 /// Fork test against Sepolia Aave V3 to sanity-check integration.
 /// Requires env:
@@ -25,7 +26,12 @@ contract Fork_AaveSepoliaTest is Test {
         vm.selectFork(fork);
 
         // Deploy adapter with this test contract as the vault
-        AaveAdapter adapter = new AaveAdapter(usdc, address(this), pool, address(this));
+        RoleManager roleManager = new RoleManager(address(this));
+        roleManager.grantRole(roleManager.ROLE_STRATEGY_ADMIN(), address(this));
+        roleManager.grantRole(roleManager.ROLE_GUARDIAN(), address(this));
+        roleManager.grantRole(roleManager.ROLE_VAULT_OPS(), address(this));
+
+        AaveAdapter adapter = new AaveAdapter(address(roleManager), usdc, address(this), pool);
 
         // Fund adapter with USDC using deal (ERC20 cheatcode)
         uint256 amount = 10_000e6;

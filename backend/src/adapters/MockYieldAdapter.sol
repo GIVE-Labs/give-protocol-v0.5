@@ -3,19 +3,21 @@ pragma solidity ^0.8.20;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import "@openzeppelin/contracts/access/AccessControl.sol";
 import "../interfaces/IYieldAdapter.sol";
+import "../access/RoleAware.sol";
+import "../utils/Errors.sol";
 
 /**
  * @title MockYieldAdapter
  * @dev Mock yield adapter for testing purposes
  * @notice Simulates yield generation for local testing
  */
-contract MockYieldAdapter is IYieldAdapter, AccessControl {
+contract MockYieldAdapter is IYieldAdapter, RoleAware {
     using SafeERC20 for IERC20;
 
-    bytes32 public constant VAULT_ROLE = keccak256("VAULT_ROLE");
-    bytes32 public constant EMERGENCY_ROLE = keccak256("EMERGENCY_ROLE");
+    bytes32 public immutable STRATEGY_ADMIN_ROLE;
+    bytes32 public immutable GUARDIAN_ROLE;
+    bytes32 public immutable VAULT_OPS_ROLE;
 
     IERC20 private immutable _asset;
     address private immutable _vault;
@@ -27,11 +29,13 @@ contract MockYieldAdapter is IYieldAdapter, AccessControl {
 
     /**
      * @dev Constructor
+     * @param roleManager_ Address of the shared role manager
      * @param asset_ The underlying asset token
      * @param vault_ The vault address
-     * @param admin The admin address
      */
-    constructor(address asset_, address vault_, address admin) {
+    constructor(address roleManager_, address asset_, address vault_)
+        RoleAware(roleManager_)
+    {
         _asset = IERC20(asset_);
         _vault = vault_;
         _yieldRate = 250; // Default 2.5% yield per harvest
@@ -39,9 +43,16 @@ contract MockYieldAdapter is IYieldAdapter, AccessControl {
         _simulateLoss = false;
         _lossRate = 0;
 
-        _grantRole(DEFAULT_ADMIN_ROLE, admin);
-        _grantRole(VAULT_ROLE, vault_);
-        _grantRole(EMERGENCY_ROLE, admin);
+        STRATEGY_ADMIN_ROLE = roleManager.ROLE_STRATEGY_ADMIN();
+        GUARDIAN_ROLE = roleManager.ROLE_GUARDIAN();
+        VAULT_OPS_ROLE = roleManager.ROLE_VAULT_OPS();
+    }
+
+    modifier onlyVault() {
+        if (msg.sender != _vault) {
+            revert Errors.OnlyVault();
+        }
+        _;
     }
 
     /**
@@ -69,7 +80,7 @@ contract MockYieldAdapter is IYieldAdapter, AccessControl {
      * @dev Invests assets (transfers from vault to adapter)
      * @param assets Amount to invest
      */
-    function invest(uint256 assets) external override onlyRole(VAULT_ROLE) {
+    function invest(uint256 assets) external override onlyVault {
         require(assets > 0, "MockYieldAdapter: Cannot invest zero assets");
 
         _asset.safeTransferFrom(_vault, address(this), assets);
@@ -83,7 +94,7 @@ contract MockYieldAdapter is IYieldAdapter, AccessControl {
      * @param assets Amount to divest
      * @return returned Actual amount returned
      */
-    function divest(uint256 assets) external override onlyRole(VAULT_ROLE) returns (uint256 returned) {
+    function divest(uint256 assets) external override onlyVault returns (uint256 returned) {
         require(assets > 0, "MockYieldAdapter: Cannot divest zero assets");
         require(assets <= _totalAssets, "MockYieldAdapter: Insufficient assets");
 
@@ -100,7 +111,7 @@ contract MockYieldAdapter is IYieldAdapter, AccessControl {
      * @return profit Amount of profit realized
      * @return loss Amount of loss realized
      */
-    function harvest() external override onlyRole(VAULT_ROLE) returns (uint256 profit, uint256 loss) {
+    function harvest() external override onlyVault returns (uint256 profit, uint256 loss) {
         if (_totalAssets == 0) {
             return (0, 0);
         }
@@ -135,7 +146,14 @@ contract MockYieldAdapter is IYieldAdapter, AccessControl {
      * @dev Emergency withdrawal of all assets
      * @return returned Amount of assets returned
      */
-    function emergencyWithdraw() external override onlyRole(EMERGENCY_ROLE) returns (uint256 returned) {
+    function emergencyWithdraw() external override returns (uint256 returned) {
+        if (
+            msg.sender != _vault &&
+            !roleManager.hasRole(GUARDIAN_ROLE, msg.sender) &&
+            !roleManager.hasRole(VAULT_OPS_ROLE, msg.sender)
+        ) {
+            revert Errors.UnauthorizedCaller(msg.sender);
+        }
         returned = _totalAssets;
         _totalAssets = 0;
 
@@ -152,7 +170,7 @@ contract MockYieldAdapter is IYieldAdapter, AccessControl {
      * @dev Set yield rate for testing
      * @param yieldRate_ Yield rate in basis points
      */
-    function setYieldRate(uint256 yieldRate_) external onlyRole(DEFAULT_ADMIN_ROLE) {
+    function setYieldRate(uint256 yieldRate_) external onlyRole(STRATEGY_ADMIN_ROLE) {
         require(yieldRate_ <= 10000, "MockYieldAdapter: Yield rate too high");
         _yieldRate = yieldRate_;
     }
@@ -162,7 +180,7 @@ contract MockYieldAdapter is IYieldAdapter, AccessControl {
      * @param simulateLoss_ Whether to simulate loss
      * @param lossRate_ Loss rate in basis points
      */
-    function setLossSimulation(bool simulateLoss_, uint256 lossRate_) external onlyRole(DEFAULT_ADMIN_ROLE) {
+    function setLossSimulation(bool simulateLoss_, uint256 lossRate_) external onlyRole(STRATEGY_ADMIN_ROLE) {
         require(lossRate_ <= 10000, "MockYieldAdapter: Loss rate too high");
         _simulateLoss = simulateLoss_;
         _lossRate = lossRate_;
@@ -172,7 +190,7 @@ contract MockYieldAdapter is IYieldAdapter, AccessControl {
      * @dev Add yield tokens for testing (simulates external yield)
      * @param amount Amount of yield to add
      */
-    function addYield(uint256 amount) external onlyRole(DEFAULT_ADMIN_ROLE) {
+    function addYield(uint256 amount) external onlyRole(STRATEGY_ADMIN_ROLE) {
         if (amount > 0) {
             _asset.safeTransferFrom(msg.sender, address(this), amount);
             // Don't add to _totalAssets - this represents external yield

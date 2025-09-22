@@ -92,7 +92,7 @@ contract VaultETH_AaveTest is Test {
 
         // Deploy Aave adapter for WETH
         vm.prank(admin);
-        aaveAdapter = new AaveAdapter(address(weth), address(ethVault), address(aavePool), admin);
+        aaveAdapter = new AaveAdapter(address(roleManager), address(weth), address(ethVault), address(aavePool));
 
         // Setup roles and permissions
         vm.startPrank(admin);
@@ -331,7 +331,7 @@ contract VaultETH_AaveTest is Test {
 
         // Deploy second adapter
         vm.prank(admin);
-        AaveAdapter secondAdapter = new AaveAdapter(address(weth), address(ethVault), address(aavePool), admin);
+        AaveAdapter secondAdapter = new AaveAdapter(address(roleManager), address(weth), address(ethVault), address(aavePool));
 
         // Switch adapters via strategy manager
         vm.startPrank(admin);

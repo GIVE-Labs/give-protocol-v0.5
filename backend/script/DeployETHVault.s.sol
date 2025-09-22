@@ -98,7 +98,7 @@ contract DeployETHVault is Script {
             router = DonationRouter(payable(existingRouter));
         } else {
             console.log("Deploying new Registry and Router...");
-            registry = new NGORegistry(deployer);
+            registry = new NGORegistry(address(roleManager));
             router = new DonationRouter(address(roleManager), address(registry), feeRecipient, admin, feeBps);
 
             // Registry permissions handled via RoleManager assignments
@@ -127,11 +127,11 @@ contract DeployETHVault is Script {
         if (block.chainid == 31337) {
             // Use MockYieldAdapter for local testing
             console.log("Deploying MockYieldAdapter for ETH Vault (local testing)...");
-            ethVaultAdapter = new MockYieldAdapter(weth, address(ethVault), deployer);
+            ethVaultAdapter = new MockYieldAdapter(address(roleManager), weth, address(ethVault));
         } else {
             // Use AaveAdapter for live networks
             console.log("Deploying AaveAdapter for ETH Vault (live network)...");
-            ethVaultAdapter = new AaveAdapter(weth, address(ethVault), aavePool, deployer);
+            ethVaultAdapter = new AaveAdapter(address(roleManager), weth, address(ethVault), aavePool);
         }
 
         // Configure ETH Vault

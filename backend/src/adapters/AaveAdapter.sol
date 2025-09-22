@@ -3,11 +3,11 @@ pragma solidity ^0.8.20;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import "@openzeppelin/contracts/access/AccessControl.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/utils/Pausable.sol";
 import "../interfaces/IYieldAdapter.sol";
 import "../utils/Errors.sol";
+import "../access/RoleAware.sol";
 
 // Aave V3 interfaces
 interface IPool {
@@ -44,12 +44,13 @@ struct ReserveData {
  * @dev Yield adapter for Aave V3 protocol (supply-only)
  * @notice Supplies assets to Aave and tracks yield through aToken balance changes
  */
-contract AaveAdapter is IYieldAdapter, AccessControl, ReentrancyGuard, Pausable {
+contract AaveAdapter is IYieldAdapter, RoleAware, ReentrancyGuard, Pausable {
     using SafeERC20 for IERC20;
 
-    // === Constants ===
-    bytes32 public constant VAULT_ROLE = keccak256("VAULT_ROLE");
-    bytes32 public constant EMERGENCY_ROLE = keccak256("EMERGENCY_ROLE");
+    // === Cached roles ===
+    bytes32 public immutable STRATEGY_ADMIN_ROLE;
+    bytes32 public immutable GUARDIAN_ROLE;
+    bytes32 public immutable VAULT_OPS_ROLE;
     uint256 public constant BASIS_POINTS = 10000;
     uint16 public constant AAVE_REFERRAL_CODE = 0;
 
@@ -77,8 +78,10 @@ contract AaveAdapter is IYieldAdapter, AccessControl, ReentrancyGuard, Pausable 
     event YieldAccrued(uint256 amount, uint256 newBalance);
 
     // === Constructor ===
-    constructor(address _asset, address _vault, address _aavePool, address _admin) {
-        if (_asset == address(0) || _vault == address(0) || _aavePool == address(0) || _admin == address(0)) {
+    constructor(address roleManager_, address _asset, address _vault, address _aavePool)
+        RoleAware(roleManager_)
+    {
+        if (_asset == address(0) || _vault == address(0) || _aavePool == address(0)) {
             revert Errors.ZeroAddress();
         }
 
@@ -93,9 +96,9 @@ contract AaveAdapter is IYieldAdapter, AccessControl, ReentrancyGuard, Pausable 
         }
         aToken = IAToken(reserveData.aTokenAddress);
 
-        _grantRole(DEFAULT_ADMIN_ROLE, _admin);
-        _grantRole(VAULT_ROLE, _vault);
-        _grantRole(EMERGENCY_ROLE, _admin);
+        STRATEGY_ADMIN_ROLE = roleManager.ROLE_STRATEGY_ADMIN();
+        GUARDIAN_ROLE = roleManager.ROLE_GUARDIAN();
+        VAULT_OPS_ROLE = roleManager.ROLE_VAULT_OPS();
 
         lastHarvestTime = block.timestamp;
 
@@ -222,9 +225,12 @@ contract AaveAdapter is IYieldAdapter, AccessControl, ReentrancyGuard, Pausable 
      * @return returned Amount of assets returned
      */
     function emergencyWithdraw() external override nonReentrant returns (uint256 returned) {
-        // Allow both EMERGENCY_ROLE and VAULT_ROLE to call this function
-        if (!hasRole(EMERGENCY_ROLE, msg.sender) && !hasRole(VAULT_ROLE, msg.sender)) {
-            revert AccessControlUnauthorizedAccount(msg.sender, EMERGENCY_ROLE);
+        if (
+            msg.sender != vault &&
+            !roleManager.hasRole(GUARDIAN_ROLE, msg.sender) &&
+            !roleManager.hasRole(VAULT_OPS_ROLE, msg.sender)
+        ) {
+            revert Errors.UnauthorizedCaller(msg.sender);
         }
         uint256 aTokenBalance = aToken.balanceOf(address(this));
         if (aTokenBalance == 0) return 0;
@@ -248,7 +254,7 @@ contract AaveAdapter is IYieldAdapter, AccessControl, ReentrancyGuard, Pausable 
      * @dev Sets maximum slippage tolerance
      * @param _bps Basis points (100 = 1%)
      */
-    function setMaxSlippageBps(uint256 _bps) external onlyRole(DEFAULT_ADMIN_ROLE) {
+    function setMaxSlippageBps(uint256 _bps) external onlyRole(STRATEGY_ADMIN_ROLE) {
         if (_bps > 1000) revert Errors.InvalidSlippageBps(); // Max 10%
 
         uint256 oldBps = maxSlippageBps;
@@ -261,7 +267,7 @@ contract AaveAdapter is IYieldAdapter, AccessControl, ReentrancyGuard, Pausable 
      * @dev Sets emergency exit slippage tolerance
      * @param _bps Basis points (9500 = 95%)
      */
-    function setEmergencyExitBps(uint256 _bps) external onlyRole(DEFAULT_ADMIN_ROLE) {
+    function setEmergencyExitBps(uint256 _bps) external onlyRole(STRATEGY_ADMIN_ROLE) {
         if (_bps < 5000 || _bps > 10000) revert Errors.ParameterOutOfRange();
 
         uint256 oldBps = emergencyExitBps;
@@ -273,7 +279,7 @@ contract AaveAdapter is IYieldAdapter, AccessControl, ReentrancyGuard, Pausable 
     /**
      * @dev Deactivates emergency mode
      */
-    function deactivateEmergencyMode() external onlyRole(DEFAULT_ADMIN_ROLE) {
+    function deactivateEmergencyMode() external onlyRole(STRATEGY_ADMIN_ROLE) {
         emergencyMode = false;
         emit EmergencyModeActivated(false);
     }
@@ -281,14 +287,14 @@ contract AaveAdapter is IYieldAdapter, AccessControl, ReentrancyGuard, Pausable 
     /**
      * @dev Pauses the adapter
      */
-    function pause() external onlyRole(EMERGENCY_ROLE) {
+    function pause() external onlyRole(GUARDIAN_ROLE) {
         _pause();
     }
 
     /**
      * @dev Unpauses the adapter
      */
-    function unpause() external onlyRole(DEFAULT_ADMIN_ROLE) {
+    function unpause() external onlyRole(STRATEGY_ADMIN_ROLE) {
         _unpause();
     }
 

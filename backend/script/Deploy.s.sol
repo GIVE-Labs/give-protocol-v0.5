@@ -62,7 +62,6 @@ contract Deploy is Script {
             vm.startBroadcast(deployerKey);
         }
 
-        NGORegistry registry = new NGORegistry(admin); // Use environment admin as admin
         RoleManager roleManager = new RoleManager(deployer);
         if (admin != deployer) {
             roleManager.grantRole(roleManager.DEFAULT_ADMIN_ROLE(), admin);
@@ -80,6 +79,7 @@ contract Deploy is Script {
             roleManager.grantRole(roleManager.ROLE_CAMPAIGN_ADMIN(), admin);
         }
 
+        NGORegistry registry = new NGORegistry(address(roleManager));
         DonationRouter router = new DonationRouter(
             address(roleManager),
             address(registry),
@@ -96,10 +96,10 @@ contract Deploy is Script {
         // Use MockYieldAdapter for Anvil (chainid 31337), AaveAdapter for other networks
         IYieldAdapter adapter;
         if (block.chainid == 31337) {
-            adapter = new MockYieldAdapter(assetAddress, address(vault), admin);
+            adapter = new MockYieldAdapter(address(roleManager), assetAddress, address(vault));
             console.log("Using MockYieldAdapter for local testing");
         } else {
-            adapter = new AaveAdapter(assetAddress, address(vault), aavePool, admin);
+            adapter = new AaveAdapter(address(roleManager), assetAddress, address(vault), aavePool);
             console.log("Using AaveAdapter for live network");
         }
 

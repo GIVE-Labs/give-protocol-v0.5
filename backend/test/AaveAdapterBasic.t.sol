@@ -5,12 +5,14 @@ import "forge-std/Test.sol";
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "../src/adapters/AaveAdapter.sol";
 import "../src/utils/Errors.sol";
+import "../src/access/RoleManager.sol";
 
 contract AaveAdapterBasicTest is Test {
     MockERC20 public usdc;
     MockAToken public aToken;
     MockAavePool public pool;
     AaveAdapter public adapter;
+    RoleManager public roleManager;
 
     address public admin;
     address public vault;
@@ -21,8 +23,13 @@ contract AaveAdapterBasicTest is Test {
         usdc = new MockERC20("Test USDC", "TUSDC", 6);
         aToken = new MockAToken("aUSDC", "aUSDC", 6, address(usdc));
         pool = new MockAavePool(address(usdc), address(aToken));
+        roleManager = new RoleManager(address(this));
+        roleManager.grantRole(roleManager.ROLE_STRATEGY_ADMIN(), admin);
+        roleManager.grantRole(roleManager.ROLE_GUARDIAN(), admin);
+        roleManager.grantRole(roleManager.ROLE_VAULT_OPS(), admin);
+
         vm.prank(admin);
-        adapter = new AaveAdapter(address(usdc), vault, address(pool), admin);
+        adapter = new AaveAdapter(address(roleManager), address(usdc), vault, address(pool));
         // Fund vault and pool
         usdc.mint(vault, 1_000_000e6);
         usdc.mint(address(pool), 1_000_000e6);
