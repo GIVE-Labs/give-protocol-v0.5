@@ -10,6 +10,7 @@ interface IRoleManagerCore {
     function ROLE_VAULT_OPS() external view returns (bytes32);
     function ROLE_TREASURY() external view returns (bytes32);
     function ROLE_GUARDIAN() external view returns (bytes32);
+    function ROLE_DONATION_RECORDER() external view returns (bytes32);
 }
 
 /// @title RoleAware

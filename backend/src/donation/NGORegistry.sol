@@ -1,22 +1,20 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import "@openzeppelin/contracts/access/AccessControl.sol";
-import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/utils/Pausable.sol";
 import "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 import "../utils/Errors.sol";
+import "../access/RoleAware.sol";
 
 /**
  * @title NGORegistry
  * @dev Registry for managing approved NGOs in the GIVE Protocol
  * @notice Simplified registry for v0.1 - focuses on approval/removal of NGOs
  */
-contract NGORegistry is AccessControl, Pausable {
-    // === Roles ===
-    bytes32 public constant NGO_MANAGER_ROLE = keccak256("NGO_MANAGER_ROLE");
-    bytes32 public constant DONATION_RECORDER_ROLE = keccak256("DONATION_RECORDER_ROLE");
-    bytes32 public constant GUARDIAN_ROLE = keccak256("GUARDIAN_ROLE");
+contract NGORegistry is RoleAware, Pausable {
+    bytes32 public immutable NGO_MANAGER_ROLE;
+    bytes32 public immutable DONATION_RECORDER_ROLE;
+    bytes32 public immutable GUARDIAN_ROLE;
 
     // === State Variables ===
     using EnumerableSet for EnumerableSet.AddressSet;
@@ -51,11 +49,12 @@ contract NGORegistry is AccessControl, Pausable {
     event DonationRecorded(address indexed ngo, uint256 amount, uint256 newTotalReceived);
 
     // === Constructor ===
-    constructor(address _admin) {
-        if (_admin == address(0)) revert Errors.ZeroAddress();
-
-        _grantRole(DEFAULT_ADMIN_ROLE, _admin);
-        _grantRole(NGO_MANAGER_ROLE, _admin);
+    constructor(address roleManager_)
+        RoleAware(roleManager_)
+    {
+        NGO_MANAGER_ROLE = roleManager.ROLE_CAMPAIGN_ADMIN();
+        DONATION_RECORDER_ROLE = roleManager.ROLE_DONATION_RECORDER();
+        GUARDIAN_ROLE = roleManager.ROLE_GUARDIAN();
     }
 
     // === NGO Management ===
@@ -187,7 +186,7 @@ contract NGORegistry is AccessControl, Pausable {
      * @dev Emergency function to set current NGO immediately (admin only)
      * @param ngo The NGO address to set as current
      */
-    function emergencySetCurrentNGO(address ngo) external onlyRole(DEFAULT_ADMIN_ROLE) {
+    function emergencySetCurrentNGO(address ngo) external onlyRole(GUARDIAN_ROLE) {
         if (ngo != address(0) && !isApproved[ngo]) {
             revert Errors.NGONotApproved();
         }
@@ -293,7 +292,7 @@ contract NGORegistry is AccessControl, Pausable {
     /**
      * @dev Emergency pause of the registry (admin only)
      */
-    function emergencyPause() external onlyRole(DEFAULT_ADMIN_ROLE) {
+    function emergencyPause() external onlyRole(GUARDIAN_ROLE) {
         _pause();
     }
 
@@ -307,7 +306,7 @@ contract NGORegistry is AccessControl, Pausable {
     /**
      * @dev Unpause the registry (admin only)
      */
-    function unpause() external onlyRole(DEFAULT_ADMIN_ROLE) {
+    function unpause() external onlyRole(NGO_MANAGER_ROLE) {
         _unpause();
     }
 }

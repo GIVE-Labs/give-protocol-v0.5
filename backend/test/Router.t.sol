@@ -29,18 +29,18 @@ contract RouterTest is Test {
 
         usdc = new MockERC20("Test USDC", "TUSDC", 6);
         usdc.mint(address(this), 1_000_000e6);
-        registry = new NGORegistry(admin);
 
         roleManager = new RoleManager(address(this));
         roleManager.grantRole(roleManager.ROLE_VAULT_OPS(), admin);
         roleManager.grantRole(roleManager.ROLE_TREASURY(), admin);
         roleManager.grantRole(roleManager.ROLE_GUARDIAN(), admin);
+        roleManager.grantRole(roleManager.ROLE_CAMPAIGN_ADMIN(), admin);
 
+        registry = new NGORegistry(address(roleManager));
         router = new DonationRouter(address(roleManager), address(registry), feeRecipient, admin, 0);
+        roleManager.grantRole(roleManager.ROLE_DONATION_RECORDER(), address(router));
 
         vm.startPrank(admin);
-        registry.grantRole(registry.NGO_MANAGER_ROLE(), admin);
-        registry.grantRole(registry.DONATION_RECORDER_ROLE(), address(router));
         registry.addNGO(ngo1, "NGO1", bytes32("kyc1"), admin);
         registry.addNGO(ngo2, "NGO2", bytes32("kyc2"), admin);
         router.setAuthorizedCaller(caller, true);

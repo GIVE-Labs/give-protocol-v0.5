@@ -39,12 +39,13 @@ contract UserPreferencesTest is Test {
         usdc = new MockERC20();
 
         roleManager = new RoleManager(address(this));
+        roleManager.grantRole(roleManager.ROLE_CAMPAIGN_ADMIN(), admin);
         roleManager.grantRole(roleManager.ROLE_VAULT_OPS(), admin);
         roleManager.grantRole(roleManager.ROLE_TREASURY(), admin);
         roleManager.grantRole(roleManager.ROLE_GUARDIAN(), admin);
+        require(roleManager.hasRole(roleManager.ROLE_CAMPAIGN_ADMIN(), admin), "admin lacks campaign role");
 
-        vm.startPrank(admin);
-        registry = new NGORegistry(admin);
+        registry = new NGORegistry(address(roleManager));
         router = new DonationRouter(
             address(roleManager),
             address(registry),
@@ -52,12 +53,9 @@ contract UserPreferencesTest is Test {
             protocolTreasury,
             250
         ); // 2.5% fee
+        roleManager.grantRole(roleManager.ROLE_DONATION_RECORDER(), address(router));
 
-        // Grant NGO manager role to admin
-        registry.grantRole(registry.NGO_MANAGER_ROLE(), admin);
-
-        // Grant donation recorder role to router so it can record donations
-        registry.grantRole(registry.DONATION_RECORDER_ROLE(), address(router));
+        vm.startPrank(admin);
 
         // Setup NGOs
         registry.addNGO(ngo1, "NGO1", bytes32("kyc1"), admin);

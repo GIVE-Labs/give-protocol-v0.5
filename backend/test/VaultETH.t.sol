@@ -37,22 +37,22 @@ contract VaultETHTest is Test {
         weth = new MockWETH();
 
         roleManager = new RoleManager(address(this));
+        roleManager.grantRole(roleManager.ROLE_CAMPAIGN_ADMIN(), admin);
         roleManager.grantRole(roleManager.ROLE_VAULT_OPS(), admin);
         roleManager.grantRole(roleManager.ROLE_VAULT_OPS(), manager);
         roleManager.grantRole(roleManager.ROLE_GUARDIAN(), admin);
         roleManager.grantRole(roleManager.ROLE_TREASURY(), admin);
 
         // Registry + Router
-        registry = new NGORegistry(admin);
+        registry = new NGORegistry(address(roleManager));
         router = new DonationRouter(address(roleManager), address(registry), feeRecipient, admin, 250); // 2.5%
+        roleManager.grantRole(roleManager.ROLE_DONATION_RECORDER(), address(router));
 
         // Vault with WETH as asset
         vault = new GiveVault4626(IERC20(address(weth)), "GIVE WETH", "gvWETH", address(roleManager));
 
         // Roles and wiring
         vm.startPrank(admin);
-        registry.grantRole(registry.NGO_MANAGER_ROLE(), admin);
-        registry.grantRole(registry.DONATION_RECORDER_ROLE(), address(router));
         vault.setDonationRouter(address(router));
         vault.setWrappedNative(address(weth));
         router.setAuthorizedCaller(address(vault), true);

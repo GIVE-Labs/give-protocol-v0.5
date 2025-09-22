@@ -74,11 +74,13 @@ contract DeployETHVault is Script {
         roleManager.grantRole(roleManager.ROLE_GUARDIAN(), deployer);
         roleManager.grantRole(roleManager.ROLE_STRATEGY_ADMIN(), deployer);
         roleManager.grantRole(roleManager.ROLE_TREASURY(), deployer);
+        roleManager.grantRole(roleManager.ROLE_CAMPAIGN_ADMIN(), deployer);
         if (admin != deployer) {
             roleManager.grantRole(roleManager.ROLE_VAULT_OPS(), admin);
             roleManager.grantRole(roleManager.ROLE_GUARDIAN(), admin);
             roleManager.grantRole(roleManager.ROLE_STRATEGY_ADMIN(), admin);
             roleManager.grantRole(roleManager.ROLE_TREASURY(), admin);
+            roleManager.grantRole(roleManager.ROLE_CAMPAIGN_ADMIN(), admin);
         }
 
         // Deploy or reuse existing registry and router
@@ -99,9 +101,12 @@ contract DeployETHVault is Script {
             registry = new NGORegistry(deployer);
             router = new DonationRouter(address(roleManager), address(registry), feeRecipient, admin, feeBps);
 
-            // Setup registry roles
-            registry.grantRole(registry.NGO_MANAGER_ROLE(), admin);
-            registry.grantRole(registry.DONATION_RECORDER_ROLE(), address(router));
+            // Registry permissions handled via RoleManager assignments
+            roleManager.grantRole(roleManager.ROLE_DONATION_RECORDER(), address(router));
+        }
+
+        if (existingRouter != address(0)) {
+            roleManager.grantRole(roleManager.ROLE_DONATION_RECORDER(), existingRouter);
         }
 
         // Deploy Strategy Manager for ETH Vault

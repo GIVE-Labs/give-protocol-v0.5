@@ -71,11 +71,13 @@ contract Deploy is Script {
         roleManager.grantRole(roleManager.ROLE_GUARDIAN(), deployer);
         roleManager.grantRole(roleManager.ROLE_STRATEGY_ADMIN(), deployer);
         roleManager.grantRole(roleManager.ROLE_TREASURY(), deployer);
+        roleManager.grantRole(roleManager.ROLE_CAMPAIGN_ADMIN(), deployer);
         if (admin != deployer) {
             roleManager.grantRole(roleManager.ROLE_VAULT_OPS(), admin);
             roleManager.grantRole(roleManager.ROLE_GUARDIAN(), admin);
             roleManager.grantRole(roleManager.ROLE_STRATEGY_ADMIN(), admin);
             roleManager.grantRole(roleManager.ROLE_TREASURY(), admin);
+            roleManager.grantRole(roleManager.ROLE_CAMPAIGN_ADMIN(), admin);
         }
 
         DonationRouter router = new DonationRouter(
@@ -85,6 +87,7 @@ contract Deploy is Script {
             admin,
             feeBps
         );
+        roleManager.grantRole(roleManager.ROLE_DONATION_RECORDER(), address(router));
 
         GiveVault4626 vault = new GiveVault4626(IERC20(assetAddress), assetName, assetSymbol, address(roleManager));
         StrategyManager manager = new StrategyManager(address(vault), address(roleManager));
@@ -103,8 +106,6 @@ contract Deploy is Script {
         // Wire roles & params
         console.log("Deployer address:", deployer);
         console.log("Admin address:", admin);
-        console.log("Has DEFAULT_ADMIN_ROLE:", registry.hasRole(registry.DEFAULT_ADMIN_ROLE(), admin));
-        registry.grantRole(registry.DONATION_RECORDER_ROLE(), address(router));
         router.setAuthorizedCaller(address(vault), true);
 
         manager.setAdapterApproval(address(adapter), true);

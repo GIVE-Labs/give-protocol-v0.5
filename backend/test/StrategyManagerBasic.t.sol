@@ -51,13 +51,16 @@ contract StrategyManagerBasicTest is Test {
     }
 
     function testSetDonationRouter() public {
+        NGORegistry registry2 = new NGORegistry(address(roleManager));
+        roleManager.grantRole(roleManager.ROLE_DONATION_RECORDER(), address(this));
         DonationRouter router = new DonationRouter(
             address(roleManager),
-            address(new NGORegistry(admin)),
+            address(registry2),
             address(0xFEE5),
             admin,
             100
         );
+        roleManager.grantRole(roleManager.ROLE_DONATION_RECORDER(), address(router));
         vm.prank(admin);
         manager.setDonationRouter(address(router));
         assertEq(address(vault.donationRouter()), address(router));

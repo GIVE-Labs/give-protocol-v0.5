@@ -40,9 +40,6 @@ contract RegisterSepoliaNGO is Script {
         // Create a KYC hash for the NGO
         bytes32 kycHash = keccak256(abi.encodePacked("kyc-hash-", ngoAddress));
 
-        // Check if admin has the required role
-        console.log("Admin has NGO_MANAGER_ROLE:", registry.hasRole(registry.NGO_MANAGER_ROLE(), admin));
-
         // Register and approve the NGO
         registry.addNGO(ngoAddress, metadataCid, kycHash, admin);
 

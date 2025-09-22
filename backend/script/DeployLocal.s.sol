@@ -85,13 +85,7 @@ contract DeployLocal is Script {
         // Register the mock NGO
         NGORegistry registry = NGORegistry(deployed.registry);
 
-        // Ensure deployer has NGO_MANAGER_ROLE
         vm.startBroadcast(deployerKey);
-        if (!registry.hasRole(registry.NGO_MANAGER_ROLE(), deployer_addr)) {
-            registry.grantRole(registry.NGO_MANAGER_ROLE(), deployer_addr);
-            console.log("Granted NGO_MANAGER_ROLE to deployer");
-        }
-
         registry.addNGO(mockNGOAddress, mockMetadataCid, mockKycHash, mockAttestor);
         vm.stopBroadcast();
 

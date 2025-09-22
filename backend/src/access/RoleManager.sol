@@ -15,6 +15,7 @@ contract RoleManager is AccessControlEnumerable {
     bytes32 public constant ROLE_VAULT_OPS = keccak256("ROLE_VAULT_OPS");
     bytes32 public constant ROLE_TREASURY = keccak256("ROLE_TREASURY");
     bytes32 public constant ROLE_GUARDIAN = keccak256("ROLE_GUARDIAN");
+    bytes32 public constant ROLE_DONATION_RECORDER = keccak256("ROLE_DONATION_RECORDER");
 
     /// @notice Emitted when a batch of roles is granted.
     event RolesGranted(address indexed account, bytes32[] roles);
@@ -91,5 +92,10 @@ contract RoleManager is AccessControlEnumerable {
     /// @notice Returns true if the account holds the guardian role.
     function isGuardian(address account) external view returns (bool) {
         return hasRole(ROLE_GUARDIAN, account);
+    }
+
+    /// @notice Returns true if the account holds the donation recorder role.
+    function isDonationRecorder(address account) external view returns (bool) {
+        return hasRole(ROLE_DONATION_RECORDER, account);
     }
 }
