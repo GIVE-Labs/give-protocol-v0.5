@@ -25,6 +25,12 @@ contract PayoutRouter is RoleAware, Pausable, ReentrancyGuard {
         bool registered;
     }
 
+    /// @notice User yield allocation preference per vault
+    struct UserYieldPreference {
+        uint8 campaignAllocation; // 50, 75, or 100
+        address beneficiary;      // recipient for remaining yield
+    }
+
     CampaignRegistry public immutable campaignRegistry;
     address public protocolTreasury;
 
