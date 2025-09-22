@@ -103,4 +103,10 @@ contract CampaignVault is GiveVault4626 {
     {
         return PayoutRouter(payable(donationRouter)).distributeToAllUsers(payoutAsset, amount);
     }
+
+    function _updateUserShares(address account) internal override {
+        if (donationRouter != address(0)) {
+            PayoutRouter(payable(donationRouter)).updateUserShares(account, address(this), balanceOf(account));
+        }
+    }
 }

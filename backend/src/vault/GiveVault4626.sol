@@ -148,10 +148,7 @@ contract GiveVault4626 is ERC4626, RoleAware, ReentrancyGuard, Pausable {
         super._deposit(caller, receiver, assets, shares);
 
         // Update user shares in donation router for yield distribution
-        if (donationRouter != address(0)) {
-            DonationRouter(payable(donationRouter)).updateUserShares(receiver, asset(), balanceOf(receiver));
-        }
-
+        _updateUserShares(receiver);
         _investExcessCash();
     }
 
@@ -160,10 +157,7 @@ contract GiveVault4626 is ERC4626, RoleAware, ReentrancyGuard, Pausable {
      */
     function _afterDeposit(address caller, address receiver, uint256 assets, uint256 shares) internal {
         // Update user shares in donation router for yield distribution
-        if (donationRouter != address(0)) {
-            DonationRouter(payable(donationRouter)).updateUserShares(receiver, asset(), balanceOf(receiver));
-        }
-
+        _updateUserShares(receiver);
         _investExcessCash();
     }
 
@@ -178,9 +172,12 @@ contract GiveVault4626 is ERC4626, RoleAware, ReentrancyGuard, Pausable {
         _ensureSufficientCash(assets);
         super._withdraw(caller, receiver, owner, assets, shares);
 
-        // Update user shares in donation router after withdrawal
+        _updateUserShares(owner);
+    }
+
+    function _updateUserShares(address account) internal virtual {
         if (donationRouter != address(0)) {
-            DonationRouter(payable(donationRouter)).updateUserShares(owner, asset(), balanceOf(owner));
+            DonationRouter(payable(donationRouter)).updateUserShares(account, asset(), balanceOf(account));
         }
     }
 

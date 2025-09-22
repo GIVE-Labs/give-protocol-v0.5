@@ -28,7 +28,7 @@ contract PayoutRouter is RoleAware, Pausable, ReentrancyGuard {
     /// @notice User yield allocation preference per vault
     struct UserYieldPreference {
         uint8 campaignAllocation; // 50, 75, or 100
-        address beneficiary;      // recipient for remaining yield
+        address beneficiary; // recipient for remaining yield
     }
 
     CampaignRegistry public immutable campaignRegistry;
@@ -43,7 +43,14 @@ contract PayoutRouter is RoleAware, Pausable, ReentrancyGuard {
     mapping(address => VaultInfo) public vaultInfo;
     mapping(address => bool) public authorizedCallers;
     mapping(address => bool) public authorizedSchedulers;
+    mapping(address => mapping(address => UserYieldPreference)) public userVaultPreferences;
+    mapping(address => mapping(address => uint256)) public userVaultShares;
+    mapping(address => uint256) public totalVaultShares;
+    mapping(address => address[]) private vaultShareholders;
+    mapping(address => mapping(address => bool)) private isVaultShareholder;
 
+    event UserSharesUpdated(address indexed vault, address indexed user, uint256 shares, uint256 totalShares);
+    event YieldPreferenceUpdated(address indexed user, address indexed vault, uint8 campaignAllocation, address beneficiary);
     event VaultRegistered(address indexed vault, uint64 campaignId, uint64 strategyId);
     event CampaignPayout(
         address indexed vault,
@@ -121,8 +128,40 @@ contract PayoutRouter is RoleAware, Pausable, ReentrancyGuard {
         authorizedCallers[caller] = authorized;
     }
 
-    /// @notice Compatibility helper for vault share tracking (no-op).
-    function updateUserShares(address, address, uint256) external {}
+    /// @notice Vaults update supporter share balances for allocation calculations.
+    function updateUserShares(address user, address vault, uint256 newShares) external {
+        if (msg.sender != vault) revert Errors.UnauthorizedCaller(msg.sender);
+        VaultInfo memory info = vaultInfo[vault];
+        if (!info.registered) revert Errors.UnauthorizedCaller(vault);
+
+        uint256 previous = userVaultShares[user][vault];
+        uint256 total = totalVaultShares[vault];
+        total = total - previous + newShares;
+        totalVaultShares[vault] = total;
+        userVaultShares[user][vault] = newShares;
+
+        if (newShares > 0) {
+            if (!isVaultShareholder[vault][user]) {
+                vaultShareholders[vault].push(user);
+                isVaultShareholder[vault][user] = true;
+            }
+        } else if (previous > 0) {
+            isVaultShareholder[vault][user] = false;
+        }
+
+        emit UserSharesUpdated(vault, user, newShares, total);
+    }
+
+    function setYieldAllocation(address vault, uint8 percentage, address beneficiary) external {
+        if (!vaultInfo[vault].registered) revert Errors.UnauthorizedCaller(vault);
+        if (!_isValidAllocation(percentage)) revert Errors.InvalidAllocationPercentage(percentage);
+        userVaultPreferences[msg.sender][vault] = UserYieldPreference({campaignAllocation: percentage, beneficiary: beneficiary});
+        emit YieldPreferenceUpdated(msg.sender, vault, percentage, beneficiary);
+    }
+
+    function getUserYieldPreference(address user, address vault) external view returns (UserYieldPreference memory) {
+        return userVaultPreferences[user][vault];
+    }
 
     /*//////////////////////////////////////////////////////////////
                                 PAYOUT LOGIC
@@ -168,13 +207,56 @@ contract PayoutRouter is RoleAware, Pausable, ReentrancyGuard {
 
         IERC20 token = IERC20(asset);
         uint256 protocolFee = (totalYield * PROTOCOL_FEE_BPS) / BASIS_POINTS;
-        uint256 netAmount = totalYield - protocolFee;
+        uint256 distributable = totalYield - protocolFee;
 
         if (protocolFee > 0) {
             token.safeTransfer(protocolTreasury, protocolFee);
         }
-        if (netAmount > 0) {
-            token.safeTransfer(campaign.payout, netAmount);
+
+        uint256 campaignPortion = 0;
+        uint256 distributedToBeneficiaries = 0;
+        uint256 totalShares = totalVaultShares[vault];
+
+        if (totalShares == 0 || distributable == 0) {
+            campaignPortion = distributable;
+        } else {
+            address[] storage holders = vaultShareholders[vault];
+            uint256 length = holders.length;
+            for (uint256 i; i < length; ++i) {
+                address user = holders[i];
+                if (!isVaultShareholder[vault][user]) continue;
+                uint256 shares = userVaultShares[user][vault];
+                if (shares == 0) continue;
+
+                uint256 userPortion = (distributable * shares) / totalShares;
+                if (userPortion == 0) continue;
+
+                UserYieldPreference memory pref = userVaultPreferences[user][vault];
+                uint8 allocation = pref.campaignAllocation;
+                if (!_isValidAllocation(allocation)) allocation = 100;
+
+                uint256 toCampaign = (userPortion * allocation) / 100;
+                campaignPortion += toCampaign;
+
+                uint256 remainder = userPortion - toCampaign;
+                if (remainder > 0) {
+                    address beneficiary = pref.beneficiary;
+                    if (beneficiary == address(0)) {
+                        beneficiary = user;
+                    }
+                    token.safeTransfer(beneficiary, remainder);
+                    distributedToBeneficiaries += remainder;
+                }
+            }
+
+            uint256 consumed = campaignPortion + distributedToBeneficiaries;
+            if (consumed < distributable) {
+                campaignPortion += (distributable - consumed);
+            }
+        }
+
+        if (campaignPortion > 0) {
+            token.safeTransfer(campaign.payout, campaignPortion);
         }
 
         emit CampaignPayout(
@@ -184,11 +266,15 @@ contract PayoutRouter is RoleAware, Pausable, ReentrancyGuard {
             asset,
             totalYield,
             protocolFee,
-            netAmount,
+            campaignPortion,
             block.timestamp,
             campaign.payout
         );
 
         return totalYield;
+    }
+
+    function _isValidAllocation(uint8 percentage) internal pure returns (bool) {
+        return percentage == 50 || percentage == 75 || percentage == 100;
     }
 }

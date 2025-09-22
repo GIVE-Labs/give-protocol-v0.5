@@ -26,6 +26,7 @@ contract PayoutRouterTest is Test {
     address internal curator;
     address internal treasury;
     address internal payoutAddress;
+    address internal beneficiary;
     uint64 internal campaignId;
     uint64 internal strategyId;
 
@@ -34,6 +35,7 @@ contract PayoutRouterTest is Test {
         curator = makeAddr("curator");
         treasury = makeAddr("treasury");
         payoutAddress = makeAddr("payout");
+        beneficiary = makeAddr("beneficiary");
 
         usdc = new MockERC20("USD Coin", "USDC", 6);
 
@@ -97,6 +99,9 @@ contract PayoutRouterTest is Test {
         router.registerVault(address(vault), campaignId, strategyId);
         vm.prank(admin);
         router.setAuthorizedCaller(address(vault), true);
+        vm.prank(address(vault));
+        router.updateUserShares(address(this), address(vault), 1_000);
+        router.setYieldAllocation(address(vault), 50, beneficiary);
     }
 
     function testDistributeAppliesProtocolFeeAndEpoch() public {
@@ -104,20 +109,14 @@ contract PayoutRouterTest is Test {
         uint256 amount = 1_000e6;
         usdc.transfer(address(router), amount);
 
-        vm.warp(block.timestamp + router.epochDuration());
-
         vm.prank(address(vault));
         router.distributeToAllUsers(address(usdc), amount);
 
         uint256 protocolFee = (amount * router.PROTOCOL_FEE_BPS()) / router.BASIS_POINTS();
         assertEq(usdc.balanceOf(treasury), protocolFee);
-        uint256 expectedNet = amount - protocolFee;
-        assertEq(usdc.balanceOf(payoutAddress), expectedNet);
-
-        // Subsequent call allowed for direct vault invocations (scheduler enforces epochs)
-        usdc.transfer(address(router), amount);
-        vm.prank(address(vault));
-        router.distributeToAllUsers(address(usdc), amount);
+        uint256 distributable = amount - protocolFee;
+        assertEq(usdc.balanceOf(payoutAddress), distributable / 2);
+        assertEq(usdc.balanceOf(beneficiary), distributable / 2);
     }
 }
 

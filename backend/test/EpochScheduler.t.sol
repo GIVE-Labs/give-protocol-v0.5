@@ -88,6 +88,8 @@ contract EpochSchedulerTest is Test {
         router.registerVault(address(vault), campaignId, strategyId);
         vm.prank(admin);
         router.setAuthorizedCaller(address(vault), true);
+        vm.prank(address(vault));
+        router.updateUserShares(address(this), address(vault), 1_000 ether);
     }
 
     function testKeeperProcessesEpoch() public {
