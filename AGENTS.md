@@ -1,58 +1,29 @@
 # Repository Guidelines
 
 ## Project Structure & Module Organization
-
-```
-.
-├── frontend/          # Next.js application (TypeScript, TailwindCSS)
-├── backend/           # Foundry smart contracts (Solidity)
-├── docs/              # Project documentation and design notes
-├── llm/               # Development notes and AI agent prompts
-├── references/        # External resources and research
-├── image.png          # Hackathon branding asset
-└── README.md          # Quick start and overview
-```
+- `frontend/` hosts the Next.js app in TypeScript with TailwindCSS; UI components live under `src/components/` and API routes under `src/pages/api/`.
+- `backend/` contains Foundry smart contracts plus tests in `test/*.t.sol`; deploy scripts live under `script/`.
+- Support material sits in `docs/`, `llm/`, and `references/`; use `image.png` for hackathon branding assets alongside `README.md` for quick starts.
 
 ## Build, Test, and Development Commands
-
-| Scope     | Command                     | Description                           |
-|-----------|-----------------------------|---------------------------------------|
-| Frontend  | `cd frontend && pnpm dev`   | Start the development server          |
-| Frontend  | `cd frontend && pnpm build` | Build production assets               |
-| Frontend  | `cd frontend && pnpm lint`  | Run ESLint checks                     |
-| Backend   | `cd backend && forge build` | Compile smart contracts               |
-| Backend   | `cd backend && forge test`  | Run Solidity unit tests               |
-| Backend   | `cd backend && forge fmt`   | Format contracts (Solidity fmt)       |
+- Frontend dev server: `cd frontend && pnpm dev` to iterate on UI with hot reload.
+- Frontend production build: `cd frontend && pnpm build` for optimized artifacts; run `pnpm lint` before shipping.
+- Backend compilation and tests: `cd backend && forge build` then `forge test` to validate contracts; `forge fmt` keeps Solidity tidy.
 
 ## Coding Style & Naming Conventions
-
-- **Indentation**: 2-space for JS/TS/Markdown; use `forge fmt` for Solidity.
-- **Linting**: ESLint enforces React/TypeScript patterns in `frontend/`.
-- **File Names**: 
-  - Frontend components: PascalCase (e.g., `StakeForm.tsx`)
-  - Smart contracts: PascalCase ending in `.sol` (e.g., `NGORegistry.sol`)
-  - Tests: `.t.sol` suffix for Foundry tests (e.g., `GiveVault4626.t.sol`).
-- **Commits**: Follow Conventional Commits (e.g., `feat:`, `fix:`, `chore:`).
+- TypeScript/Markdown use 2-space indentation; Tailwind utilities stay inline in JSX.
+- Frontend components follow PascalCase names (e.g., `StakeForm.tsx`); Solidity contracts end in `.sol` with PascalCase (e.g., `NGORegistry.sol`).
+- Run `pnpm lint` and `forge fmt` prior to pushes to enforce ESLint and Foundry formatting baselines.
 
 ## Testing Guidelines
-
-- **Frameworks**: Foundry/Forge for smart contracts.
-- **Test location**: `backend/test/*.t.sol`.
-- **Running tests**: `cd backend && forge test`.
-- **Coverage**: Use `forge coverage` to verify coverage goals.
+- Smart contract coverage relies on Foundry tests in `backend/test/`; mirror production flows with `.t.sol` files.
+- Trigger the suite via `cd backend && forge test`; add scenario-specific assertions and revert checks for new opcodes or modifiers.
+- For frontend logic, prefer Storybook-style manual validation or lightweight Jest tests if introduced later.
 
 ## Commit & Pull Request Guidelines
-
-- **Commit messages**: Use Conventional Commits (e.g., `feat: add staking modal`).
-- **Pull requests**:
-  1. Use descriptive title and summary.
-  2. Link related issues or tickets.
-  3. Include screenshots for UI changes.
-  4. Request at least one reviewer before merging.
+- Use Conventional Commits such as `feat: add staking modal` or `fix: patch vault math` for history clarity.
+- Pull requests need a descriptive summary, linked issues, and UI screenshots when styling changes occur; request at least one reviewer pre-merge.
 
 ## Environment & Configuration Tips
-
-- Copy `.env.example` to `.env.local` in `frontend/` and add your Scroll Sepolia RPC and keys (e.g., `SCROLL_SEPOLIA_RPC=https://sepolia-rpc.scroll.io`).
-- Ensure Node.js >=18 and Foundry installed (`curl -L https://foundry.paradigm.xyz | bash`).
-
-_This guide helps new contributors get up to speed quickly. Thank you for contributing!_
+- Duplicate `frontend/.env.example` into `.env.local`, then set `SCROLL_SEPOLIA_RPC` and wallet keys for Scroll Sepolia access.
+- Ensure Node.js ≥18 and install Foundry via `curl -L https://foundry.paradigm.xyz | bash`; rerun `foundryup` before contract work to stay current.
