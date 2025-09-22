@@ -35,8 +35,8 @@ contract PayoutRouter is RoleAware, Pausable, ReentrancyGuard {
     bytes32 public immutable CAMPAIGN_ADMIN_ROLE;
 
     mapping(address => VaultInfo) public vaultInfo;
-    mapping(address => uint256) public lastEpochProcessed;
     mapping(address => bool) public authorizedCallers;
+    mapping(address => bool) public authorizedSchedulers;
 
     event VaultRegistered(address indexed vault, uint64 campaignId, uint64 strategyId);
     event CampaignPayout(
@@ -52,6 +52,7 @@ contract PayoutRouter is RoleAware, Pausable, ReentrancyGuard {
     );
     event ProtocolTreasuryUpdated(address indexed newTreasury);
     event EpochDurationUpdated(uint256 oldDuration, uint256 newDuration);
+    event SchedulerAuthorizationUpdated(address indexed scheduler, bool authorized);
 
     constructor(address roleManager_, address campaignRegistry_, address protocolTreasury_)
         RoleAware(roleManager_)
@@ -90,6 +91,11 @@ contract PayoutRouter is RoleAware, Pausable, ReentrancyGuard {
         emit EpochDurationUpdated(old, newDuration);
     }
 
+    function setScheduler(address scheduler, bool authorized) external onlyRole(CAMPAIGN_ADMIN_ROLE) {
+        authorizedSchedulers[scheduler] = authorized;
+        emit SchedulerAuthorizationUpdated(scheduler, authorized);
+    }
+
     /// @notice Registers a vault so that future harvests can be processed.
     function registerVault(address vault, uint64 campaignId, uint64 strategyId) external onlyRole(CAMPAIGN_ADMIN_ROLE) {
         if (vault == address(0)) revert Errors.ZeroAddress();
@@ -116,6 +122,19 @@ contract PayoutRouter is RoleAware, Pausable, ReentrancyGuard {
                                 PAYOUT LOGIC
     //////////////////////////////////////////////////////////////*/
 
+    function processScheduledPayout(address vault, address asset, uint256 totalYield)
+        external
+        nonReentrant
+        whenNotPaused
+        returns (uint256)
+    {
+        if (!authorizedSchedulers[msg.sender]) revert Errors.UnauthorizedCaller(msg.sender);
+        VaultInfo memory info = vaultInfo[vault];
+        if (!info.registered) revert Errors.UnauthorizedCaller(vault);
+
+        return _executePayout(vault, info, asset, totalYield);
+    }
+
     /// @notice Called by vaults when distributing harvested yield.
     function distributeToAllUsers(address asset, uint256 totalYield)
         external
@@ -131,13 +150,13 @@ contract PayoutRouter is RoleAware, Pausable, ReentrancyGuard {
             revert Errors.UnauthorizedCaller(msg.sender);
         }
 
-        uint256 last = lastEpochProcessed[msg.sender];
-        if (last != 0) {
-            uint256 nextEpoch = last + epochDuration;
-            if (block.timestamp < nextEpoch) revert Errors.EpochNotReady(nextEpoch);
-        }
-        lastEpochProcessed[msg.sender] = block.timestamp;
+        return _executePayout(msg.sender, info, asset, totalYield);
+    }
 
+    function _executePayout(address vault, VaultInfo memory info, address asset, uint256 totalYield)
+        internal
+        returns (uint256)
+    {
         CampaignRegistry.Campaign memory campaign = campaignRegistry.getCampaign(info.campaignId);
         if (campaign.status != RegistryTypes.CampaignStatus.Active) revert Errors.CampaignNotActive();
 
@@ -153,7 +172,7 @@ contract PayoutRouter is RoleAware, Pausable, ReentrancyGuard {
         }
 
         emit CampaignPayout(
-            msg.sender,
+            vault,
             info.campaignId,
             info.strategyId,
             asset,

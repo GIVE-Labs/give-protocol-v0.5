@@ -3,29 +3,30 @@ pragma solidity ^0.8.20;
 
 import "forge-std/Test.sol";
 import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
-import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
+import {EpochScheduler} from "../src/payout/EpochScheduler.sol";
 import {PayoutRouter} from "../src/payout/PayoutRouter.sol";
-import {RoleManager} from "../src/access/RoleManager.sol";
 import {CampaignRegistry} from "../src/campaign/CampaignRegistry.sol";
 import {StrategyRegistry} from "../src/manager/StrategyRegistry.sol";
 import {RegistryTypes} from "../src/manager/RegistryTypes.sol";
+import {RoleManager} from "../src/access/RoleManager.sol";
 import {CampaignVault} from "../src/vault/CampaignVault.sol";
-import {Errors} from "../src/utils/Errors.sol";
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
-contract PayoutRouterTest is Test {
+contract EpochSchedulerTest is Test {
     RoleManager internal roleManager;
     StrategyRegistry internal strategyRegistry;
     CampaignRegistry internal campaignRegistry;
     PayoutRouter internal router;
-
-    MockERC20 internal usdc;
+    EpochScheduler internal scheduler;
     CampaignVault internal vault;
+    MockToken internal usdc;
 
     address internal admin;
     address internal curator;
     address internal treasury;
-    address internal payoutAddress;
+    address internal payout;
+
     uint64 internal campaignId;
     uint64 internal strategyId;
 
@@ -33,18 +34,16 @@ contract PayoutRouterTest is Test {
         admin = makeAddr("admin");
         curator = makeAddr("curator");
         treasury = makeAddr("treasury");
-        payoutAddress = makeAddr("payout");
-
-        usdc = new MockERC20("USD Coin", "USDC", 6);
+        payout = makeAddr("payout");
 
         roleManager = new RoleManager(address(this));
         roleManager.grantRole(roleManager.ROLE_CAMPAIGN_ADMIN(), admin);
         roleManager.grantRole(roleManager.ROLE_STRATEGY_ADMIN(), admin);
         roleManager.grantRole(roleManager.ROLE_TREASURY(), admin);
         roleManager.grantRole(roleManager.ROLE_GUARDIAN(), admin);
-        roleManager.grantRole(roleManager.ROLE_VAULT_OPS(), admin);
 
         strategyRegistry = new StrategyRegistry(address(roleManager));
+        usdc = new MockToken();
         vm.prank(admin);
         strategyId = strategyRegistry.createStrategy(
             address(usdc),
@@ -54,23 +53,10 @@ contract PayoutRouterTest is Test {
             1_000_000 ether
         );
 
-        campaignRegistry = new CampaignRegistry(
-            address(roleManager),
-            treasury,
-            address(strategyRegistry),
-            0
-        );
+        campaignRegistry = new CampaignRegistry(address(roleManager), treasury, address(strategyRegistry), 0);
 
-        vm.deal(address(this), 1 ether);
-        vm.prank(address(this));
-        campaignId = campaignRegistry.submitCampaign{
-            value: 0
-        }(
-            "ipfs://campaign",
-            curator,
-            payoutAddress,
-            RegistryTypes.LockProfile.Days90
-        );
+        vm.prank(curator);
+        campaignId = campaignRegistry.submitCampaign("ipfs://campaign", curator, payout, RegistryTypes.LockProfile.Days90);
 
         vm.prank(admin);
         campaignRegistry.approveCampaign(campaignId);
@@ -79,6 +65,12 @@ contract PayoutRouterTest is Test {
         campaignRegistry.attachStrategy(campaignId, strategyId);
 
         router = new PayoutRouter(address(roleManager), address(campaignRegistry), treasury);
+        vm.prank(admin);
+        router.setScheduler(address(this), true);
+
+        scheduler = new EpochScheduler(address(roleManager), address(router), address(usdc), 7 days, 10 ether);
+        vm.prank(admin);
+        router.setScheduler(address(scheduler), true);
 
         vault = new CampaignVault(
             IERC20(address(usdc)),
@@ -91,45 +83,33 @@ contract PayoutRouterTest is Test {
         );
 
         vm.prank(admin);
-        vault.setDonationRouter(address(router));
-
+        scheduler.registerVault(address(vault));
         vm.prank(admin);
         router.registerVault(address(vault), campaignId, strategyId);
         vm.prank(admin);
         router.setAuthorizedCaller(address(vault), true);
     }
 
-    function testDistributeAppliesProtocolFeeAndEpoch() public {
-        // Fund router with harvested yield (simulating vault transfer)
-        uint256 amount = 1_000e6;
-        usdc.transfer(address(router), amount);
+    function testKeeperProcessesEpoch() public {
+        usdc.transfer(address(router), 1_000 ether);
+        (, uint256 reward) = scheduler.config();
+        usdc.transfer(address(scheduler), reward);
 
-        vm.warp(block.timestamp + router.epochDuration());
+        (uint256 duration,) = scheduler.config();
+        vm.warp(block.timestamp + duration);
 
-        vm.prank(address(vault));
-        router.distributeToAllUsers(address(usdc), amount);
+        vm.prank(address(1));
+        scheduler.processEpoch(address(vault), address(usdc), 1_000 ether);
 
-        uint256 protocolFee = (amount * router.PROTOCOL_FEE_BPS()) / router.BASIS_POINTS();
+        uint256 protocolFee = (1_000 ether * router.PROTOCOL_FEE_BPS()) / router.BASIS_POINTS();
         assertEq(usdc.balanceOf(treasury), protocolFee);
-        uint256 expectedNet = amount - protocolFee;
-        assertEq(usdc.balanceOf(payoutAddress), expectedNet);
-
-        // Subsequent call allowed for direct vault invocations (scheduler enforces epochs)
-        usdc.transfer(address(router), amount);
-        vm.prank(address(vault));
-        router.distributeToAllUsers(address(usdc), amount);
+        assertEq(usdc.balanceOf(address(1)), reward);
+        assertEq(usdc.balanceOf(payout), 1_000 ether - protocolFee);
     }
 }
 
-contract MockERC20 is ERC20 {
-    uint8 private immutable _decimals;
-
-    constructor(string memory name_, string memory symbol_, uint8 decimals_) ERC20(name_, symbol_) {
-        _decimals = decimals_;
-        _mint(msg.sender, type(uint128).max);
-    }
-
-    function decimals() public view override returns (uint8) {
-        return _decimals;
+contract MockToken is ERC20 {
+    constructor() ERC20("Mock", "MOCK") {
+        _mint(msg.sender, 1_000_000 ether);
     }
 }
