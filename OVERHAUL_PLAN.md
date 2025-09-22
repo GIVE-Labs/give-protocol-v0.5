@@ -139,6 +139,26 @@ The above scaffolding should be accompanied by Foundry tests covering permission
 4. Evaluate distribution scalability: design batching or claim-based flows if per-harvest loops become gas-costly.
 5. Expand event coverage for payouts, epoch processing, fee accruals, and preference changes.
 
+#### User Yield Allocation Control (CRITICAL REQUIREMENT)
+- **Goal**: allow each supporter to decide how much of their yield goes to a campaign versus an alternate beneficiary (self or treasury).
+- **Allocation options**: 50%, 75%, or 100% to the campaign; the remainder flows to a user-designated beneficiary address.
+- **Scope**: preferences are stored per user *per campaign vault* and can be updated at any time.
+- **Router responsibilities**:
+  - Maintain user preferences in `PayoutRouter` via `mapping(address => mapping(address => UserYieldPreference)) userVaultPreferences;`
+  - Expose `setYieldAllocation(address vault, uint8 percentage, address beneficiary)` (campaign allocation validation + authorized caller checks) and `getUserYieldPreference(address user, address vault)` helpers.
+  - Modify the distribution path (`distributeToCampaign` / keeper-triggered payout) to respect stored preferences, route the defined percentage to the campaign payout address, and transfer the remainder to the beneficiary or treasury fallback.
+- **Data model**:
+  ```solidity
+  struct UserYieldPreference {
+      uint8 campaignAllocation; // 50, 75, or 100
+      address beneficiary;      // recipient for remaining yield
+  }
+  ```
+- **Implementation notes**:
+  - Default behavior (no preference) should fall back to 100% campaign allocation.
+  - Beneficiary validation must prevent zero-address usage unless a treasury fallback is desired.
+  - Events for preference updates facilitate frontend sync and audit trails.
+
 ### Phase 4 – Adapter Hardening & Strategy Controls
 1. Apply previously identified AaveAdapter improvements (allowance management, emergency thresholds, reserve health checks, events).
 2. Extend adapter architecture to accept configuration from StrategyController (e.g., referral codes, max TVL, emergency exit parameters).

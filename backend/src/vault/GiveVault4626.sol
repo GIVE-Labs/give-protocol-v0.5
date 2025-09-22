@@ -319,8 +319,8 @@ contract GiveVault4626 is ERC4626, RoleAware, ReentrancyGuard, Pausable {
             // Transfer profit to donation router
             IERC20(asset()).safeTransfer(donationRouter, profit);
 
-            // Distribute yield to all users based on their preferences
-            donated = DonationRouter(payable(donationRouter)).distributeToAllUsers(asset(), profit);
+            // Distribute yield to all users or campaigns based on router implementation
+            donated = _handleHarvestDistribution(asset(), profit);
         }
 
         emit Harvest(profit, loss, donated);
@@ -334,6 +334,15 @@ contract GiveVault4626 is ERC4626, RoleAware, ReentrancyGuard, Pausable {
 
         withdrawn = activeAdapter.emergencyWithdraw();
         emit EmergencyWithdraw(withdrawn);
+    }
+
+    /// @dev Hook that routes harvested yield to the configured router. Overridable by subclasses.
+    function _handleHarvestDistribution(address payoutAsset, uint256 amount)
+        internal
+        virtual
+        returns (uint256)
+    {
+        return DonationRouter(payable(donationRouter)).distributeToAllUsers(payoutAsset, amount);
     }
 
     // === Internal Functions ===

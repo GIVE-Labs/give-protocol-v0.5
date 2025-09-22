@@ -6,6 +6,7 @@ import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {GiveVault4626} from "./GiveVault4626.sol";
 import {RegistryTypes} from "../manager/RegistryTypes.sol";
 import {Errors} from "../utils/Errors.sol";
+import {PayoutRouter} from "../payout/PayoutRouter.sol";
 
 /// @title CampaignVault
 /// @notice ERC-4626 vault variant that tracks campaign/strategy metadata and enforces lock profiles.
@@ -93,5 +94,13 @@ contract CampaignVault is GiveVault4626 {
             _unlockAt[account] = unlockTime;
             emit LockUpdated(account, unlockTime);
         }
+    }
+
+    function _handleHarvestDistribution(address payoutAsset, uint256 amount)
+        internal
+        override
+        returns (uint256)
+    {
+        return PayoutRouter(payable(donationRouter)).distributeToAllUsers(payoutAsset, amount);
     }
 }
