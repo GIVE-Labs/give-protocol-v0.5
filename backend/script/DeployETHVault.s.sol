@@ -13,6 +13,10 @@ import {IYieldAdapter} from "../src/interfaces/IYieldAdapter.sol";
 import {NGORegistry} from "../src/donation/NGORegistry.sol";
 import {DonationRouter} from "../src/donation/DonationRouter.sol";
 import {RoleManager} from "../src/access/RoleManager.sol";
+import {StrategyRegistry} from "../src/manager/StrategyRegistry.sol";
+import {CampaignRegistry} from "../src/campaign/CampaignRegistry.sol";
+import {CampaignVaultFactory} from "../src/vault/CampaignVaultFactory.sol";
+import {PayoutRouter} from "../src/payout/PayoutRouter.sol";
 import {HelperConfig} from "./HelperConfig.s.sol";
 
 /**
@@ -82,6 +86,26 @@ contract DeployETHVault is Script {
             roleManager.grantRole(roleManager.ROLE_TREASURY(), admin);
             roleManager.grantRole(roleManager.ROLE_CAMPAIGN_ADMIN(), admin);
         }
+
+        // Deploy shared registries if not provided
+        StrategyRegistry strategyRegistry = new StrategyRegistry(address(roleManager));
+        CampaignRegistry campaignRegistry = new CampaignRegistry(
+            address(roleManager),
+            feeRecipient,
+            address(strategyRegistry),
+            vm.envOr("CAMPAIGN_MIN_STAKE", uint256(0))
+        );
+        PayoutRouter payoutRouter = new PayoutRouter(address(roleManager), address(campaignRegistry), feeRecipient);
+        CampaignVaultFactory vaultFactory = new CampaignVaultFactory(
+            address(roleManager),
+            address(strategyRegistry),
+            address(campaignRegistry),
+            address(payoutRouter)
+        );
+
+        roleManager.grantRole(roleManager.DEFAULT_ADMIN_ROLE(), address(vaultFactory));
+        roleManager.grantRole(roleManager.ROLE_STRATEGY_ADMIN(), address(vaultFactory));
+        roleManager.grantRole(roleManager.ROLE_CAMPAIGN_ADMIN(), address(vaultFactory));
 
         // Deploy or reuse existing registry and router
         NGORegistry registry;
@@ -154,6 +178,10 @@ contract DeployETHVault is Script {
         console.log("ETH Vault:", address(ethVault));
         console.log("ETH Vault Strategy Manager:", address(ethVaultManager));
         console.log("RoleManager:", address(roleManager));
+        console.log("StrategyRegistry:", address(strategyRegistry));
+        console.log("CampaignRegistry:", address(campaignRegistry));
+        console.log("CampaignVaultFactory:", address(vaultFactory));
+        console.log("PayoutRouter:", address(payoutRouter));
         console.log("ETH Vault Adapter:", address(ethVaultAdapter));
         console.log("NGO Registry:", address(registry));
         console.log("Donation Router:", address(router));

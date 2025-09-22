@@ -97,6 +97,41 @@ This document captures the design evolution from the original NGO-centric MVP to
 3. Implement `VaultFactory` + `CampaignVault` clone (ERC-4626) referencing new registries and lock-in profile selection.
 4. Update deployment scripts to orchestrate registry setup, factory deployment, and sample vault creation including stake flow tests.
 
+#### Phase 2 Implementation Details
+- **Shared enums & structs**
+  - `enum RiskTier { Conservative, Moderate, Aggressive, Experimental }`
+  - `enum StrategyStatus { Inactive, Active, FadingOut, Deprecated }`
+  - `enum CampaignStatus { Draft, Submitted, Active, Paused, Completed, Cancelled, Archived }`
+  - `enum LockProfile { Days30, Days90, Days180, Days360 }` with helper to map to seconds.
+- **StrategyRegistry**
+  - `struct Strategy { uint64 id; address asset; address adapter; uint8 risk; StrategyStatus status; string metadataURI; uint256 maxTvl; uint256 createdAt; uint256 updatedAt; }`
+  - Auto-increment id, emit events on create/update/status change.
+  - Access: strategy admins manage lifecycle; guardians can force `FadingOut`/`Deprecated`.
+  - View helpers: `listStrategies()`, `getStrategy(id)`, `strategyCount()`.
+- **CampaignRegistry**
+  - `struct Campaign { uint64 id; address creator; address curator; address payout; uint96 stake; LockProfile defaultLock; CampaignStatus status; string metadataURI; uint256 createdAt; uint256 updatedAt; uint64[] strategyIds; }`
+  - Permissionless `submitCampaign` accepts stake (>= `MIN_STAKE_WEI` e.g. 0.0001 ETH). Funds escrowed until approve/reject.
+  - Admin `approveCampaign` moves to Active and refunds stake; `rejectCampaign` slashes stake to treasury (optional) or refunds partial per policy.
+  - Curator/Admin `attachStrategy` can only pick `StrategyStatus.Active`. Optional guardian check for risk gating.
+  - Events: `CampaignSubmitted`, `CampaignApproved`, `CampaignRejected`, `CampaignPaused`, `StrategyAttached`, `StrategyDetached`, `CuratorUpdated`, `PayoutUpdated`.
+- **Campaign↔Strategy relationship**
+  - Maintain mapping `campaignStrategies[campaignId][strategyId]` and enumerable list for discovery.
+  - Provide view `getActiveStrategies(campaignId)` to drive frontend and vault factory.
+- **VaultFactory**
+  - Constructor caches RoleManager + registries.
+  - `deployVault(uint64 campaignId, uint64 strategyId, LockProfile lockProfile, string name, string symbol)` callable by strategy admin or curator (if policy allows) while campaign & strategy active.
+  - Deploy minimal proxy of `CampaignVault4626` (new contract inheriting `GiveVault4626`) with immutable metadata (campaignId, strategyId, lockProfile).
+  - Emits `VaultCreated(campaignId, strategyId, lockProfile, vault)` and registers vault in both registries.
+- **CampaignVault4626**
+  - Extends existing vault, adds immutable `campaignId`, `strategyId`, `lockProfile`, `factory`.
+  - Overrides deposit/redeem to enforce lock-in schedule (store deposit timestamps per user and allow early exit penalty/deny until unlock).
+  - Harvest emits event tagged with campaign & strategy ids.
+- **Router/Manager integration**
+  - `StrategyManager` updated to reference `StrategyRegistry` for adapter lookups instead of direct approvals.
+  - `DonationRouter` (future `PayoutRouter`) receives campaign id context from vault on harvest for accounting.
+
+The above scaffolding should be accompanied by Foundry tests covering permissioned flows, stake escrow, strategy attachment, vault deployment, lock-profile enforcement, and registry view helpers.
+
 ### Phase 3 – Router, Epochs & Distribution Enhancements
 1. Refactor DonationRouter → `PayoutRouter`, integrate with CampaignRegistry, support per-vault payouts, and apply the 20% yield fee.
 2. Implement the 7-day `EpochScheduler` (or router module) with keeper incentives and catch-up logic; ensure epoch processing respects vault lock-in states.

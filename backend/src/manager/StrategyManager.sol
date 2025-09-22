@@ -7,6 +7,8 @@ import "../vault/GiveVault4626.sol";
 import "../interfaces/IYieldAdapter.sol";
 import "../utils/Errors.sol";
 import "../access/RoleAware.sol";
+import {StrategyRegistry} from "./StrategyRegistry.sol";
+import {RegistryTypes} from "./RegistryTypes.sol";
 
 /**
  * @title StrategyManager
@@ -36,6 +38,9 @@ contract StrategyManager is RoleAware, ReentrancyGuard, Pausable {
 
     bool public autoRebalanceEnabled = true;
     bool public emergencyMode;
+
+    /// @notice External registry for approved strategies (optional).
+    StrategyRegistry public strategyRegistry;
 
     // === Events ===
     event AdapterApproved(address indexed adapter, bool approved);
@@ -71,6 +76,10 @@ contract StrategyManager is RoleAware, ReentrancyGuard, Pausable {
      * @param approved Whether to approve the adapter
      */
     function setAdapterApproval(address adapter, bool approved) external onlyRole(STRATEGY_ADMIN_ROLE) {
+        _setAdapterApproval(adapter, approved);
+    }
+
+    function _setAdapterApproval(address adapter, bool approved) internal {
         if (adapter == address(0)) revert Errors.ZeroAddress();
 
         bool wasApproved = approvedAdapters[adapter];
@@ -88,11 +97,32 @@ contract StrategyManager is RoleAware, ReentrancyGuard, Pausable {
         emit AdapterApproved(adapter, approved);
     }
 
+    /// @notice Links the manager to a shared strategy registry for adapter discovery.
+    function setStrategyRegistry(address registry) external onlyRole(STRATEGY_ADMIN_ROLE) {
+        strategyRegistry = StrategyRegistry(registry);
+    }
+
+    /// @notice Convenience method to activate a strategy from the registry by id.
+    function activateStrategyFromRegistry(uint64 strategyId) external onlyRole(STRATEGY_ADMIN_ROLE) {
+        StrategyRegistry registry = strategyRegistry;
+        if (address(registry) == address(0)) revert Errors.InvalidConfiguration();
+
+        StrategyRegistry.Strategy memory strategy = registry.getStrategy(strategyId);
+        if (strategy.status != RegistryTypes.StrategyStatus.Active) revert Errors.StrategyInactive();
+
+        _setAdapterApproval(strategy.adapter, true);
+        _setActiveAdapter(strategy.adapter);
+    }
+
     /**
      * @dev Sets the active adapter for the vault
      * @param adapter The adapter to activate
      */
     function setActiveAdapter(address adapter) external onlyRole(STRATEGY_ADMIN_ROLE) whenNotPaused {
+        _setActiveAdapter(adapter);
+    }
+
+    function _setActiveAdapter(address adapter) internal whenNotPaused {
         if (adapter != address(0) && !approvedAdapters[adapter]) {
             revert Errors.InvalidAdapter();
         }

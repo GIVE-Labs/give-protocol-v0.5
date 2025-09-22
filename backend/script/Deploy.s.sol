@@ -13,6 +13,10 @@ import {IYieldAdapter} from "../src/interfaces/IYieldAdapter.sol";
 import {NGORegistry} from "../src/donation/NGORegistry.sol";
 import {DonationRouter} from "../src/donation/DonationRouter.sol";
 import {RoleManager} from "../src/access/RoleManager.sol";
+import {StrategyRegistry} from "../src/manager/StrategyRegistry.sol";
+import {CampaignRegistry} from "../src/campaign/CampaignRegistry.sol";
+import {CampaignVaultFactory} from "../src/vault/CampaignVaultFactory.sol";
+import {PayoutRouter} from "../src/payout/PayoutRouter.sol";
 import {HelperConfig} from "./HelperConfig.s.sol";
 
 contract Deploy is Script {
@@ -79,6 +83,25 @@ contract Deploy is Script {
             roleManager.grantRole(roleManager.ROLE_CAMPAIGN_ADMIN(), admin);
         }
 
+        StrategyRegistry strategyRegistry = new StrategyRegistry(address(roleManager));
+        CampaignRegistry campaignRegistry = new CampaignRegistry(
+            address(roleManager),
+            feeRecipient,
+            address(strategyRegistry),
+            vm.envOr("CAMPAIGN_MIN_STAKE", uint256(0))
+        );
+        PayoutRouter payoutRouter = new PayoutRouter(address(roleManager), address(campaignRegistry), feeRecipient);
+        CampaignVaultFactory vaultFactory = new CampaignVaultFactory(
+            address(roleManager),
+            address(strategyRegistry),
+            address(campaignRegistry),
+            address(payoutRouter)
+        );
+
+        roleManager.grantRole(roleManager.DEFAULT_ADMIN_ROLE(), address(vaultFactory));
+        roleManager.grantRole(roleManager.ROLE_STRATEGY_ADMIN(), address(vaultFactory));
+        roleManager.grantRole(roleManager.ROLE_CAMPAIGN_ADMIN(), address(vaultFactory));
+
         NGORegistry registry = new NGORegistry(address(roleManager));
         DonationRouter router = new DonationRouter(
             address(roleManager),
@@ -119,6 +142,10 @@ contract Deploy is Script {
         console.log("StrategyManager:", address(manager));
         console.log("RoleManager:", address(roleManager));
         console.log("AaveAdapter:", address(adapter));
+        console.log("StrategyRegistry:", address(strategyRegistry));
+        console.log("CampaignRegistry:", address(campaignRegistry));
+        console.log("PayoutRouter:", address(payoutRouter));
+        console.log("CampaignVaultFactory:", address(vaultFactory));
         console.log("NGORegistry:", address(registry));
         console.log("DonationRouter:", address(router));
 

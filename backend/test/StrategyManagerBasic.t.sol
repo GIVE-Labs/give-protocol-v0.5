@@ -9,6 +9,8 @@ import "../src/interfaces/IYieldAdapter.sol";
 import "../src/access/RoleManager.sol";
 import "../src/donation/DonationRouter.sol";
 import "../src/donation/NGORegistry.sol";
+import "../src/manager/StrategyRegistry.sol";
+import "../src/manager/RegistryTypes.sol";
 
 contract StrategyManagerBasicTest is Test {
     GiveVault4626 public vault;
@@ -16,6 +18,8 @@ contract StrategyManagerBasicTest is Test {
     MockERC20 public usdc;
     MockAdapter public adapter;
     RoleManager public roleManager;
+    StrategyRegistry public strategyRegistry;
+    uint64 public registryStrategyId;
 
     address public admin = address(0xA11CE);
 
@@ -30,8 +34,28 @@ contract StrategyManagerBasicTest is Test {
         vault = new GiveVault4626(IERC20(address(usdc)), "GIVE USDC", "gvUSDC", address(roleManager));
         manager = new StrategyManager(address(vault), address(roleManager));
         adapter = new MockAdapter(IERC20(address(usdc)), address(vault));
+        strategyRegistry = new StrategyRegistry(address(roleManager));
 
         roleManager.grantRole(roleManager.ROLE_VAULT_OPS(), address(manager));
+
+        vm.prank(admin);
+        registryStrategyId = strategyRegistry.createStrategy(
+            address(usdc),
+            address(adapter),
+            RegistryTypes.RiskTier.Conservative,
+            "ipfs://strategy",
+            1_000_000 ether
+        );
+    }
+
+    function testActivateStrategyFromRegistry() public {
+        vm.prank(admin);
+        manager.setStrategyRegistry(address(strategyRegistry));
+
+        vm.prank(admin);
+        manager.activateStrategyFromRegistry(registryStrategyId);
+
+        assertEq(address(vault.activeAdapter()), address(adapter));
     }
 
     function testApproveAndActivateAdapter() public {

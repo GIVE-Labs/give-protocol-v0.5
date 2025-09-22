@@ -70,6 +70,20 @@ library Errors {
     error StrategyNotSet();
     error InvalidStrategy();
 
+    // === Registry Errors ===
+    error StrategyAlreadyExists();
+    error StrategyNotFound();
+    error CampaignNotFound();
+    error CampaignNotActive();
+    error StrategyInactive();
+    error UnauthorizedCurator();
+    error StakeTooLow(uint256 provided, uint256 minimumRequired);
+    error StakeLocked();
+    error StatusTransitionInvalid();
+    error LockProfileNotAllowed();
+    error WithdrawalLocked(uint256 unlockTimestamp);
+    error EpochNotReady(uint256 nextEpochTimestamp);
+
     // === Access Control Errors ===
     error InvalidRole();
     error RoleAlreadyGranted();
