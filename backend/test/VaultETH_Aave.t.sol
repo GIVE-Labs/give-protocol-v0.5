@@ -68,10 +68,6 @@ contract VaultETH_AaveTest is Test {
         aWETH = new MockAToken("Aave WETH", "aWETH", 18, address(weth));
         aavePool = new MockAavePool(address(weth), address(aWETH));
 
-        // Deploy core contracts
-        registry = new NGORegistry(admin);
-        router = new DonationRouter(admin, address(registry), feeRecipient, admin, FEE_BPS);
-
         // Deploy central role manager and assign roles
         roleManager = new RoleManager(address(this));
         roleManager.grantRole(roleManager.DEFAULT_ADMIN_ROLE(), admin);
@@ -79,6 +75,11 @@ contract VaultETH_AaveTest is Test {
         roleManager.grantRole(roleManager.ROLE_VAULT_OPS(), vaultManager);
         roleManager.grantRole(roleManager.ROLE_GUARDIAN(), admin);
         roleManager.grantRole(roleManager.ROLE_STRATEGY_ADMIN(), admin);
+        roleManager.grantRole(roleManager.ROLE_TREASURY(), admin);
+
+        // Deploy core contracts
+        registry = new NGORegistry(admin);
+        router = new DonationRouter(address(roleManager), address(registry), feeRecipient, admin, FEE_BPS);
 
         // Deploy ETH vault with WETH as underlying asset
         ethVault = new GiveVault4626(IERC20(address(weth)), "GIVE ETH Vault", "gvETH", address(roleManager));

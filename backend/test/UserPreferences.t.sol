@@ -6,6 +6,7 @@ import "../src/donation/DonationRouter.sol";
 import "../src/donation/NGORegistry.sol";
 import "../src/vault/GiveVault4626.sol";
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import "../src/access/RoleManager.sol";
 
 contract MockERC20 is ERC20 {
     constructor() ERC20("Mock USDC", "USDC") {}
@@ -23,6 +24,7 @@ contract UserPreferencesTest is Test {
     DonationRouter router;
     NGORegistry registry;
     MockERC20 usdc;
+    RoleManager roleManager;
 
     address admin = makeAddr("admin");
     address user1 = makeAddr("user1");
@@ -36,15 +38,23 @@ contract UserPreferencesTest is Test {
     function setUp() public {
         usdc = new MockERC20();
 
+        roleManager = new RoleManager(address(this));
+        roleManager.grantRole(roleManager.ROLE_VAULT_OPS(), admin);
+        roleManager.grantRole(roleManager.ROLE_TREASURY(), admin);
+        roleManager.grantRole(roleManager.ROLE_GUARDIAN(), admin);
+
         vm.startPrank(admin);
         registry = new NGORegistry(admin);
-        router = new DonationRouter(admin, address(registry), feeRecipient, protocolTreasury, 250); // 2.5% fee
+        router = new DonationRouter(
+            address(roleManager),
+            address(registry),
+            feeRecipient,
+            protocolTreasury,
+            250
+        ); // 2.5% fee
 
         // Grant NGO manager role to admin
         registry.grantRole(registry.NGO_MANAGER_ROLE(), admin);
-
-        // Grant vault manager role to admin for authorizing callers
-        router.grantRole(router.VAULT_MANAGER_ROLE(), admin);
 
         // Grant donation recorder role to router so it can record donations
         registry.grantRole(registry.DONATION_RECORDER_ROLE(), address(router));

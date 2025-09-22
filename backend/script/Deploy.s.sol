@@ -63,8 +63,6 @@ contract Deploy is Script {
         }
 
         NGORegistry registry = new NGORegistry(admin); // Use environment admin as admin
-        DonationRouter router = new DonationRouter(admin, address(registry), feeRecipient, admin, feeBps); // Use admin from environment for role management
-
         RoleManager roleManager = new RoleManager(deployer);
         if (admin != deployer) {
             roleManager.grantRole(roleManager.DEFAULT_ADMIN_ROLE(), admin);
@@ -72,11 +70,21 @@ contract Deploy is Script {
         roleManager.grantRole(roleManager.ROLE_VAULT_OPS(), deployer);
         roleManager.grantRole(roleManager.ROLE_GUARDIAN(), deployer);
         roleManager.grantRole(roleManager.ROLE_STRATEGY_ADMIN(), deployer);
+        roleManager.grantRole(roleManager.ROLE_TREASURY(), deployer);
         if (admin != deployer) {
             roleManager.grantRole(roleManager.ROLE_VAULT_OPS(), admin);
             roleManager.grantRole(roleManager.ROLE_GUARDIAN(), admin);
             roleManager.grantRole(roleManager.ROLE_STRATEGY_ADMIN(), admin);
+            roleManager.grantRole(roleManager.ROLE_TREASURY(), admin);
         }
+
+        DonationRouter router = new DonationRouter(
+            address(roleManager),
+            address(registry),
+            feeRecipient,
+            admin,
+            feeBps
+        );
 
         GiveVault4626 vault = new GiveVault4626(IERC20(assetAddress), assetName, assetSymbol, address(roleManager));
         StrategyManager manager = new StrategyManager(address(vault), address(roleManager));

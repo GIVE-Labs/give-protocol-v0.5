@@ -25,6 +25,7 @@ contract StrategyManagerBasicTest is Test {
         roleManager.grantRole(roleManager.ROLE_VAULT_OPS(), admin);
         roleManager.grantRole(roleManager.ROLE_GUARDIAN(), admin);
         roleManager.grantRole(roleManager.ROLE_STRATEGY_ADMIN(), admin);
+        roleManager.grantRole(roleManager.ROLE_TREASURY(), admin);
 
         vault = new GiveVault4626(IERC20(address(usdc)), "GIVE USDC", "gvUSDC", address(roleManager));
         manager = new StrategyManager(address(vault), address(roleManager));
@@ -50,7 +51,13 @@ contract StrategyManagerBasicTest is Test {
     }
 
     function testSetDonationRouter() public {
-        DonationRouter router = new DonationRouter(admin, address(new NGORegistry(admin)), address(0xFEE5), admin, 100);
+        DonationRouter router = new DonationRouter(
+            address(roleManager),
+            address(new NGORegistry(admin)),
+            address(0xFEE5),
+            admin,
+            100
+        );
         vm.prank(admin);
         manager.setDonationRouter(address(router));
         assertEq(address(vault.donationRouter()), address(router));

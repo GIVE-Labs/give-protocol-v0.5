@@ -6,11 +6,13 @@ import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "../src/donation/DonationRouter.sol";
 import "../src/donation/NGORegistry.sol";
 import "../src/utils/Errors.sol";
+import "../src/access/RoleManager.sol";
 
 contract RouterTest is Test {
     DonationRouter public router;
     NGORegistry public registry;
     MockERC20 public usdc;
+    RoleManager public roleManager;
 
     address public admin;
     address public caller;
@@ -28,7 +30,13 @@ contract RouterTest is Test {
         usdc = new MockERC20("Test USDC", "TUSDC", 6);
         usdc.mint(address(this), 1_000_000e6);
         registry = new NGORegistry(admin);
-        router = new DonationRouter(admin, address(registry), feeRecipient, admin, 0); // Using admin as protocol treasury
+
+        roleManager = new RoleManager(address(this));
+        roleManager.grantRole(roleManager.ROLE_VAULT_OPS(), admin);
+        roleManager.grantRole(roleManager.ROLE_TREASURY(), admin);
+        roleManager.grantRole(roleManager.ROLE_GUARDIAN(), admin);
+
+        router = new DonationRouter(address(roleManager), address(registry), feeRecipient, admin, 0);
 
         vm.startPrank(admin);
         registry.grantRole(registry.NGO_MANAGER_ROLE(), admin);

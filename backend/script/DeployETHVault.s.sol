@@ -65,6 +65,22 @@ contract DeployETHVault is Script {
         console.log("WETH address:", weth);
         console.log("Aave Pool address:", aavePool);
 
+        // Deploy central role manager
+        RoleManager roleManager = new RoleManager(deployer);
+        if (admin != deployer) {
+            roleManager.grantRole(roleManager.DEFAULT_ADMIN_ROLE(), admin);
+        }
+        roleManager.grantRole(roleManager.ROLE_VAULT_OPS(), deployer);
+        roleManager.grantRole(roleManager.ROLE_GUARDIAN(), deployer);
+        roleManager.grantRole(roleManager.ROLE_STRATEGY_ADMIN(), deployer);
+        roleManager.grantRole(roleManager.ROLE_TREASURY(), deployer);
+        if (admin != deployer) {
+            roleManager.grantRole(roleManager.ROLE_VAULT_OPS(), admin);
+            roleManager.grantRole(roleManager.ROLE_GUARDIAN(), admin);
+            roleManager.grantRole(roleManager.ROLE_STRATEGY_ADMIN(), admin);
+            roleManager.grantRole(roleManager.ROLE_TREASURY(), admin);
+        }
+
         // Deploy or reuse existing registry and router
         NGORegistry registry;
         DonationRouter router;
@@ -81,7 +97,7 @@ contract DeployETHVault is Script {
         } else {
             console.log("Deploying new Registry and Router...");
             registry = new NGORegistry(deployer);
-            router = new DonationRouter(deployer, address(registry), feeRecipient, admin, feeBps);
+            router = new DonationRouter(address(roleManager), address(registry), feeRecipient, admin, feeBps);
 
             // Setup registry roles
             registry.grantRole(registry.NGO_MANAGER_ROLE(), admin);
@@ -90,18 +106,6 @@ contract DeployETHVault is Script {
 
         // Deploy Strategy Manager for ETH Vault
         console.log("Deploying ETH Vault Strategy Manager...");
-        RoleManager roleManager = new RoleManager(deployer);
-        if (admin != deployer) {
-            roleManager.grantRole(roleManager.DEFAULT_ADMIN_ROLE(), admin);
-        }
-        roleManager.grantRole(roleManager.ROLE_VAULT_OPS(), deployer);
-        roleManager.grantRole(roleManager.ROLE_GUARDIAN(), deployer);
-        roleManager.grantRole(roleManager.ROLE_STRATEGY_ADMIN(), deployer);
-        if (admin != deployer) {
-            roleManager.grantRole(roleManager.ROLE_VAULT_OPS(), admin);
-            roleManager.grantRole(roleManager.ROLE_GUARDIAN(), admin);
-            roleManager.grantRole(roleManager.ROLE_STRATEGY_ADMIN(), admin);
-        }
 
         // Deploy ETH Vault with WETH as underlying asset
         console.log("Deploying ETH Vault...");

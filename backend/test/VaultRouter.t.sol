@@ -37,14 +37,21 @@ contract VaultRouterTest is Test {
         usdc = new MockERC20("Test USDC", "TUSDC", 6);
         usdc.mint(user, 1_000_000e6);
 
-        // Registry + Router
-        registry = new NGORegistry(admin);
-        router = new DonationRouter(admin, address(registry), feeRecipient, admin, 250); // 2.5%
-
         roleManager = new RoleManager(address(this));
         roleManager.grantRole(roleManager.ROLE_VAULT_OPS(), admin);
         roleManager.grantRole(roleManager.ROLE_VAULT_OPS(), manager);
         roleManager.grantRole(roleManager.ROLE_GUARDIAN(), admin);
+        roleManager.grantRole(roleManager.ROLE_TREASURY(), admin);
+
+        // Registry + Router
+        registry = new NGORegistry(admin);
+        router = new DonationRouter(
+            address(roleManager),
+            address(registry),
+            feeRecipient,
+            admin,
+            250
+        ); // 2.5%
 
         // Vault
         vault = new GiveVault4626(IERC20(address(usdc)), "GIVE USDC", "gvUSDC", address(roleManager));

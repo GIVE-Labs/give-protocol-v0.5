@@ -36,14 +36,15 @@ contract VaultETHTest is Test {
         // Deploy WETH mock and mint to nobody (we'll wrap through vault)
         weth = new MockWETH();
 
-        // Registry + Router
-        registry = new NGORegistry(admin);
-        router = new DonationRouter(admin, address(registry), feeRecipient, admin, 250); // 2.5%
-
         roleManager = new RoleManager(address(this));
         roleManager.grantRole(roleManager.ROLE_VAULT_OPS(), admin);
         roleManager.grantRole(roleManager.ROLE_VAULT_OPS(), manager);
         roleManager.grantRole(roleManager.ROLE_GUARDIAN(), admin);
+        roleManager.grantRole(roleManager.ROLE_TREASURY(), admin);
+
+        // Registry + Router
+        registry = new NGORegistry(admin);
+        router = new DonationRouter(address(roleManager), address(registry), feeRecipient, admin, 250); // 2.5%
 
         // Vault with WETH as asset
         vault = new GiveVault4626(IERC20(address(weth)), "GIVE WETH", "gvWETH", address(roleManager));

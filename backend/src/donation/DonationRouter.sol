@@ -1,25 +1,26 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import "@openzeppelin/contracts/access/AccessControl.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/utils/Pausable.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "./NGORegistry.sol";
 import "../utils/Errors.sol";
+import "../access/RoleAware.sol";
 
 /**
  * @title DonationRouter
  * @dev Routes yield profits to approved NGOs with configurable fees
  * @notice Handles distribution of harvested yield to NGOs with flat split logic
  */
-contract DonationRouter is AccessControl, ReentrancyGuard, Pausable {
+contract DonationRouter is RoleAware, ReentrancyGuard, Pausable {
     using SafeERC20 for IERC20;
 
-    // === Roles ===
-    bytes32 public constant VAULT_MANAGER_ROLE = keccak256("VAULT_MANAGER_ROLE");
-    bytes32 public constant FEE_MANAGER_ROLE = keccak256("FEE_MANAGER_ROLE");
+    bytes32 public immutable VAULT_OPS_ROLE;
+    bytes32 public immutable FEE_ADMIN_ROLE;
+    bytes32 public immutable GUARDIAN_ROLE;
+    bytes32 public immutable TREASURY_ROLE;
 
     // === State Variables ===
     NGORegistry public immutable ngoRegistry;
@@ -87,13 +88,14 @@ contract DonationRouter is AccessControl, ReentrancyGuard, Pausable {
 
     // === Constructor ===
     constructor(
-        address _admin,
+        address roleManager_,
         address _ngoRegistry,
         address _feeRecipient,
         address _protocolTreasury,
         uint256 _feeBps
-    ) {
-        if (_admin == address(0)) revert Errors.ZeroAddress();
+    )
+        RoleAware(roleManager_)
+    {
         if (_ngoRegistry == address(0)) revert Errors.ZeroAddress();
         if (_feeRecipient == address(0)) revert Errors.ZeroAddress();
         if (_protocolTreasury == address(0)) revert Errors.ZeroAddress();
@@ -103,10 +105,10 @@ contract DonationRouter is AccessControl, ReentrancyGuard, Pausable {
         feeRecipient = _feeRecipient;
         protocolTreasury = _protocolTreasury;
         feeBps = _feeBps;
-
-        _grantRole(DEFAULT_ADMIN_ROLE, _admin);
-        _grantRole(VAULT_MANAGER_ROLE, _admin);
-        _grantRole(FEE_MANAGER_ROLE, _admin);
+        VAULT_OPS_ROLE = roleManager.ROLE_VAULT_OPS();
+        FEE_ADMIN_ROLE = roleManager.ROLE_TREASURY();
+        TREASURY_ROLE = roleManager.ROLE_TREASURY();
+        GUARDIAN_ROLE = roleManager.ROLE_GUARDIAN();
     }
 
     // === User Preference Functions ===
@@ -556,7 +558,7 @@ contract DonationRouter is AccessControl, ReentrancyGuard, Pausable {
      * @param _feeRecipient New fee recipient address
      * @param _feeBps New fee in basis points
      */
-    function updateFeeConfig(address _feeRecipient, uint256 _feeBps) external onlyRole(FEE_MANAGER_ROLE) {
+    function updateFeeConfig(address _feeRecipient, uint256 _feeBps) external onlyRole(FEE_ADMIN_ROLE) {
         if (_feeRecipient == address(0)) revert Errors.ZeroAddress();
         if (_feeBps > MAX_FEE_BPS) revert Errors.InvalidConfiguration();
 
@@ -573,7 +575,7 @@ contract DonationRouter is AccessControl, ReentrancyGuard, Pausable {
      * @dev Updates the protocol treasury address
      * @param _protocolTreasury New protocol treasury address
      */
-    function setProtocolTreasury(address _protocolTreasury) external onlyRole(DEFAULT_ADMIN_ROLE) {
+    function setProtocolTreasury(address _protocolTreasury) external onlyRole(TREASURY_ROLE) {
         if (_protocolTreasury == address(0)) revert Errors.ZeroAddress();
 
         address oldTreasury = protocolTreasury;
@@ -586,7 +588,7 @@ contract DonationRouter is AccessControl, ReentrancyGuard, Pausable {
      * @dev Withdraws accumulated protocol fees
      * @param asset The asset to withdraw fees for
      */
-    function withdrawProtocolFees(address asset) external onlyRole(DEFAULT_ADMIN_ROLE) {
+    function withdrawProtocolFees(address asset) external onlyRole(TREASURY_ROLE) {
         if (asset == address(0)) revert Errors.ZeroAddress();
 
         uint256 feeAmount = totalProtocolFees[asset];
@@ -603,7 +605,7 @@ contract DonationRouter is AccessControl, ReentrancyGuard, Pausable {
      * @param caller The address to authorize/deauthorize
      * @param authorized Whether to authorize or deauthorize
      */
-    function setAuthorizedCaller(address caller, bool authorized) external onlyRole(VAULT_MANAGER_ROLE) {
+    function setAuthorizedCaller(address caller, bool authorized) external onlyRole(VAULT_OPS_ROLE) {
         if (caller == address(0)) revert Errors.ZeroAddress();
 
         authorizedCallers[caller] = authorized;
@@ -688,14 +690,14 @@ contract DonationRouter is AccessControl, ReentrancyGuard, Pausable {
     /**
      * @dev Emergency pause of the router
      */
-    function emergencyPause() external onlyRole(DEFAULT_ADMIN_ROLE) {
+    function emergencyPause() external onlyRole(GUARDIAN_ROLE) {
         _pause();
     }
 
     /**
      * @dev Unpause the router
      */
-    function unpause() external onlyRole(DEFAULT_ADMIN_ROLE) {
+    function unpause() external onlyRole(GUARDIAN_ROLE) {
         _unpause();
     }
 
