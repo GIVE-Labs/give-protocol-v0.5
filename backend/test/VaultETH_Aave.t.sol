@@ -72,17 +72,20 @@ contract VaultETH_AaveTest is Test {
         registry = new NGORegistry(admin);
         router = new DonationRouter(admin, address(registry), feeRecipient, admin, FEE_BPS);
 
+        // Deploy central role manager and assign roles
+        roleManager = new RoleManager(address(this));
+        roleManager.grantRole(roleManager.DEFAULT_ADMIN_ROLE(), admin);
+        roleManager.grantRole(roleManager.ROLE_VAULT_OPS(), admin);
+        roleManager.grantRole(roleManager.ROLE_VAULT_OPS(), vaultManager);
+        roleManager.grantRole(roleManager.ROLE_GUARDIAN(), admin);
+        roleManager.grantRole(roleManager.ROLE_STRATEGY_ADMIN(), admin);
+
         // Deploy ETH vault with WETH as underlying asset
-        ethVault = new GiveVault4626(IERC20(address(weth)), "GIVE ETH Vault", "gvETH", admin);
+        ethVault = new GiveVault4626(IERC20(address(weth)), "GIVE ETH Vault", "gvETH", address(roleManager));
 
         // Deploy strategy manager with central role manager
-        roleManager = new RoleManager(admin);
-        vm.startPrank(admin);
-        roleManager.grantRole(roleManager.ROLE_STRATEGY_ADMIN(), admin);
-        roleManager.grantRole(roleManager.ROLE_GUARDIAN(), admin);
-        vm.stopPrank();
-
         manager = new StrategyManager(address(ethVault), address(roleManager));
+        roleManager.grantRole(roleManager.ROLE_VAULT_OPS(), address(manager));
 
         // Deploy Aave adapter for WETH
         vm.prank(admin);
@@ -92,8 +95,6 @@ contract VaultETH_AaveTest is Test {
         vm.startPrank(admin);
         registry.grantRole(registry.NGO_MANAGER_ROLE(), admin);
         registry.grantRole(registry.DONATION_RECORDER_ROLE(), address(router));
-        ethVault.grantRole(ethVault.VAULT_MANAGER_ROLE(), vaultManager);
-        ethVault.grantRole(ethVault.VAULT_MANAGER_ROLE(), address(manager));
         ethVault.setDonationRouter(address(router));
         ethVault.setWrappedNative(address(weth));
         router.setAuthorizedCaller(address(ethVault), true);

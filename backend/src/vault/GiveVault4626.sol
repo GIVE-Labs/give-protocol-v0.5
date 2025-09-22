@@ -3,25 +3,24 @@ pragma solidity ^0.8.20;
 
 import "@openzeppelin/contracts/token/ERC20/extensions/ERC4626.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import "@openzeppelin/contracts/access/AccessControl.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/utils/Pausable.sol";
 import "../interfaces/IYieldAdapter.sol";
 import "../donation/DonationRouter.sol";
 import "../utils/Errors.sol";
 import "../interfaces/IWETH.sol";
+import "../access/RoleAware.sol";
 
 /**
  * @title GiveVault4626
  * @dev ERC-4626 vault for no-loss giving with yield routing to NGOs
  * @notice Users deposit assets, earn shares, while yield goes to approved NGOs
  */
-contract GiveVault4626 is ERC4626, AccessControl, ReentrancyGuard, Pausable {
+contract GiveVault4626 is ERC4626, RoleAware, ReentrancyGuard, Pausable {
     using SafeERC20 for IERC20;
 
-    // === Roles ===
-    bytes32 public constant VAULT_MANAGER_ROLE = keccak256("VAULT_MANAGER_ROLE");
-    bytes32 public constant PAUSER_ROLE = keccak256("PAUSER_ROLE");
+    bytes32 public immutable VAULT_MANAGER_ROLE;
+    bytes32 public immutable PAUSER_ROLE;
 
     // === Constants ===
     uint256 public constant BASIS_POINTS = 10000;
@@ -58,15 +57,13 @@ contract GiveVault4626 is ERC4626, AccessControl, ReentrancyGuard, Pausable {
     event WrappedNativeSet(address indexed token);
 
     // === Constructor ===
-    constructor(IERC20 _asset, string memory _name, string memory _symbol, address _admin)
+    constructor(IERC20 _asset, string memory _name, string memory _symbol, address roleManager_)
         ERC4626(_asset)
         ERC20(_name, _symbol)
+        RoleAware(roleManager_)
     {
-        if (_admin == address(0)) revert Errors.ZeroAddress();
-
-        _grantRole(DEFAULT_ADMIN_ROLE, _admin);
-        _grantRole(VAULT_MANAGER_ROLE, _admin);
-        _grantRole(PAUSER_ROLE, _admin);
+        VAULT_MANAGER_ROLE = roleManager.ROLE_VAULT_OPS();
+        PAUSER_ROLE = roleManager.ROLE_GUARDIAN();
 
         _lastHarvestTime = block.timestamp;
     }

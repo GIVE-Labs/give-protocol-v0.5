@@ -21,20 +21,16 @@ contract StrategyManagerBasicTest is Test {
 
     function setUp() public {
         usdc = new MockERC20("Test USDC", "TUSDC", 6);
-        vault = new GiveVault4626(IERC20(address(usdc)), "GIVE USDC", "gvUSDC", admin);
-        roleManager = new RoleManager(admin);
-        vm.startPrank(admin);
-        roleManager.grantRole(roleManager.ROLE_STRATEGY_ADMIN(), admin);
+        roleManager = new RoleManager(address(this));
+        roleManager.grantRole(roleManager.ROLE_VAULT_OPS(), admin);
         roleManager.grantRole(roleManager.ROLE_GUARDIAN(), admin);
-        vm.stopPrank();
+        roleManager.grantRole(roleManager.ROLE_STRATEGY_ADMIN(), admin);
 
+        vault = new GiveVault4626(IERC20(address(usdc)), "GIVE USDC", "gvUSDC", address(roleManager));
         manager = new StrategyManager(address(vault), address(roleManager));
         adapter = new MockAdapter(IERC20(address(usdc)), address(vault));
 
-        // Grant the manager permission to call vault setters invoked by manager
-        vm.startPrank(admin);
-        vault.grantRole(vault.VAULT_MANAGER_ROLE(), address(manager));
-        vm.stopPrank();
+        roleManager.grantRole(roleManager.ROLE_VAULT_OPS(), address(manager));
     }
 
     function testApproveAndActivateAdapter() public {

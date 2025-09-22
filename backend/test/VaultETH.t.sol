@@ -9,6 +9,7 @@ import "../src/vault/GiveVault4626.sol";
 import "../src/donation/NGORegistry.sol";
 import "../src/donation/DonationRouter.sol";
 import "../src/interfaces/IYieldAdapter.sol";
+import "../src/access/RoleManager.sol";
 
 contract VaultETHTest is Test {
     // Core
@@ -17,6 +18,7 @@ contract VaultETHTest is Test {
     DonationRouter public router;
     MockWETH public weth;
     MockAdapter public adapter;
+    RoleManager public roleManager;
 
     address public admin;
     address public manager;
@@ -38,14 +40,18 @@ contract VaultETHTest is Test {
         registry = new NGORegistry(admin);
         router = new DonationRouter(admin, address(registry), feeRecipient, admin, 250); // 2.5%
 
+        roleManager = new RoleManager(address(this));
+        roleManager.grantRole(roleManager.ROLE_VAULT_OPS(), admin);
+        roleManager.grantRole(roleManager.ROLE_VAULT_OPS(), manager);
+        roleManager.grantRole(roleManager.ROLE_GUARDIAN(), admin);
+
         // Vault with WETH as asset
-        vault = new GiveVault4626(IERC20(address(weth)), "GIVE WETH", "gvWETH", admin);
+        vault = new GiveVault4626(IERC20(address(weth)), "GIVE WETH", "gvWETH", address(roleManager));
 
         // Roles and wiring
         vm.startPrank(admin);
         registry.grantRole(registry.NGO_MANAGER_ROLE(), admin);
         registry.grantRole(registry.DONATION_RECORDER_ROLE(), address(router));
-        vault.grantRole(vault.VAULT_MANAGER_ROLE(), manager);
         vault.setDonationRouter(address(router));
         vault.setWrappedNative(address(weth));
         router.setAuthorizedCaller(address(vault), true);

@@ -65,14 +65,22 @@ contract Deploy is Script {
         NGORegistry registry = new NGORegistry(admin); // Use environment admin as admin
         DonationRouter router = new DonationRouter(admin, address(registry), feeRecipient, admin, feeBps); // Use admin from environment for role management
 
-        GiveVault4626 vault = new GiveVault4626(IERC20(assetAddress), assetName, assetSymbol, admin);
-        RoleManager roleManager = new RoleManager(admin);
-        vm.startPrank(admin);
-        roleManager.grantRole(roleManager.ROLE_STRATEGY_ADMIN(), admin);
-        roleManager.grantRole(roleManager.ROLE_GUARDIAN(), admin);
-        vm.stopPrank();
+        RoleManager roleManager = new RoleManager(deployer);
+        if (admin != deployer) {
+            roleManager.grantRole(roleManager.DEFAULT_ADMIN_ROLE(), admin);
+        }
+        roleManager.grantRole(roleManager.ROLE_VAULT_OPS(), deployer);
+        roleManager.grantRole(roleManager.ROLE_GUARDIAN(), deployer);
+        roleManager.grantRole(roleManager.ROLE_STRATEGY_ADMIN(), deployer);
+        if (admin != deployer) {
+            roleManager.grantRole(roleManager.ROLE_VAULT_OPS(), admin);
+            roleManager.grantRole(roleManager.ROLE_GUARDIAN(), admin);
+            roleManager.grantRole(roleManager.ROLE_STRATEGY_ADMIN(), admin);
+        }
 
+        GiveVault4626 vault = new GiveVault4626(IERC20(assetAddress), assetName, assetSymbol, address(roleManager));
         StrategyManager manager = new StrategyManager(address(vault), address(roleManager));
+        roleManager.grantRole(roleManager.ROLE_VAULT_OPS(), address(manager));
 
         // Use MockYieldAdapter for Anvil (chainid 31337), AaveAdapter for other networks
         IYieldAdapter adapter;
@@ -90,9 +98,6 @@ contract Deploy is Script {
         console.log("Has DEFAULT_ADMIN_ROLE:", registry.hasRole(registry.DEFAULT_ADMIN_ROLE(), admin));
         registry.grantRole(registry.DONATION_RECORDER_ROLE(), address(router));
         router.setAuthorizedCaller(address(vault), true);
-
-        // Allow the StrategyManager to configure the vault
-        vault.grantRole(vault.VAULT_MANAGER_ROLE(), address(manager));
 
         manager.setAdapterApproval(address(adapter), true);
         manager.setActiveAdapter(address(adapter));

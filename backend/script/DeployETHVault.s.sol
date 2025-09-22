@@ -88,28 +88,30 @@ contract DeployETHVault is Script {
             registry.grantRole(registry.DONATION_RECORDER_ROLE(), address(router));
         }
 
+        // Deploy Strategy Manager for ETH Vault
+        console.log("Deploying ETH Vault Strategy Manager...");
+        RoleManager roleManager = new RoleManager(deployer);
+        if (admin != deployer) {
+            roleManager.grantRole(roleManager.DEFAULT_ADMIN_ROLE(), admin);
+        }
+        roleManager.grantRole(roleManager.ROLE_VAULT_OPS(), deployer);
+        roleManager.grantRole(roleManager.ROLE_GUARDIAN(), deployer);
+        roleManager.grantRole(roleManager.ROLE_STRATEGY_ADMIN(), deployer);
+        if (admin != deployer) {
+            roleManager.grantRole(roleManager.ROLE_VAULT_OPS(), admin);
+            roleManager.grantRole(roleManager.ROLE_GUARDIAN(), admin);
+            roleManager.grantRole(roleManager.ROLE_STRATEGY_ADMIN(), admin);
+        }
+
         // Deploy ETH Vault with WETH as underlying asset
         console.log("Deploying ETH Vault...");
-        GiveVault4626 ethVault = new GiveVault4626(IERC20(weth), ethVaultName, ethVaultSymbol, deployer);
+        GiveVault4626 ethVault = new GiveVault4626(IERC20(weth), ethVaultName, ethVaultSymbol, address(roleManager));
 
         // Set WETH as wrapped native for ETH convenience methods
         ethVault.setWrappedNative(weth);
 
-        // Deploy Strategy Manager for ETH Vault
-        console.log("Deploying ETH Vault Strategy Manager...");
-        RoleManager roleManager = new RoleManager(deployer);
-        vm.startPrank(deployer);
-        roleManager.grantRole(roleManager.ROLE_STRATEGY_ADMIN(), deployer);
-        roleManager.grantRole(roleManager.ROLE_GUARDIAN(), deployer);
-        vm.stopPrank();
-        if (admin != deployer) {
-            vm.startPrank(deployer);
-            roleManager.grantRole(roleManager.ROLE_STRATEGY_ADMIN(), admin);
-            roleManager.grantRole(roleManager.ROLE_GUARDIAN(), admin);
-            vm.stopPrank();
-        }
-
         StrategyManager ethVaultManager = new StrategyManager(address(ethVault), address(roleManager));
+        roleManager.grantRole(roleManager.ROLE_VAULT_OPS(), address(ethVaultManager));
 
         // Deploy appropriate adapter based on network
         IYieldAdapter ethVaultAdapter;
@@ -127,7 +129,6 @@ contract DeployETHVault is Script {
         console.log("Configuring ETH Vault...");
 
         // Grant roles
-        ethVault.grantRole(ethVault.VAULT_MANAGER_ROLE(), address(ethVaultManager));
         ethVault.setDonationRouter(address(router));
         router.setAuthorizedCaller(address(ethVault), true);
 

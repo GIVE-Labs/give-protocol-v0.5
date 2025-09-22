@@ -8,6 +8,7 @@ import "../src/vault/GiveVault4626.sol";
 import "../src/donation/NGORegistry.sol";
 import "../src/donation/DonationRouter.sol";
 import "../src/interfaces/IYieldAdapter.sol";
+import "../src/access/RoleManager.sol";
 
 contract VaultRouterTest is Test {
     // Core
@@ -16,6 +17,7 @@ contract VaultRouterTest is Test {
     DonationRouter public router;
     MockERC20 public usdc;
     MockAdapter public adapter;
+    RoleManager public roleManager;
 
     address public admin;
     address public manager;
@@ -39,14 +41,18 @@ contract VaultRouterTest is Test {
         registry = new NGORegistry(admin);
         router = new DonationRouter(admin, address(registry), feeRecipient, admin, 250); // 2.5%
 
+        roleManager = new RoleManager(address(this));
+        roleManager.grantRole(roleManager.ROLE_VAULT_OPS(), admin);
+        roleManager.grantRole(roleManager.ROLE_VAULT_OPS(), manager);
+        roleManager.grantRole(roleManager.ROLE_GUARDIAN(), admin);
+
         // Vault
-        vault = new GiveVault4626(IERC20(address(usdc)), "GIVE USDC", "gvUSDC", admin);
+        vault = new GiveVault4626(IERC20(address(usdc)), "GIVE USDC", "gvUSDC", address(roleManager));
 
         // Roles and wiring
         vm.startPrank(admin);
         registry.grantRole(registry.NGO_MANAGER_ROLE(), admin);
         registry.grantRole(registry.DONATION_RECORDER_ROLE(), address(router));
-        vault.grantRole(vault.VAULT_MANAGER_ROLE(), manager);
         vault.setDonationRouter(address(router));
         router.setAuthorizedCaller(address(vault), true);
         vm.stopPrank();
