@@ -45,9 +45,8 @@ contract PayoutRouter is RoleAware, Pausable, ReentrancyGuard {
     mapping(address => bool) public authorizedSchedulers;
     mapping(address => mapping(address => UserYieldPreference)) public userVaultPreferences;
     mapping(address => mapping(address => uint256)) public userVaultShares;
-    mapping(address => uint256) public totalVaultShares;
     mapping(address => address[]) private vaultShareholders;
-    mapping(address => mapping(address => bool)) private isVaultShareholder;
+    mapping(address => mapping(address => uint256)) private shareholderIndex; // 1-based index
 
     event UserSharesUpdated(address indexed vault, address indexed user, uint256 shares, uint256 totalShares);
     event YieldPreferenceUpdated(address indexed user, address indexed vault, uint8 campaignAllocation, address beneficiary);
@@ -131,25 +130,32 @@ contract PayoutRouter is RoleAware, Pausable, ReentrancyGuard {
     /// @notice Vaults update supporter share balances for allocation calculations.
     function updateUserShares(address user, address vault, uint256 newShares) external {
         if (msg.sender != vault) revert Errors.UnauthorizedCaller(msg.sender);
-        VaultInfo memory info = vaultInfo[vault];
-        if (!info.registered) revert Errors.UnauthorizedCaller(vault);
+        if (!vaultInfo[vault].registered) revert Errors.UnauthorizedCaller(vault);
+
+        uint256 actual = IERC20(vault).balanceOf(user);
+        require(actual == newShares, "shares mismatch");
 
         uint256 previous = userVaultShares[user][vault];
-        uint256 total = totalVaultShares[vault];
-        total = total - previous + newShares;
-        totalVaultShares[vault] = total;
         userVaultShares[user][vault] = newShares;
 
+        uint256 idx = shareholderIndex[vault][user];
         if (newShares > 0) {
-            if (!isVaultShareholder[vault][user]) {
+            if (idx == 0) {
                 vaultShareholders[vault].push(user);
-                isVaultShareholder[vault][user] = true;
+                shareholderIndex[vault][user] = vaultShareholders[vault].length;
             }
-        } else if (previous > 0) {
-            isVaultShareholder[vault][user] = false;
+        } else if (previous > 0 && idx != 0) {
+            uint256 last = vaultShareholders[vault].length;
+            if (idx != last) {
+                address lastUser = vaultShareholders[vault][last - 1];
+                vaultShareholders[vault][idx - 1] = lastUser;
+                shareholderIndex[vault][lastUser] = idx;
+            }
+            vaultShareholders[vault].pop();
+            shareholderIndex[vault][user] = 0;
         }
 
-        emit UserSharesUpdated(vault, user, newShares, total);
+        emit UserSharesUpdated(vault, user, newShares, IERC20(vault).totalSupply());
     }
 
     function setYieldAllocation(address vault, uint8 percentage, address beneficiary) external {
@@ -214,17 +220,24 @@ contract PayoutRouter is RoleAware, Pausable, ReentrancyGuard {
         }
 
         uint256 campaignPortion = 0;
-        uint256 distributedToBeneficiaries = 0;
-        uint256 totalShares = totalVaultShares[vault];
+        uint256 totalShares = IERC20(vault).totalSupply();
+        uint256 remaining = distributable;
+
+        address[] storage holders = vaultShareholders[vault];
+        uint256 length = holders.length;
+        address[] memory payees = new address[](length);
+        uint256[] memory payeeAmounts = new uint256[](length);
+        uint256 payeeCount;
 
         if (totalShares == 0 || distributable == 0) {
             campaignPortion = distributable;
+            remaining = 0;
         } else {
-            address[] storage holders = vaultShareholders[vault];
-            uint256 length = holders.length;
             for (uint256 i; i < length; ++i) {
                 address user = holders[i];
-                if (!isVaultShareholder[vault][user]) continue;
+                uint256 idx = shareholderIndex[vault][user];
+                if (idx == 0) continue;
+
                 uint256 shares = userVaultShares[user][vault];
                 if (shares == 0) continue;
 
@@ -241,22 +254,33 @@ contract PayoutRouter is RoleAware, Pausable, ReentrancyGuard {
                 uint256 remainder = userPortion - toCampaign;
                 if (remainder > 0) {
                     address beneficiary = pref.beneficiary;
-                    if (beneficiary == address(0)) {
-                        beneficiary = user;
-                    }
-                    token.safeTransfer(beneficiary, remainder);
-                    distributedToBeneficiaries += remainder;
+                    if (beneficiary == address(0)) beneficiary = user;
+                    payees[payeeCount] = beneficiary;
+                    payeeAmounts[payeeCount] = remainder;
+                    payeeCount++;
+                }
+
+                if (remaining > userPortion) {
+                    remaining -= userPortion;
+                } else {
+                    remaining = 0;
                 }
             }
 
-            uint256 consumed = campaignPortion + distributedToBeneficiaries;
-            if (consumed < distributable) {
-                campaignPortion += (distributable - consumed);
+            if (remaining > 0) {
+                campaignPortion += remaining;
+                remaining = 0;
             }
         }
 
         if (campaignPortion > 0) {
             token.safeTransfer(campaign.payout, campaignPortion);
+        }
+
+        for (uint256 j; j < payeeCount; ++j) {
+            uint256 amount = payeeAmounts[j];
+            if (amount == 0) continue;
+            token.safeTransfer(payees[j], amount);
         }
 
         emit CampaignPayout(
