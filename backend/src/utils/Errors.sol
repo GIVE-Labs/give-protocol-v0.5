@@ -83,6 +83,7 @@ library Errors {
     error LockProfileNotAllowed();
     error WithdrawalLocked(uint256 unlockTimestamp);
     error EpochNotReady(uint256 nextEpochTimestamp);
+    error InvalidBeneficiary();
 
     // === Access Control Errors ===
     error InvalidRole();

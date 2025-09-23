@@ -121,6 +121,11 @@ contract PayoutRouterTest is Test {
         assertEq(usdc.balanceOf(payoutAddress), distributable / 2);
         assertEq(usdc.balanceOf(beneficiary), distributable / 2);
     }
+
+    function testSetYieldAllocationRejectsZeroBeneficiary() public {
+        vm.expectRevert(Errors.InvalidBeneficiary.selector);
+        router.setYieldAllocation(address(vault), 50, address(0));
+    }
 }
 
 contract MockERC20 is ERC20 {

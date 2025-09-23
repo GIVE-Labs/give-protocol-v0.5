@@ -331,6 +331,11 @@ contract GiveVault4626 is ERC4626, RoleAware, ReentrancyGuard, Pausable {
 
         withdrawn = activeAdapter.emergencyWithdraw();
         emit EmergencyWithdraw(withdrawn);
+
+        if (withdrawn > 0 && donationRouter != address(0)) {
+            IERC20(asset()).safeTransfer(donationRouter, withdrawn);
+            _handleEmergencyDistribution(asset(), withdrawn);
+        }
     }
 
     /// @dev Hook that routes harvested yield to the configured router. Overridable by subclasses.
@@ -340,6 +345,11 @@ contract GiveVault4626 is ERC4626, RoleAware, ReentrancyGuard, Pausable {
         returns (uint256)
     {
         return DonationRouter(payable(donationRouter)).distributeToAllUsers(payoutAsset, amount);
+    }
+
+    /// @dev Hook used during emergency withdrawals to route yield appropriately. Overridable by subclasses.
+    function _handleEmergencyDistribution(address payoutAsset, uint256 amount) internal virtual {
+        DonationRouter(payable(donationRouter)).distributeToAllUsers(payoutAsset, amount);
     }
 
     // === Internal Functions ===

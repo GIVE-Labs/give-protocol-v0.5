@@ -161,6 +161,7 @@ contract PayoutRouter is RoleAware, Pausable, ReentrancyGuard {
     function setYieldAllocation(address vault, uint8 percentage, address beneficiary) external {
         if (!vaultInfo[vault].registered) revert Errors.UnauthorizedCaller(vault);
         if (!_isValidAllocation(percentage)) revert Errors.InvalidAllocationPercentage(percentage);
+        if (percentage != 100 && beneficiary == address(0)) revert Errors.InvalidBeneficiary();
         userVaultPreferences[msg.sender][vault] = UserYieldPreference({campaignAllocation: percentage, beneficiary: beneficiary});
         emit YieldPreferenceUpdated(msg.sender, vault, percentage, beneficiary);
     }
