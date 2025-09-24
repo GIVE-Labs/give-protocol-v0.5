@@ -6,15 +6,15 @@ import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/utils/Pausable.sol";
 import "../interfaces/IYieldAdapter.sol";
-import "../donation/DonationRouter.sol";
+import "../payout/PayoutRouter.sol";
 import "../utils/Errors.sol";
 import "../interfaces/IWETH.sol";
 import "../access/RoleAware.sol";
 
 /**
  * @title GiveVault4626
- * @dev ERC-4626 vault for no-loss giving with yield routing to NGOs
- * @notice Users deposit assets, earn shares, while yield goes to approved NGOs
+ * @dev ERC-4626 vault for no-loss giving with yield routing to registered campaigns
+ * @notice Users deposit assets, earn shares, while yield flows to campaign payouts via the router
  */
 contract GiveVault4626 is ERC4626, RoleAware, ReentrancyGuard, Pausable {
     using SafeERC20 for IERC20;
@@ -30,7 +30,7 @@ contract GiveVault4626 is ERC4626, RoleAware, ReentrancyGuard, Pausable {
 
     // === State Variables ===
     IYieldAdapter public activeAdapter;
-    address public donationRouter;
+    address public payoutRouter;
     address public wrappedNative; // Optional: if set and equals asset(), enables ETH convenience methods
 
     uint256 public cashBufferBps = 100; // 1% default
@@ -49,7 +49,7 @@ contract GiveVault4626 is ERC4626, RoleAware, ReentrancyGuard, Pausable {
     event CashBufferUpdated(uint256 oldBps, uint256 newBps);
     event SlippageUpdated(uint256 oldBps, uint256 newBps);
     event MaxLossUpdated(uint256 oldBps, uint256 newBps);
-    event DonationRouterUpdated(address indexed oldRouter, address indexed newRouter);
+    event PayoutRouterUpdated(address indexed oldRouter, address indexed newRouter);
     event Harvest(uint256 profit, uint256 loss, uint256 donated);
     event InvestPaused(bool paused);
     event HarvestPaused(bool paused);
@@ -100,15 +100,42 @@ contract GiveVault4626 is ERC4626, RoleAware, ReentrancyGuard, Pausable {
     /**
      * @dev Deposit assets and mint shares with reentrancy protection
      */
-    function deposit(uint256 assets, address receiver) public override nonReentrant whenNotPaused returns (uint256) {
+    function deposit(uint256 assets, address receiver) public virtual override nonReentrant whenNotPaused returns (uint256) {
         return super.deposit(assets, receiver);
     }
 
     /**
      * @dev Mint shares for assets with reentrancy protection
      */
-    function mint(uint256 shares, address receiver) public override nonReentrant whenNotPaused returns (uint256) {
+    function mint(uint256 shares, address receiver) public virtual override nonReentrant whenNotPaused returns (uint256) {
         return super.mint(shares, receiver);
+    }
+
+    /**
+     * @dev Deposit assets from a third-party address on behalf of a receiver.
+     */
+    function depositFor(address from, uint256 assets, address receiver)
+        public
+        virtual
+        nonReentrant
+        whenNotPaused
+        returns (uint256 shares)
+    {
+        if (from == address(0)) revert Errors.InvalidOwner();
+        if (receiver == address(0)) revert Errors.InvalidReceiver();
+        if (assets == 0) revert Errors.InvalidAmount();
+
+        shares = previewDeposit(assets);
+        if (shares == 0) revert Errors.ZeroShares();
+
+        IERC20(asset()).safeTransferFrom(from, address(this), assets);
+        _mint(receiver, shares);
+
+        emit Deposit(from, receiver, assets, shares);
+
+        _afterDeposit(from, receiver, assets, shares);
+
+        return shares;
     }
 
     /**
@@ -116,6 +143,7 @@ contract GiveVault4626 is ERC4626, RoleAware, ReentrancyGuard, Pausable {
      */
     function withdraw(uint256 assets, address receiver, address owner)
         public
+        virtual
         override
         nonReentrant
         whenNotPaused
@@ -129,6 +157,7 @@ contract GiveVault4626 is ERC4626, RoleAware, ReentrancyGuard, Pausable {
      */
     function redeem(uint256 shares, address receiver, address owner)
         public
+        virtual
         override
         nonReentrant
         whenNotPaused
@@ -176,8 +205,8 @@ contract GiveVault4626 is ERC4626, RoleAware, ReentrancyGuard, Pausable {
     }
 
     function _updateUserShares(address account) internal virtual {
-        if (donationRouter != address(0)) {
-            DonationRouter(payable(donationRouter)).updateUserShares(account, asset(), balanceOf(account));
+        if (payoutRouter != address(0)) {
+            PayoutRouter(payable(payoutRouter)).updateUserShares(account, address(this), balanceOf(account));
         }
     }
 
@@ -216,13 +245,13 @@ contract GiveVault4626 is ERC4626, RoleAware, ReentrancyGuard, Pausable {
      * @dev Sets the donation router address
      * @param _router The new donation router address
      */
-    function setDonationRouter(address _router) external onlyRole(VAULT_MANAGER_ROLE) {
+    function setPayoutRouter(address _router) external onlyRole(VAULT_MANAGER_ROLE) {
         if (_router == address(0)) revert Errors.ZeroAddress();
 
-        address oldRouter = donationRouter;
-        donationRouter = _router;
+        address oldRouter = payoutRouter;
+        payoutRouter = _router;
 
-        emit DonationRouterUpdated(oldRouter, _router);
+        emit PayoutRouterUpdated(oldRouter, _router);
     }
 
     /**
@@ -300,7 +329,7 @@ contract GiveVault4626 is ERC4626, RoleAware, ReentrancyGuard, Pausable {
      */
     function harvest() external nonReentrant whenHarvestNotPaused returns (uint256 profit, uint256 loss) {
         if (address(activeAdapter) == address(0)) revert Errors.AdapterNotSet();
-        if (donationRouter == address(0)) revert Errors.InvalidConfiguration();
+        if (payoutRouter == address(0)) revert Errors.InvalidConfiguration();
 
         // Harvest from adapter
         (profit, loss) = activeAdapter.harvest();
@@ -314,7 +343,7 @@ contract GiveVault4626 is ERC4626, RoleAware, ReentrancyGuard, Pausable {
         uint256 donated = 0;
         if (profit > 0) {
             // Transfer profit to donation router
-            IERC20(asset()).safeTransfer(donationRouter, profit);
+            IERC20(asset()).safeTransfer(payoutRouter, profit);
 
             // Distribute yield to all users or campaigns based on router implementation
             donated = _handleHarvestDistribution(asset(), profit);
@@ -332,24 +361,20 @@ contract GiveVault4626 is ERC4626, RoleAware, ReentrancyGuard, Pausable {
         withdrawn = activeAdapter.emergencyWithdraw();
         emit EmergencyWithdraw(withdrawn);
 
-        if (withdrawn > 0 && donationRouter != address(0)) {
-            IERC20(asset()).safeTransfer(donationRouter, withdrawn);
+        if (withdrawn > 0 && payoutRouter != address(0)) {
+            IERC20(asset()).safeTransfer(payoutRouter, withdrawn);
             _handleEmergencyDistribution(asset(), withdrawn);
         }
     }
 
     /// @dev Hook that routes harvested yield to the configured router. Overridable by subclasses.
-    function _handleHarvestDistribution(address payoutAsset, uint256 amount)
-        internal
-        virtual
-        returns (uint256)
-    {
-        return DonationRouter(payable(donationRouter)).distributeToAllUsers(payoutAsset, amount);
+    function _handleHarvestDistribution(address payoutAsset, uint256 amount) internal virtual returns (uint256) {
+        return PayoutRouter(payable(payoutRouter)).distributeToAllUsers(payoutAsset, amount);
     }
 
     /// @dev Hook used during emergency withdrawals to route yield appropriately. Overridable by subclasses.
     function _handleEmergencyDistribution(address payoutAsset, uint256 amount) internal virtual {
-        DonationRouter(payable(donationRouter)).distributeToAllUsers(payoutAsset, amount);
+        PayoutRouter(payable(payoutRouter)).distributeToAllUsers(payoutAsset, amount);
     }
 
     // === Internal Functions ===
@@ -452,6 +477,7 @@ contract GiveVault4626 is ERC4626, RoleAware, ReentrancyGuard, Pausable {
         payable
         nonReentrant
         whenNotPaused
+        virtual
         returns (uint256 shares)
     {
         if (wrappedNative == address(0) || wrappedNative != address(asset())) {
@@ -491,6 +517,7 @@ contract GiveVault4626 is ERC4626, RoleAware, ReentrancyGuard, Pausable {
         external
         nonReentrant
         whenNotPaused
+        virtual
         returns (uint256 assets)
     {
         if (wrappedNative == address(0) || wrappedNative != address(asset())) {
@@ -526,6 +553,7 @@ contract GiveVault4626 is ERC4626, RoleAware, ReentrancyGuard, Pausable {
         external
         nonReentrant
         whenNotPaused
+        virtual
         returns (uint256 shares)
     {
         if (wrappedNative == address(0) || wrappedNative != address(asset())) {
