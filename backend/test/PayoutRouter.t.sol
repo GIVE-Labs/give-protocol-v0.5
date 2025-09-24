@@ -27,6 +27,8 @@ contract PayoutRouterTest is Test {
     address internal treasury;
     address internal payoutAddress;
     address internal beneficiary;
+    address internal supporterTwo;
+    address internal beneficiaryTwo;
     uint64 internal campaignId;
     uint64 internal strategyId;
 
@@ -36,6 +38,8 @@ contract PayoutRouterTest is Test {
         treasury = makeAddr("treasury");
         payoutAddress = makeAddr("payout");
         beneficiary = makeAddr("beneficiary");
+        supporterTwo = makeAddr("supporterTwo");
+        beneficiaryTwo = makeAddr("beneficiaryTwo");
 
         usdc = new MockERC20("USD Coin", "USDC", 6);
 
@@ -43,35 +47,22 @@ contract PayoutRouterTest is Test {
         roleManager.grantRole(roleManager.ROLE_CAMPAIGN_ADMIN(), admin);
         roleManager.grantRole(roleManager.ROLE_STRATEGY_ADMIN(), admin);
         roleManager.grantRole(roleManager.ROLE_TREASURY(), admin);
+        roleManager.grantRole(roleManager.ROLE_TREASURY(), treasury);
         roleManager.grantRole(roleManager.ROLE_GUARDIAN(), admin);
         roleManager.grantRole(roleManager.ROLE_VAULT_OPS(), admin);
 
         strategyRegistry = new StrategyRegistry(address(roleManager));
         vm.prank(admin);
         strategyId = strategyRegistry.createStrategy(
-            address(usdc),
-            makeAddr("adapter"),
-            RegistryTypes.RiskTier.Conservative,
-            "ipfs://strategy",
-            1_000_000 ether
+            address(usdc), makeAddr("adapter"), RegistryTypes.RiskTier.Conservative, "ipfs://strategy", 1_000_000 ether
         );
 
-        campaignRegistry = new CampaignRegistry(
-            address(roleManager),
-            treasury,
-            address(strategyRegistry),
-            0
-        );
+        campaignRegistry = new CampaignRegistry(address(roleManager), treasury, address(strategyRegistry), 0);
 
         vm.deal(address(this), 1 ether);
         vm.prank(address(this));
-        campaignId = campaignRegistry.submitCampaign{
-            value: 0
-        }(
-            "ipfs://campaign",
-            curator,
-            payoutAddress,
-            RegistryTypes.LockProfile.Days90
+        campaignId = campaignRegistry.submitCampaign{value: 0}(
+            "ipfs://campaign", curator, payoutAddress, RegistryTypes.LockProfile.Days90
         );
 
         vm.prank(admin);
@@ -89,11 +80,12 @@ contract PayoutRouterTest is Test {
             address(roleManager),
             campaignId,
             strategyId,
-            RegistryTypes.LockProfile.Days90
+            RegistryTypes.LockProfile.Days90,
+            1e6  // min deposit of 1 USDC
         );
 
         vm.prank(admin);
-        vault.setDonationRouter(address(router));
+        vault.setPayoutRouter(address(router));
 
         vm.prank(admin);
         router.registerVault(address(vault), campaignId, strategyId);
@@ -115,16 +107,81 @@ contract PayoutRouterTest is Test {
         vm.prank(address(vault));
         router.distributeToAllUsers(address(usdc), amount);
 
-        uint256 protocolFee = (amount * router.PROTOCOL_FEE_BPS()) / router.BASIS_POINTS();
+        uint256 protocolFee = (amount * router.protocolFeeBps()) / router.BASIS_POINTS();
         assertEq(usdc.balanceOf(treasury), protocolFee);
         uint256 distributable = amount - protocolFee;
+
+        // Campaign allocation receives half (50%) immediately, remainder claimable by beneficiary
         assertEq(usdc.balanceOf(payoutAddress), distributable / 2);
+        assertEq(usdc.balanceOf(beneficiary), 0);
+
+        vm.prank(address(this));
+        uint256 claimed = router.claimPersonalYield(address(vault));
+        assertEq(claimed, distributable / 2);
         assertEq(usdc.balanceOf(beneficiary), distributable / 2);
     }
 
     function testSetYieldAllocationRejectsZeroBeneficiary() public {
         vm.expectRevert(Errors.InvalidBeneficiary.selector);
         router.setYieldAllocation(address(vault), 50, address(0));
+    }
+
+    function testDistributeToMultipleUsersRespectsAllocations() public {
+        uint256 secondDeposit = 10_000e6;
+        usdc.transfer(supporterTwo, secondDeposit);
+
+        vm.prank(supporterTwo);
+        usdc.approve(address(vault), secondDeposit);
+
+        vm.prank(supporterTwo);
+        vault.deposit(secondDeposit, supporterTwo);
+
+        vm.prank(supporterTwo);
+        router.setYieldAllocation(address(vault), 100, address(0));
+
+        uint256 amount = 2_000e6;
+        usdc.transfer(address(router), amount);
+
+        vm.prank(address(vault));
+        router.distributeToAllUsers(address(usdc), amount);
+
+        uint256 protocolFee = (amount * router.protocolFeeBps()) / router.BASIS_POINTS();
+        uint256 distributable = amount - protocolFee;
+        uint256 totalShares = vault.totalSupply();
+        uint256 sharesUserOne = vault.balanceOf(address(this));
+        uint256 sharesUserTwo = vault.balanceOf(supporterTwo);
+
+        uint256 userOnePortion = (distributable * sharesUserOne) / totalShares;
+        uint256 userTwoPortion = (distributable * sharesUserTwo) / totalShares;
+
+        uint256 campaignFromUserOne = (userOnePortion * 50) / 100;
+        uint256 beneficiaryFromUserOne = userOnePortion - campaignFromUserOne;
+        uint256 campaignFromUserTwo = userTwoPortion; // 100% allocation
+
+        uint256 consumed = userOnePortion + userTwoPortion;
+        uint256 leftover = distributable > consumed ? distributable - consumed : 0;
+        uint256 expectedCampaign = campaignFromUserOne + campaignFromUserTwo + leftover;
+
+        assertEq(usdc.balanceOf(treasury), protocolFee);
+        assertEq(usdc.balanceOf(payoutAddress), expectedCampaign);
+        assertEq(usdc.balanceOf(beneficiary), 0);
+
+        vm.prank(address(this));
+        uint256 claimedUserOne = router.claimPersonalYield(address(vault));
+        assertEq(claimedUserOne, beneficiaryFromUserOne);
+        assertEq(usdc.balanceOf(beneficiary), beneficiaryFromUserOne);
+
+        vm.prank(supporterTwo);
+        uint256 claimedUserTwo = router.claimPersonalYield(address(vault));
+        assertEq(claimedUserTwo, 0);
+    }
+
+    function testUpdateUserSharesRevertsOnMismatch() public {
+        uint256 actualShares = vault.balanceOf(address(this));
+        vm.startPrank(address(vault));
+        vm.expectRevert(bytes("shares mismatch"));
+        router.updateUserShares(address(this), address(vault), actualShares + 1);
+        vm.stopPrank();
     }
 }
 
