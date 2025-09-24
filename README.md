@@ -1,10 +1,10 @@
 # GIVE Protocol
 
-No-loss giving built on ERC-4626 vaults. Users deposit an asset, keep their principal redeemable, and route realized yield to approved NGOs.
+No-loss giving built on ERC-4626 vaults. Users deposit an asset, keep their principal redeemable, and route realized yield to approved campaigns.
 
 ## The Problem
 
-Traditional NGO donations have issues:
+Traditional donation platforms have issues:
 - 30-50% goes to intermediaries
 - You lose your money forever
 - No transparency in fund usage
@@ -12,12 +12,12 @@ Traditional NGO donations have issues:
 
 ## How It Works
 
-Users deposit into an ERC-4626 vault (e.g., USDC vault). The vault invests via a pluggable adapter (e.g., Aave). Principal stays redeemable as vault shares track totalAssets; only realized profit is harvested and routed to NGOs via a Donation Router.
+Users deposit into an ERC-4626 vault (e.g., USDC vault). The vault invests via a pluggable adapter (e.g., Aave). Principal stays redeemable as vault shares track totalAssets; only realized profit is harvested and routed to campaign payout addresses via the Payout Router.
 
 Example:
 - Deposit 1,000 USDC into the USDC GiveVault4626
 - Vault keeps a cash buffer and supplies excess to Aave via adapter
-- Periodically, `harvest()` realizes profit and donates it to the current NGO
+- Periodically, `harvest()` realizes profit and routes it to the active campaign
 - You can withdraw your principal (subject to available liquidity)
 
 ## Quick Start
@@ -124,13 +124,6 @@ cd backend
 make deploy-sepolia
 ```
 
-**Deployed Addresses (Sepolia Testnet - September 18, 2025):**
-- **GiveVault4626 (USDC):** [`0x9816de1f27c15AAe597548f09E2188d16752C4C8`](https://sepolia.etherscan.io/address/0x9816de1f27c15aae597548f09e2188d16752c4c8)
-- **StrategyManager:** [`0x42cB507dfe0f7D8a01c9ad9e1b18B84CCf0A41B9`](https://sepolia.etherscan.io/address/0x42cb507dfe0f7d8a01c9ad9e1b18b84ccf0a41b9)
-- **AaveAdapter:** [`0xFc03875B2B2a84D9D1Bd24E41281fF371b3A1948`](https://sepolia.etherscan.io/address/0xfc03875b2b2a84d9d1bd24e41281ff371b3a1948)
-- **NGORegistry:** [`0x77182f2C8E86233D3B0095446Da20ecDecF96Cc2`](https://sepolia.etherscan.io/address/0x77182f2c8e86233d3b0095446da20ecdecf96cc2)
-- **DonationRouter:** [`0x33952be800FbBc7f8198A0efD489204720f64A4C`](https://sepolia.etherscan.io/address/0x33952be800fbbc7f8198a0efd489204720f64a4c)
-
 #### Testnet Deployment (Scroll Sepolia)
 ```bash
 cd backend
@@ -169,16 +162,16 @@ make deploy NETWORK=custom RPC_URL=your_rpc_url
 - Deposit into simple ERC-4626 vault interface
 - Keep principal redeemable; donate only yield
 - **Choose your impact**: Select 50%, 75%, or 100% of yield to donate
-- **Select your NGO**: Pick from approved organizations
+- **Select your campaign**: Pick from approved causes curated in the registry
 - Transparent harvest/donation events
 - Withdraw anytime within liquidity constraints
-- Remaining yield goes to protocol treasury for sustainability
+- Remaining yield can return to a beneficiary or the protocol treasury (per preference)
 
-### For NGOs
-- Apply and get approved in the NGO Registry
-- Receive ongoing yield based on user preferences
-- Transparent on-chain donation receipts
-- Proportional distribution based on user allocations
+### For Campaign Owners
+- Submit campaigns permissionlessly with metadata, curator, and payout address
+- Receive ongoing yield based on supporter preferences
+- Transparent on-chain donation receipts per epoch
+- Attach multiple pre-approved strategies to tailor risk/return profiles
 
 ## Development
 
@@ -200,7 +193,6 @@ make deploy-sepolia # Deploy to Ethereum Sepolia
 make deploy-scroll  # Deploy to Scroll Sepolia
 
 # Management
-make register-ngo   # Register test NGO (local)
 make verify         # Verify contracts on Etherscan
 make check-env      # Check environment setup
 ```
