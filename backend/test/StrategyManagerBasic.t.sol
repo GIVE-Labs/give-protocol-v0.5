@@ -7,10 +7,10 @@ import "../src/vault/GiveVault4626.sol";
 import "../src/manager/StrategyManager.sol";
 import "../src/interfaces/IYieldAdapter.sol";
 import "../src/access/RoleManager.sol";
-import "../src/donation/DonationRouter.sol";
-import "../src/donation/NGORegistry.sol";
 import "../src/manager/StrategyRegistry.sol";
 import "../src/manager/RegistryTypes.sol";
+import "../src/campaign/CampaignRegistry.sol";
+import "../src/payout/PayoutRouter.sol";
 
 contract StrategyManagerBasicTest is Test {
     GiveVault4626 public vault;
@@ -30,6 +30,7 @@ contract StrategyManagerBasicTest is Test {
         roleManager.grantRole(roleManager.ROLE_GUARDIAN(), admin);
         roleManager.grantRole(roleManager.ROLE_STRATEGY_ADMIN(), admin);
         roleManager.grantRole(roleManager.ROLE_TREASURY(), admin);
+        roleManager.grantRole(roleManager.ROLE_CAMPAIGN_ADMIN(), admin);
 
         vault = new GiveVault4626(IERC20(address(usdc)), "GIVE USDC", "gvUSDC", address(roleManager));
         manager = new StrategyManager(address(vault), address(roleManager));
@@ -40,11 +41,7 @@ contract StrategyManagerBasicTest is Test {
 
         vm.prank(admin);
         registryStrategyId = strategyRegistry.createStrategy(
-            address(usdc),
-            address(adapter),
-            RegistryTypes.RiskTier.Conservative,
-            "ipfs://strategy",
-            1_000_000 ether
+            address(usdc), address(adapter), RegistryTypes.RiskTier.Conservative, "ipfs://strategy", 1_000_000 ether
         );
     }
 
@@ -74,20 +71,13 @@ contract StrategyManagerBasicTest is Test {
         assertEq(maxLoss, 100);
     }
 
-    function testSetDonationRouter() public {
-        NGORegistry registry2 = new NGORegistry(address(roleManager));
-        roleManager.grantRole(roleManager.ROLE_DONATION_RECORDER(), address(this));
-        DonationRouter router = new DonationRouter(
-            address(roleManager),
-            address(registry2),
-            address(0xFEE5),
-            admin,
-            100
-        );
-        roleManager.grantRole(roleManager.ROLE_DONATION_RECORDER(), address(router));
+    function testSetPayoutRouter() public {
+        CampaignRegistry campaignRegistry =
+            new CampaignRegistry(address(roleManager), admin, address(strategyRegistry), 0);
+        PayoutRouter router = new PayoutRouter(address(roleManager), address(campaignRegistry), admin);
         vm.prank(admin);
-        manager.setDonationRouter(address(router));
-        assertEq(address(vault.donationRouter()), address(router));
+        manager.setPayoutRouter(address(router));
+        assertEq(address(vault.payoutRouter()), address(router));
     }
 }
 

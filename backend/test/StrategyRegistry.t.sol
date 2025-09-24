@@ -36,11 +36,7 @@ contract StrategyRegistryTest is Test {
     function _createDefaultStrategy() internal returns (uint64 id) {
         vm.prank(admin);
         id = registry.createStrategy(
-            asset,
-            adapter,
-            RegistryTypes.RiskTier.Moderate,
-            "ipfs://strategy-metadata",
-            10_000 ether
+            asset, adapter, RegistryTypes.RiskTier.Moderate, "ipfs://strategy-metadata", 10_000 ether
         );
     }
 
@@ -63,13 +59,7 @@ contract StrategyRegistryTest is Test {
 
         vm.prank(admin);
         vm.expectRevert(Errors.StrategyAlreadyExists.selector);
-        registry.createStrategy(
-            asset,
-            adapter,
-            RegistryTypes.RiskTier.Moderate,
-            "ipfs://duplicate",
-            100 ether
-        );
+        registry.createStrategy(asset, adapter, RegistryTypes.RiskTier.Moderate, "ipfs://duplicate", 100 ether);
     }
 
     function testUpdateStrategyChangesAdapterAndMetadata() public {

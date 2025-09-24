@@ -46,17 +46,14 @@ contract EpochSchedulerTest is Test {
         usdc = new MockToken();
         vm.prank(admin);
         strategyId = strategyRegistry.createStrategy(
-            address(usdc),
-            makeAddr("adapter"),
-            RegistryTypes.RiskTier.Conservative,
-            "ipfs://strategy",
-            1_000_000 ether
+            address(usdc), makeAddr("adapter"), RegistryTypes.RiskTier.Conservative, "ipfs://strategy", 1_000_000 ether
         );
 
         campaignRegistry = new CampaignRegistry(address(roleManager), treasury, address(strategyRegistry), 0);
 
         vm.prank(curator);
-        campaignId = campaignRegistry.submitCampaign("ipfs://campaign", curator, payout, RegistryTypes.LockProfile.Days90);
+        campaignId =
+            campaignRegistry.submitCampaign("ipfs://campaign", curator, payout, RegistryTypes.LockProfile.Days90);
 
         vm.prank(admin);
         campaignRegistry.approveCampaign(campaignId);
@@ -79,7 +76,8 @@ contract EpochSchedulerTest is Test {
             address(roleManager),
             campaignId,
             strategyId,
-            RegistryTypes.LockProfile.Days90
+            RegistryTypes.LockProfile.Days90,
+            1 ether  // min deposit
         );
 
         vm.prank(admin);
@@ -104,7 +102,7 @@ contract EpochSchedulerTest is Test {
         vm.prank(address(1));
         scheduler.processEpoch(address(vault), address(usdc), 1_000 ether);
 
-        uint256 protocolFee = (1_000 ether * router.PROTOCOL_FEE_BPS()) / router.BASIS_POINTS();
+        uint256 protocolFee = (1_000 ether * router.protocolFeeBps()) / router.BASIS_POINTS();
         assertEq(usdc.balanceOf(treasury), protocolFee);
         assertEq(usdc.balanceOf(address(1)), reward);
         assertEq(usdc.balanceOf(payout), 1_000 ether - protocolFee);

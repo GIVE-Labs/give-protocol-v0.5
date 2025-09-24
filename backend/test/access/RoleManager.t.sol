@@ -40,13 +40,7 @@ contract RoleManagerTest is Test {
         bytes32[] memory roles = new bytes32[](1);
         roles[0] = roleManager.ROLE_KEEPER();
         vm.startPrank(address(0xABCD));
-        vm.expectRevert(
-            abi.encodeWithSelector(
-                ACCESS_CONTROL_UNAUTHORIZED,
-                address(0xABCD),
-                bytes32(0)
-            )
-        );
+        vm.expectRevert(abi.encodeWithSelector(ACCESS_CONTROL_UNAUTHORIZED, address(0xABCD), bytes32(0)));
         roleManager.grantRoles(keeper, roles);
         vm.stopPrank();
     }

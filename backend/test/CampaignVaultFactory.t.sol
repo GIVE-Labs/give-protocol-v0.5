@@ -48,27 +48,14 @@ contract CampaignVaultFactoryTest is Test {
         strategyRegistry = new StrategyRegistry(address(roleManager));
         vm.prank(admin);
         strategyId = strategyRegistry.createStrategy(
-            address(usdc),
-            address(adapter),
-            RegistryTypes.RiskTier.Conservative,
-            "ipfs://strategy",
-            1_000_000 ether
+            address(usdc), address(adapter), RegistryTypes.RiskTier.Conservative, "ipfs://strategy", 1_000_000 ether
         );
 
-        campaignRegistry = new CampaignRegistry(
-            address(roleManager),
-            treasury,
-            address(strategyRegistry),
-            0
-        );
+        campaignRegistry = new CampaignRegistry(address(roleManager), treasury, address(strategyRegistry), 0);
 
         vm.prank(curator);
-        campaignId = campaignRegistry.submitCampaign(
-            "ipfs://campaign",
-            curator,
-            payout,
-            RegistryTypes.LockProfile.Days90
-        );
+        campaignId =
+            campaignRegistry.submitCampaign("ipfs://campaign", curator, payout, RegistryTypes.LockProfile.Days90);
 
         vm.prank(admin);
         campaignRegistry.approveCampaign(campaignId);
@@ -79,10 +66,7 @@ contract CampaignVaultFactoryTest is Test {
         payoutRouter = new PayoutRouter(address(roleManager), address(campaignRegistry), treasury);
 
         factory = new CampaignVaultFactory(
-            address(roleManager),
-            address(strategyRegistry),
-            address(campaignRegistry),
-            address(payoutRouter)
+            address(roleManager), address(strategyRegistry), address(campaignRegistry), address(payoutRouter)
         );
 
         // Grant factory the privileges it needs to perform deployments.
@@ -94,11 +78,7 @@ contract CampaignVaultFactoryTest is Test {
     function testDeployCampaignVaultCreatesVaultAndManager() public {
         vm.prank(curator);
         CampaignVaultFactory.Deployment memory deployment = factory.deployCampaignVault(
-            campaignId,
-            strategyId,
-            RegistryTypes.LockProfile.Days90,
-            "Campaign Vault",
-            "cvUSDC"
+            campaignId, strategyId, RegistryTypes.LockProfile.Days90, "Campaign Vault", "cvUSDC", 1e6
         );
 
         assertEq(factory.deploymentsLength(), 1);
@@ -115,31 +95,23 @@ contract CampaignVaultFactoryTest is Test {
         assertEq(address(manager.vault()), address(vault));
         assertTrue(roleManager.hasRole(roleManager.ROLE_VAULT_OPS(), address(manager)));
 
-        (uint64 regCampaignId, uint64 regStrategyId, bool registered) = payoutRouter.vaultInfo(address(vault));
+        (uint64 regCampaignId, uint64 regStrategyId, address regAsset, bool registered) =
+            payoutRouter.vaultInfo(address(vault));
         assertTrue(registered);
         assertEq(regCampaignId, campaignId);
         assertEq(regStrategyId, strategyId);
+        assertEq(regAsset, address(usdc));
     }
 
     function testDeployVaultRevertsIfStrategyNotAttached() public {
         vm.prank(admin);
         uint64 unattachedStrategy = strategyRegistry.createStrategy(
-            makeAddr("asset2"),
-            makeAddr("adapter2"),
-            RegistryTypes.RiskTier.Moderate,
-            "ipfs://strategy2",
-            500_000 ether
+            makeAddr("asset2"), makeAddr("adapter2"), RegistryTypes.RiskTier.Moderate, "ipfs://strategy2", 500_000 ether
         );
 
         vm.prank(curator);
         vm.expectRevert(Errors.StrategyNotFound.selector);
-        factory.deployCampaignVault(
-            campaignId,
-            unattachedStrategy,
-            RegistryTypes.LockProfile.Days30,
-            "Vault",
-            "v2"
-        );
+        factory.deployCampaignVault(campaignId, unattachedStrategy, RegistryTypes.LockProfile.Days30, "Vault", "v2", 1e6);
     }
 
     function testDeployVaultRequiresActiveCampaign() public {
@@ -148,13 +120,7 @@ contract CampaignVaultFactoryTest is Test {
 
         vm.prank(curator);
         vm.expectRevert(Errors.CampaignNotActive.selector);
-        factory.deployCampaignVault(
-            campaignId,
-            strategyId,
-            RegistryTypes.LockProfile.Days90,
-            "Vault",
-            "v"
-        );
+        factory.deployCampaignVault(campaignId, strategyId, RegistryTypes.LockProfile.Days90, "Vault", "v", 1e6);
     }
 }
 

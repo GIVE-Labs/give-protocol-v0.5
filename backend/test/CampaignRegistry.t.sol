@@ -34,19 +34,10 @@ contract CampaignRegistryTest is Test {
         strategyRegistry = new StrategyRegistry(address(roleManager));
         vm.prank(admin);
         strategyId = strategyRegistry.createStrategy(
-            makeAddr("usdc"),
-            makeAddr("adapter"),
-            RegistryTypes.RiskTier.Moderate,
-            "ipfs://strategy",
-            100_000 ether
+            makeAddr("usdc"), makeAddr("adapter"), RegistryTypes.RiskTier.Moderate, "ipfs://strategy", 100_000 ether
         );
 
-        campaignRegistry = new CampaignRegistry(
-            address(roleManager),
-            treasury,
-            address(strategyRegistry),
-            0.0001 ether
-        );
+        campaignRegistry = new CampaignRegistry(address(roleManager), treasury, address(strategyRegistry), 0.0001 ether);
     }
 
     receive() external payable {}
@@ -54,10 +45,7 @@ contract CampaignRegistryTest is Test {
     function _submitDefaultCampaign() internal returns (uint64 id) {
         vm.deal(address(this), 1 ether);
         id = campaignRegistry.submitCampaign{value: 0.0001 ether}(
-            "ipfs://campaign",
-            curator,
-            payout,
-            RegistryTypes.LockProfile.Days90
+            "ipfs://campaign", curator, payout, RegistryTypes.LockProfile.Days90
         );
     }
 
@@ -167,10 +155,7 @@ contract CampaignRegistryTest is Test {
         for (uint256 i = 0; i < 3; ++i) {
             vm.deal(address(this), 1 ether);
             campaignRegistry.submitCampaign{value: 0.0001 ether}(
-                string.concat("ipfs://", vm.toString(i)),
-                curator,
-                payout,
-                RegistryTypes.LockProfile.Days30
+                string.concat("ipfs://", vm.toString(i)), curator, payout, RegistryTypes.LockProfile.Days30
             );
         }
 
