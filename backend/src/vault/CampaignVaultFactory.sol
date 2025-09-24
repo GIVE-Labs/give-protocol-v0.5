@@ -1,23 +1,18 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {RoleAware} from "../access/RoleAware.sol";
-import {RoleManager} from "../access/RoleManager.sol";
 import {Errors} from "../utils/Errors.sol";
 import {RegistryTypes} from "../manager/RegistryTypes.sol";
 import {StrategyRegistry} from "../manager/StrategyRegistry.sol";
 import {CampaignRegistry} from "../campaign/CampaignRegistry.sol";
-import {StrategyManager} from "../manager/StrategyManager.sol";
-import {CampaignVault} from "./CampaignVault.sol";
 import {PayoutRouter} from "../payout/PayoutRouter.sol";
-
-interface IConfigurableAdapter {
-    function configureForVault(address vault) external;
-}
+import {VaultDeploymentLib} from "./VaultDeploymentLib.sol";
+import {ManagerDeploymentLib} from "./ManagerDeploymentLib.sol";
 
 /// @title CampaignVaultFactory
-/// @notice Deploys campaign-bound ERC-4626 vaults and associated strategy managers.
+/// @notice Deploys campaign-bound ERC-4626 vaults and associated strategy managers using external helper contracts.
+/// @dev Uses external helper contracts to minimize factory bytecode size
 contract CampaignVaultFactory is RoleAware {
     struct Deployment {
         address vault;
@@ -32,6 +27,10 @@ contract CampaignVaultFactory is RoleAware {
     StrategyRegistry public immutable strategyRegistry;
     CampaignRegistry public immutable campaignRegistry;
     PayoutRouter public immutable payoutRouter;
+
+    /// @notice Helper contracts for deployment
+    VaultDeploymentLib public immutable vaultDeployer;
+    ManagerDeploymentLib public immutable managerDeployer;
 
     /// @dev Storage of all deployments.
     Deployment[] private _deployments;
@@ -54,16 +53,26 @@ contract CampaignVaultFactory is RoleAware {
         string symbol
     );
 
-    constructor(address roleManager_, address strategyRegistry_, address campaignRegistry_, address payoutRouter_)
-        RoleAware(roleManager_)
-    {
-        if (strategyRegistry_ == address(0) || campaignRegistry_ == address(0) || payoutRouter_ == address(0)) {
+    constructor(
+        address roleManager_,
+        address strategyRegistry_,
+        address campaignRegistry_,
+        address payoutRouter_,
+        address vaultDeployer_,
+        address managerDeployer_
+    ) RoleAware(roleManager_) {
+        if (
+            strategyRegistry_ == address(0) || campaignRegistry_ == address(0) || payoutRouter_ == address(0)
+                || vaultDeployer_ == address(0) || managerDeployer_ == address(0)
+        ) {
             revert Errors.ZeroAddress();
         }
 
         strategyRegistry = StrategyRegistry(strategyRegistry_);
         campaignRegistry = CampaignRegistry(campaignRegistry_);
         payoutRouter = PayoutRouter(payoutRouter_);
+        vaultDeployer = VaultDeploymentLib(vaultDeployer_);
+        managerDeployer = ManagerDeploymentLib(managerDeployer_);
 
         CAMPAIGN_ADMIN_ROLE = roleManager.ROLE_CAMPAIGN_ADMIN();
         STRATEGY_ADMIN_ROLE = roleManager.ROLE_STRATEGY_ADMIN();
@@ -76,6 +85,7 @@ contract CampaignVaultFactory is RoleAware {
 
     /// @notice Deploy a new campaign vault for a specific strategy attachment.
     /// @dev Caller must be campaign curator, campaign admin, or strategy admin.
+    /// @dev Uses external libraries to minimize contract size
     function deployCampaignVault(
         uint64 campaignId,
         uint64 strategyId,
@@ -84,42 +94,46 @@ contract CampaignVaultFactory is RoleAware {
         string calldata symbol,
         uint256 minDepositAmount
     ) external returns (Deployment memory deployment) {
+        // Validate authorization
         CampaignRegistry.Campaign memory campaign = campaignRegistry.getCampaign(campaignId);
         if (!_isCuratorOrPrivileged(campaign.curator, msg.sender)) revert Errors.UnauthorizedCurator();
-        if (campaign.status != RegistryTypes.CampaignStatus.Active) revert Errors.CampaignNotActive();
-        if (!campaignRegistry.isStrategyAttached(campaignId, strategyId)) revert Errors.StrategyNotFound();
 
+        // Get strategy for adapter info
         StrategyRegistry.Strategy memory strategy = strategyRegistry.getStrategy(strategyId);
-        if (strategy.status != RegistryTypes.StrategyStatus.Active) revert Errors.StrategyInactive();
-        if (strategy.asset == address(0)) revert Errors.ZeroAddress();
 
-        IERC20 asset = IERC20(strategy.asset);
+        // Deploy vault using external library
+        VaultDeploymentLib.DeployVaultParams memory vaultParams = VaultDeploymentLib.DeployVaultParams({
+            strategyRegistry: address(strategyRegistry),
+            campaignRegistry: address(campaignRegistry),
+            campaignId: campaignId,
+            strategyId: strategyId,
+            lockProfile: lockProfile,
+            name: name,
+            symbol: symbol,
+            minDepositAmount: minDepositAmount,
+            roleManager: address(roleManager)
+        });
 
-        CampaignVault vault = new CampaignVault(
-            asset, name, symbol, address(roleManager), campaignId, strategyId, lockProfile, minDepositAmount
-        );
+        address vault = vaultDeployer.deployVault(vaultParams);
 
-        StrategyManager manager = new StrategyManager(address(vault), address(roleManager));
+        // Deploy manager using external library
+        ManagerDeploymentLib.DeployManagerParams memory managerParams = ManagerDeploymentLib.DeployManagerParams({
+            vault: vault,
+            roleManager: address(roleManager),
+            strategyRegistry: address(strategyRegistry),
+            payoutRouter: address(payoutRouter),
+            campaignId: campaignId,
+            strategyId: strategyId,
+            adapter: strategy.adapter
+        });
 
-        // Assign shared roles so the manager can control the vault.
-        RoleManager(address(roleManager)).grantRole(roleManager.ROLE_VAULT_OPS(), address(manager));
+        address manager = managerDeployer.deployManager(managerParams);
 
-        // Wire registry and router context.
-        manager.setStrategyRegistry(address(strategyRegistry));
-        manager.setPayoutRouter(address(payoutRouter));
-        payoutRouter.registerVault(address(vault), campaignId, strategyId);
-        payoutRouter.setAuthorizedCaller(address(vault), true);
-
-        // Attempt to configure adapter for the newly deployed vault if supported.
-        try IConfigurableAdapter(strategy.adapter).configureForVault(address(vault)) {} catch {}
-
-        manager.setAdapterApproval(strategy.adapter, true);
-        manager.setActiveAdapter(strategy.adapter);
-
+        // Record deployment
         uint256 deploymentId = _deployments.length;
         deployment = Deployment({
-            vault: address(vault),
-            strategyManager: address(manager),
+            vault: vault,
+            strategyManager: manager,
             campaignId: campaignId,
             strategyId: strategyId,
             lockProfile: lockProfile,
@@ -127,10 +141,10 @@ contract CampaignVaultFactory is RoleAware {
         });
 
         _deployments.push(deployment);
-        _deploymentIndexByVault[address(vault)] = deploymentId + 1;
+        _deploymentIndexByVault[vault] = deploymentId + 1;
 
         emit CampaignVaultDeployed(
-            deploymentId, campaignId, strategyId, address(vault), address(manager), lockProfile, name, symbol
+            deploymentId, campaignId, strategyId, vault, manager, lockProfile, name, symbol
         );
     }
 
