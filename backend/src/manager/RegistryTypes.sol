@@ -38,7 +38,8 @@ library RegistryTypes {
         Days30,
         Days90,
         Days180,
-        Days360
+        Days360,
+        Minutes1
     }
 
     /// @notice Returns the lock duration in seconds for a given profile.
@@ -47,6 +48,7 @@ library RegistryTypes {
         if (profile == LockProfile.Days90) return 90 days;
         if (profile == LockProfile.Days180) return 180 days;
         if (profile == LockProfile.Days360) return 360 days;
+        if (profile == LockProfile.Minutes1) return 1 minutes;
         revert Errors.LockProfileNotAllowed();
     }
 }
