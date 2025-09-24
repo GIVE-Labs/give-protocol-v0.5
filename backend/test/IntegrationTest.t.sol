@@ -11,6 +11,8 @@ import {CampaignRegistry} from "../src/campaign/CampaignRegistry.sol";
 import {PayoutRouter} from "../src/payout/PayoutRouter.sol";
 import {CampaignVault} from "../src/vault/CampaignVault.sol";
 import {CampaignVaultFactory} from "../src/vault/CampaignVaultFactory.sol";
+import {VaultDeploymentLib} from "../src/vault/VaultDeploymentLib.sol";
+import {ManagerDeploymentLib} from "../src/vault/ManagerDeploymentLib.sol";
 import {StrategyManager} from "../src/manager/StrategyManager.sol";
 import {RegistryTypes} from "../src/manager/RegistryTypes.sol";
 import {Errors} from "../src/utils/Errors.sol";
@@ -106,13 +108,27 @@ contract IntegrationTest is Test {
             treasury
         );
 
-        vm.prank(admin);
+        vm.startPrank(admin);
+
+        // Deploy helper contracts
+        VaultDeploymentLib vaultDeployer = new VaultDeploymentLib();
+        ManagerDeploymentLib managerDeployer = new ManagerDeploymentLib();
+
+        // Grant roles to helper contracts
+        roleManager.grantRole(roleManager.DEFAULT_ADMIN_ROLE(), address(managerDeployer));
+        roleManager.grantRole(roleManager.ROLE_STRATEGY_ADMIN(), address(managerDeployer));
+        roleManager.grantRole(roleManager.ROLE_CAMPAIGN_ADMIN(), address(managerDeployer));
+
         factory = new CampaignVaultFactory(
             address(roleManager),
             address(strategyRegistry),
             address(campaignRegistry),
-            address(payoutRouter)
+            address(payoutRouter),
+            address(vaultDeployer),
+            address(managerDeployer)
         );
+
+        vm.stopPrank();
     }
 
     function _setupRoles() internal {
@@ -137,15 +153,8 @@ contract IntegrationTest is Test {
     function _deployTokensAndAdapters() internal {
         usdc = new MockToken("USD Coin", "USDC", 6);
 
-        // Predict vault address for adapter configuration
-        uint256 predictedNonce = vm.getNonce(address(factory));
-        address predictedVault = vm.computeCreateAddress(address(factory), predictedNonce);
-
-        adapter = new TestYieldAdapter(
-            address(roleManager),
-            address(usdc),
-            predictedVault
-        );
+        // Create the adapter (without predicting vault address since it doesn't exist yet)
+        adapter = new TestYieldAdapter(address(roleManager), address(usdc), address(0));
 
         // Fund supporters with USDC
         for (uint256 i = 0; i < supporters.length; i++) {
@@ -533,6 +542,11 @@ contract TestYieldAdapter {
     constructor(address _roleManager, address _asset, address _vault) {
         roleManager = RoleManager(_roleManager);
         asset = IERC20(_asset);
+        vault = _vault;
+    }
+
+    // IConfigurableAdapter interface
+    function configureForVault(address _vault) external {
         vault = _vault;
     }
 

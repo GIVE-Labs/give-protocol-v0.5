@@ -10,6 +10,8 @@ import {StrategyRegistry} from "../src/manager/StrategyRegistry.sol";
 import {CampaignRegistry} from "../src/campaign/CampaignRegistry.sol";
 import {PayoutRouter} from "../src/payout/PayoutRouter.sol";
 import {CampaignVaultFactory} from "../src/vault/CampaignVaultFactory.sol";
+import {VaultDeploymentLib} from "../src/vault/VaultDeploymentLib.sol";
+import {ManagerDeploymentLib} from "../src/vault/ManagerDeploymentLib.sol";
 import {CampaignVault} from "../src/vault/CampaignVault.sol";
 import {StrategyManager} from "../src/manager/StrategyManager.sol";
 import {RegistryTypes} from "../src/manager/RegistryTypes.sol";
@@ -53,17 +55,31 @@ contract CampaignVaultETHTest is Test {
         strategyRegistry = new StrategyRegistry(address(roleManager));
         campaignRegistry = new CampaignRegistry(address(roleManager), admin, address(strategyRegistry), 0);
         payoutRouter = new PayoutRouter(address(roleManager), address(campaignRegistry), admin);
+
+        // Deploy helper contracts
+        VaultDeploymentLib vaultDeployer = new VaultDeploymentLib();
+        ManagerDeploymentLib managerDeployer = new ManagerDeploymentLib();
+
+        // Grant roles to helper contracts
+        roleManager.grantRole(roleManager.DEFAULT_ADMIN_ROLE(), address(managerDeployer));
+        roleManager.grantRole(roleManager.ROLE_STRATEGY_ADMIN(), address(managerDeployer));
+        roleManager.grantRole(roleManager.ROLE_CAMPAIGN_ADMIN(), address(managerDeployer));
+
         factory = new CampaignVaultFactory(
-            address(roleManager), address(strategyRegistry), address(campaignRegistry), address(payoutRouter)
+            address(roleManager),
+            address(strategyRegistry),
+            address(campaignRegistry),
+            address(payoutRouter),
+            address(vaultDeployer),
+            address(managerDeployer)
         );
 
         roleManager.grantRole(roleManager.DEFAULT_ADMIN_ROLE(), address(factory));
         roleManager.grantRole(roleManager.ROLE_STRATEGY_ADMIN(), address(factory));
         roleManager.grantRole(roleManager.ROLE_CAMPAIGN_ADMIN(), address(factory));
 
-        uint256 predictedNonce = vm.getNonce(address(factory));
-        address predictedVault = vm.computeCreateAddress(address(factory), predictedNonce);
-        adapter = new MockYieldAdapter(address(roleManager), address(weth), predictedVault);
+        // Create adapter without vault address initially
+        adapter = new MockYieldAdapter(address(roleManager), address(weth), address(0));
 
         vm.prank(admin);
         strategyId = strategyRegistry.createStrategy(

@@ -12,6 +12,8 @@ import {RoleManager} from "../src/access/RoleManager.sol";
 import {StrategyRegistry} from "../src/manager/StrategyRegistry.sol";
 import {CampaignRegistry} from "../src/campaign/CampaignRegistry.sol";
 import {CampaignVaultFactory} from "../src/vault/CampaignVaultFactory.sol";
+import {VaultDeploymentLib} from "../src/vault/VaultDeploymentLib.sol";
+import {ManagerDeploymentLib} from "../src/vault/ManagerDeploymentLib.sol";
 import {RegistryTypes} from "../src/manager/RegistryTypes.sol";
 import {Errors} from "../src/utils/Errors.sol";
 import {IYieldAdapter} from "../src/interfaces/IYieldAdapter.sol";
@@ -55,11 +57,22 @@ contract SecurityTests is Test {
         campaignRegistry = new CampaignRegistry(address(roleManager), treasury, address(strategyRegistry), 0);
         router = new PayoutRouter(address(roleManager), address(campaignRegistry), treasury);
 
+        // Deploy helper contracts
+        VaultDeploymentLib vaultDeployer = new VaultDeploymentLib();
+        ManagerDeploymentLib managerDeployer = new ManagerDeploymentLib();
+
+        // Grant roles to helper contracts
+        roleManager.grantRole(roleManager.DEFAULT_ADMIN_ROLE(), address(managerDeployer));
+        roleManager.grantRole(roleManager.ROLE_STRATEGY_ADMIN(), address(managerDeployer));
+        roleManager.grantRole(roleManager.ROLE_CAMPAIGN_ADMIN(), address(managerDeployer));
+
         factory = new CampaignVaultFactory(
             address(roleManager),
             address(strategyRegistry),
             address(campaignRegistry),
-            address(router)
+            address(router),
+            address(vaultDeployer),
+            address(managerDeployer)
         );
 
         roleManager.grantRole(roleManager.DEFAULT_ADMIN_ROLE(), address(factory));

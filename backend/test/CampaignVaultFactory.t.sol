@@ -4,7 +4,10 @@ pragma solidity ^0.8.20;
 import "forge-std/Test.sol";
 import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import {CampaignVaultFactory, IConfigurableAdapter} from "../src/vault/CampaignVaultFactory.sol";
+import {CampaignVaultFactory} from "../src/vault/CampaignVaultFactory.sol";
+import {VaultDeploymentLib} from "../src/vault/VaultDeploymentLib.sol";
+import {ManagerDeploymentLib} from "../src/vault/ManagerDeploymentLib.sol";
+import {IConfigurableAdapter} from "../src/vault/IConfigurableAdapter.sol";
 import {CampaignRegistry} from "../src/campaign/CampaignRegistry.sol";
 import {StrategyRegistry} from "../src/manager/StrategyRegistry.sol";
 import {RoleManager} from "../src/access/RoleManager.sol";
@@ -65,8 +68,22 @@ contract CampaignVaultFactoryTest is Test {
 
         payoutRouter = new PayoutRouter(address(roleManager), address(campaignRegistry), treasury);
 
+        // Deploy helper contracts
+        VaultDeploymentLib vaultDeployer = new VaultDeploymentLib();
+        ManagerDeploymentLib managerDeployer = new ManagerDeploymentLib();
+
+        // Grant roles to helper contracts
+        roleManager.grantRole(roleManager.DEFAULT_ADMIN_ROLE(), address(managerDeployer));
+        roleManager.grantRole(roleManager.ROLE_STRATEGY_ADMIN(), address(managerDeployer));
+        roleManager.grantRole(roleManager.ROLE_CAMPAIGN_ADMIN(), address(managerDeployer));
+
         factory = new CampaignVaultFactory(
-            address(roleManager), address(strategyRegistry), address(campaignRegistry), address(payoutRouter)
+            address(roleManager),
+            address(strategyRegistry),
+            address(campaignRegistry),
+            address(payoutRouter),
+            address(vaultDeployer),
+            address(managerDeployer)
         );
 
         // Grant factory the privileges it needs to perform deployments.

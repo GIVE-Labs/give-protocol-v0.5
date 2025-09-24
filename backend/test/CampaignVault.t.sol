@@ -15,7 +15,10 @@ import {StrategyManager} from "../src/manager/StrategyManager.sol";
 import {RegistryTypes} from "../src/manager/RegistryTypes.sol";
 import {Errors} from "../src/utils/Errors.sol";
 import {IYieldAdapter} from "../src/interfaces/IYieldAdapter.sol";
-import {CampaignVaultFactory, IConfigurableAdapter} from "../src/vault/CampaignVaultFactory.sol";
+import {CampaignVaultFactory} from "../src/vault/CampaignVaultFactory.sol";
+import {VaultDeploymentLib} from "../src/vault/VaultDeploymentLib.sol";
+import {ManagerDeploymentLib} from "../src/vault/ManagerDeploymentLib.sol";
+import {IConfigurableAdapter} from "../src/vault/IConfigurableAdapter.sol";
 
 contract CampaignVaultTest is Test {
     using SafeERC20 for IERC20;
@@ -61,8 +64,23 @@ contract CampaignVaultTest is Test {
         strategyRegistry = new StrategyRegistry(address(roleManager));
         campaignRegistry = new CampaignRegistry(address(roleManager), treasury, address(strategyRegistry), 0);
         payoutRouter = new PayoutRouter(address(roleManager), address(campaignRegistry), treasury);
+
+        // Deploy helper contracts
+        VaultDeploymentLib vaultDeployer = new VaultDeploymentLib();
+        ManagerDeploymentLib managerDeployer = new ManagerDeploymentLib();
+
+        // Grant roles to helper contracts
+        roleManager.grantRole(roleManager.DEFAULT_ADMIN_ROLE(), address(managerDeployer));
+        roleManager.grantRole(roleManager.ROLE_STRATEGY_ADMIN(), address(managerDeployer));
+        roleManager.grantRole(roleManager.ROLE_CAMPAIGN_ADMIN(), address(managerDeployer));
+
         factory = new CampaignVaultFactory(
-            address(roleManager), address(strategyRegistry), address(campaignRegistry), address(payoutRouter)
+            address(roleManager),
+            address(strategyRegistry),
+            address(campaignRegistry),
+            address(payoutRouter),
+            address(vaultDeployer),
+            address(managerDeployer)
         );
 
         roleManager.grantRole(roleManager.DEFAULT_ADMIN_ROLE(), address(factory));
