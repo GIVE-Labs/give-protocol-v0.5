@@ -210,6 +210,17 @@ contract StrategyRegistry is RoleAware, Pausable {
         return strategy;
     }
 
+    /// @notice Lightweight getter returning essential fields only.
+    function getStrategyCore(uint64 id)
+        external
+        view
+        returns (address asset, address adapter, RegistryTypes.StrategyStatus status)
+    {
+        Strategy memory strategy = _strategies[id];
+        if (strategy.id == 0) revert Errors.StrategyNotFound();
+        return (strategy.asset, strategy.adapter, strategy.status);
+    }
+
     /// @notice Convenience getter that returns the strategy id for an asset/adapter pair (or zero if none).
     function getStrategyId(address asset, address adapter) external view returns (uint64) {
         return _strategyIdByPair[asset][adapter];

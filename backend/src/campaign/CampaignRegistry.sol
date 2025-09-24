@@ -329,6 +329,17 @@ contract CampaignRegistry is RoleAware, Pausable {
         return campaign;
     }
 
+    /// @notice Lightweight getter to fetch only curator and status without copying metadata strings.
+    function getCampaignCore(uint64 id)
+        external
+        view
+        returns (address curator, RegistryTypes.CampaignStatus status)
+    {
+        Campaign memory campaign = _campaigns[id];
+        if (campaign.id == 0) revert Errors.CampaignNotFound();
+        return (campaign.curator, campaign.status);
+    }
+
     /// @notice Returns the list of strategy ids attached to a campaign.
     function getCampaignStrategies(uint64 id) external view returns (uint64[] memory strategyIds) {
         EnumerableSet.UintSet storage setRef = _campaignStrategies[id];
