@@ -4,6 +4,7 @@ pragma solidity ^0.8.20;
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "../interfaces/IYieldAdapter.sol";
+import "../vault/IConfigurableAdapter.sol";
 import "../access/RoleAware.sol";
 import "../utils/Errors.sol";
 
@@ -12,7 +13,7 @@ import "../utils/Errors.sol";
  * @dev Mock yield adapter for testing purposes
  * @notice Simulates yield generation for local testing
  */
-contract MockYieldAdapter is IYieldAdapter, RoleAware {
+contract MockYieldAdapter is IYieldAdapter, IConfigurableAdapter, RoleAware {
     using SafeERC20 for IERC20;
 
     bytes32 public immutable STRATEGY_ADMIN_ROLE;
@@ -20,7 +21,7 @@ contract MockYieldAdapter is IYieldAdapter, RoleAware {
     bytes32 public immutable VAULT_OPS_ROLE;
 
     IERC20 private immutable _asset;
-    address private immutable _vault;
+    address private _vault;
     uint256 private _totalAssets;
     uint256 private _yieldRate; // Basis points per harvest (e.g., 100 = 1%)
     uint256 private _lastHarvestTime;
@@ -72,6 +73,15 @@ contract MockYieldAdapter is IYieldAdapter, RoleAware {
      */
     function vault() external view override returns (address) {
         return _vault;
+    }
+
+    /**
+     * @dev Configures the adapter for a specific vault
+     * @param vault_ The vault address to configure
+     */
+    function configureForVault(address vault_) external override {
+        require(_vault == address(0) || _vault == vault_, "MockYieldAdapter: Already configured");
+        _vault = vault_;
     }
 
     /**
