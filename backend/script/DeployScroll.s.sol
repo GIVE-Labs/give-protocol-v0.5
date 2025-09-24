@@ -8,6 +8,8 @@ import {CampaignRegistry} from "../src/campaign/CampaignRegistry.sol";
 import {StrategyRegistry} from "../src/manager/StrategyRegistry.sol";
 import {PayoutRouter} from "../src/payout/PayoutRouter.sol";
 import {CampaignVaultFactory} from "../src/vault/CampaignVaultFactory.sol";
+import {VaultDeploymentLib} from "../src/vault/VaultDeploymentLib.sol";
+import {ManagerDeploymentLib} from "../src/vault/ManagerDeploymentLib.sol";
 import {StrategyManager} from "../src/manager/StrategyManager.sol";
 import {CampaignVault} from "../src/vault/CampaignVault.sol";
 import {GiveVault4626} from "../src/vault/GiveVault4626.sol";
@@ -88,11 +90,18 @@ contract DeployScroll is Script {
         );
         out.payoutRouter = address(payoutRouter);
 
+        // Deploy helper contracts first
+        VaultDeploymentLib vaultDeployer = new VaultDeploymentLib();
+        ManagerDeploymentLib managerDeployer = new ManagerDeploymentLib();
+
+        // Deploy factory with helper contract references
         CampaignVaultFactory vaultFactory = new CampaignVaultFactory(
             address(roleManager),
             address(strategyRegistry),
             address(campaignRegistry),
-            address(payoutRouter)
+            address(payoutRouter),
+            address(vaultDeployer),
+            address(managerDeployer)
         );
         out.vaultFactory = address(vaultFactory);
 

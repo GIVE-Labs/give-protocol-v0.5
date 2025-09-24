@@ -11,6 +11,8 @@ import {RoleManager} from "../src/access/RoleManager.sol";
 import {StrategyRegistry} from "../src/manager/StrategyRegistry.sol";
 import {CampaignRegistry} from "../src/campaign/CampaignRegistry.sol";
 import {CampaignVaultFactory} from "../src/vault/CampaignVaultFactory.sol";
+import {VaultDeploymentLib} from "../src/vault/VaultDeploymentLib.sol";
+import {ManagerDeploymentLib} from "../src/vault/ManagerDeploymentLib.sol";
 import {RegistryTypes} from "../src/manager/RegistryTypes.sol";
 import {PayoutRouter} from "../src/payout/PayoutRouter.sol";
 import {HelperConfig} from "./HelperConfig.s.sol";
@@ -93,8 +95,18 @@ contract Deploy is Script {
         CampaignRegistry campaignRegistry =
             new CampaignRegistry(address(roleManager), protocolTreasury, address(strategyRegistry), minStake);
         PayoutRouter payoutRouter = new PayoutRouter(address(roleManager), address(campaignRegistry), protocolTreasury);
+
+        // Deploy helper contracts first
+        VaultDeploymentLib vaultDeployer = new VaultDeploymentLib();
+        ManagerDeploymentLib managerDeployer = new ManagerDeploymentLib();
+
         CampaignVaultFactory vaultFactory = new CampaignVaultFactory(
-            address(roleManager), address(strategyRegistry), address(campaignRegistry), address(payoutRouter)
+            address(roleManager),
+            address(strategyRegistry),
+            address(campaignRegistry),
+            address(payoutRouter),
+            address(vaultDeployer),
+            address(managerDeployer)
         );
 
         roleManager.grantRole(roleManager.DEFAULT_ADMIN_ROLE(), address(vaultFactory));
