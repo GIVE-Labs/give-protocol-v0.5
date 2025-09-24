@@ -33,9 +33,7 @@ contract MockYieldAdapter is IYieldAdapter, RoleAware {
      * @param asset_ The underlying asset token
      * @param vault_ The vault address
      */
-    constructor(address roleManager_, address asset_, address vault_)
-        RoleAware(roleManager_)
-    {
+    constructor(address roleManager_, address asset_, address vault_) RoleAware(roleManager_) {
         _asset = IERC20(asset_);
         _vault = vault_;
         _yieldRate = 250; // Default 2.5% yield per harvest
@@ -83,7 +81,8 @@ contract MockYieldAdapter is IYieldAdapter, RoleAware {
     function invest(uint256 assets) external override onlyVault {
         require(assets > 0, "MockYieldAdapter: Cannot invest zero assets");
 
-        _asset.safeTransferFrom(_vault, address(this), assets);
+        uint256 balanceBefore = _asset.balanceOf(address(this));
+        if (balanceBefore < assets) revert Errors.InsufficientBalance();
         _totalAssets += assets;
 
         emit Invested(assets);
@@ -148,9 +147,8 @@ contract MockYieldAdapter is IYieldAdapter, RoleAware {
      */
     function emergencyWithdraw() external override returns (uint256 returned) {
         if (
-            msg.sender != _vault &&
-            !roleManager.hasRole(GUARDIAN_ROLE, msg.sender) &&
-            !roleManager.hasRole(VAULT_OPS_ROLE, msg.sender)
+            msg.sender != _vault && !roleManager.hasRole(GUARDIAN_ROLE, msg.sender)
+                && !roleManager.hasRole(VAULT_OPS_ROLE, msg.sender)
         ) {
             revert Errors.UnauthorizedCaller(msg.sender);
         }

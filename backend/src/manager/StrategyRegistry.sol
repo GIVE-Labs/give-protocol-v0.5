@@ -70,15 +70,15 @@ contract StrategyRegistry is RoleAware, Pausable {
     );
 
     /// @notice Emitted when a strategy's risk tier changes.
-    event StrategyRiskTierChanged(uint64 indexed id, RegistryTypes.RiskTier previousTier, RegistryTypes.RiskTier newTier);
+    event StrategyRiskTierChanged(
+        uint64 indexed id, RegistryTypes.RiskTier previousTier, RegistryTypes.RiskTier newTier
+    );
 
     /// @notice Emitted when registry pause state toggles.
     event RegistryPaused(address indexed caller);
     event RegistryUnpaused(address indexed caller);
 
-    constructor(address roleManager_)
-        RoleAware(roleManager_)
-    {
+    constructor(address roleManager_) RoleAware(roleManager_) {
         STRATEGY_ADMIN_ROLE = roleManager.ROLE_STRATEGY_ADMIN();
         GUARDIAN_ROLE = roleManager.ROLE_GUARDIAN();
     }
@@ -94,12 +94,7 @@ contract StrategyRegistry is RoleAware, Pausable {
         RegistryTypes.RiskTier riskTier,
         string calldata metadataURI,
         uint256 maxTvl
-    )
-        external
-        onlyRole(STRATEGY_ADMIN_ROLE)
-        whenNotPaused
-        returns (uint64 id)
-    {
+    ) external onlyRole(STRATEGY_ADMIN_ROLE) whenNotPaused returns (uint64 id) {
         if (asset == address(0) || adapter == address(0)) revert Errors.ZeroAddress();
         if (bytes(metadataURI).length == 0) revert Errors.InvalidMetadataCid();
 
@@ -178,8 +173,10 @@ contract StrategyRegistry is RoleAware, Pausable {
             // Guardians can only move Active → FadingOut/Deprecated, or FadingOut → Deprecated.
             if (!isGuardian) revert Errors.UnauthorizedManager();
             if (
-                !(newStatus == RegistryTypes.StrategyStatus.FadingOut ||
-                newStatus == RegistryTypes.StrategyStatus.Deprecated)
+                !(
+                    newStatus == RegistryTypes.StrategyStatus.FadingOut
+                        || newStatus == RegistryTypes.StrategyStatus.Deprecated
+                )
             ) {
                 revert Errors.OperationNotAllowed();
             }

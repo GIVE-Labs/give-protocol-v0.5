@@ -35,10 +35,7 @@ contract ConfigRegistry {
     }
 
     modifier onlyAdmin() {
-        if (
-            !roleManager.hasRole(DEFAULT_ADMIN_ROLE, msg.sender) &&
-            !roleManager.hasRole(adminRole, msg.sender)
-        ) {
+        if (!roleManager.hasRole(DEFAULT_ADMIN_ROLE, msg.sender) && !roleManager.hasRole(adminRole, msg.sender)) {
             revert Unauthorized();
         }
         _;

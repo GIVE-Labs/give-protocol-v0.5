@@ -71,11 +71,7 @@ contract EpochScheduler is RoleAware, Pausable, ReentrancyGuard {
         emit VaultRegistered(vault);
     }
 
-    function processEpoch(address vault, address asset, uint256 harvestedAmount)
-        external
-        nonReentrant
-        whenNotPaused
-    {
+    function processEpoch(address vault, address asset, uint256 harvestedAmount) external nonReentrant whenNotPaused {
         VaultState storage state = vaultState[vault];
         if (!state.registered) revert Errors.UnauthorizedCaller(vault);
 

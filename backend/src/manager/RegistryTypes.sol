@@ -7,16 +7,39 @@ import {Errors} from "../utils/Errors.sol";
 /// @notice Shared enums and helpers used by campaign and strategy registries.
 library RegistryTypes {
     /// @notice Risk descriptors that campaign curators can map to their strategies.
-    enum RiskTier { Conservative, Moderate, Aggressive, Experimental }
+    enum RiskTier {
+        Conservative,
+        Moderate,
+        Aggressive,
+        Experimental
+    }
 
     /// @notice Lifecycle state for registered strategies.
-    enum StrategyStatus { Inactive, Active, FadingOut, Deprecated }
+    enum StrategyStatus {
+        Inactive,
+        Active,
+        FadingOut,
+        Deprecated
+    }
 
     /// @notice Lifecycle state for registered campaigns.
-    enum CampaignStatus { Draft, Submitted, Active, Paused, Completed, Cancelled, Archived }
+    enum CampaignStatus {
+        Draft,
+        Submitted,
+        Active,
+        Paused,
+        Completed,
+        Cancelled,
+        Archived
+    }
 
     /// @notice Supported lock-in profiles (in days) that vaults can enforce.
-    enum LockProfile { Days30, Days90, Days180, Days360 }
+    enum LockProfile {
+        Days30,
+        Days90,
+        Days180,
+        Days360
+    }
 
     /// @notice Returns the lock duration in seconds for a given profile.
     function lockDuration(LockProfile profile) internal pure returns (uint256) {

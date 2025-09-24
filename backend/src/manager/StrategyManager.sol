@@ -53,9 +53,7 @@ contract StrategyManager is RoleAware, ReentrancyGuard, Pausable {
     event ParametersUpdated(uint256 cashBufferBps, uint256 slippageBps, uint256 maxLossBps);
 
     // === Constructor ===
-    constructor(address _vault, address roleManager_)
-        RoleAware(roleManager_)
-    {
+    constructor(address _vault, address roleManager_) RoleAware(roleManager_) {
         if (_vault == address(0)) {
             revert Errors.ZeroAddress();
         }
@@ -156,8 +154,8 @@ contract StrategyManager is RoleAware, ReentrancyGuard, Pausable {
      * @dev Sets the donation router for the vault
      * @param router The donation router address
      */
-    function setDonationRouter(address router) external onlyRole(STRATEGY_ADMIN_ROLE) {
-        vault.setDonationRouter(router);
+    function setPayoutRouter(address router) external onlyRole(STRATEGY_ADMIN_ROLE) {
+        vault.setPayoutRouter(router);
     }
 
     // === Rebalancing ===

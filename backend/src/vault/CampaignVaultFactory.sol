@@ -81,7 +81,8 @@ contract CampaignVaultFactory is RoleAware {
         uint64 strategyId,
         RegistryTypes.LockProfile lockProfile,
         string calldata name,
-        string calldata symbol
+        string calldata symbol,
+        uint256 minDepositAmount
     ) external returns (Deployment memory deployment) {
         CampaignRegistry.Campaign memory campaign = campaignRegistry.getCampaign(campaignId);
         if (!_isCuratorOrPrivileged(campaign.curator, msg.sender)) revert Errors.UnauthorizedCurator();
@@ -95,13 +96,7 @@ contract CampaignVaultFactory is RoleAware {
         IERC20 asset = IERC20(strategy.asset);
 
         CampaignVault vault = new CampaignVault(
-            asset,
-            name,
-            symbol,
-            address(roleManager),
-            campaignId,
-            strategyId,
-            lockProfile
+            asset, name, symbol, address(roleManager), campaignId, strategyId, lockProfile, minDepositAmount
         );
 
         StrategyManager manager = new StrategyManager(address(vault), address(roleManager));
@@ -111,7 +106,7 @@ contract CampaignVaultFactory is RoleAware {
 
         // Wire registry and router context.
         manager.setStrategyRegistry(address(strategyRegistry));
-        manager.setDonationRouter(address(payoutRouter));
+        manager.setPayoutRouter(address(payoutRouter));
         payoutRouter.registerVault(address(vault), campaignId, strategyId);
         payoutRouter.setAuthorizedCaller(address(vault), true);
 
@@ -135,14 +130,7 @@ contract CampaignVaultFactory is RoleAware {
         _deploymentIndexByVault[address(vault)] = deploymentId + 1;
 
         emit CampaignVaultDeployed(
-            deploymentId,
-            campaignId,
-            strategyId,
-            address(vault),
-            address(manager),
-            lockProfile,
-            name,
-            symbol
+            deploymentId, campaignId, strategyId, address(vault), address(manager), lockProfile, name, symbol
         );
     }
 

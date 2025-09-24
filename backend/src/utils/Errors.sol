@@ -36,31 +36,10 @@ library Errors {
     error InvalidAsset();
     error AdapterNotInitialized();
 
-    // === NGO Registry Errors ===
-    error NGONotApproved();
-    error NGOAlreadyApproved();
-    error NGONotRegistered();
-    error NGOAlreadyRegistered();
-    error InvalidNGOAddress();
-    error NGORemovalFailed();
-    error UnauthorizedNGOManager();
-    error InvalidMetadataCid();
-    error InvalidKycHash();
-    error InvalidAttestor();
+    // === Legacy Timelock Errors (Subject to removal after migration) ===
     error TimelockNotReady();
     error NoTimelockPending();
     error TimelockAlreadySet();
-
-    // === Donation Router Errors ===
-    error InvalidDonationAmount();
-    error DonationFailed();
-    error NoNGOConfigured();
-    error InvalidFeeRecipient();
-    error FeeTooHigh();
-    error InvalidFeeBps();
-    error NoFundsToDistribute();
-    error InvalidNGO();
-    error DonationRouterPaused();
 
     // === Strategy Manager Errors ===
     error InvalidSlippageBps();
@@ -71,6 +50,7 @@ library Errors {
     error InvalidStrategy();
 
     // === Registry Errors ===
+    error InvalidMetadataCid();
     error StrategyAlreadyExists();
     error StrategyNotFound();
     error CampaignNotFound();

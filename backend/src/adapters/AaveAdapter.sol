@@ -78,9 +78,7 @@ contract AaveAdapter is IYieldAdapter, RoleAware, ReentrancyGuard, Pausable {
     event YieldAccrued(uint256 amount, uint256 newBalance);
 
     // === Constructor ===
-    constructor(address roleManager_, address _asset, address _vault, address _aavePool)
-        RoleAware(roleManager_)
-    {
+    constructor(address roleManager_, address _asset, address _vault, address _aavePool) RoleAware(roleManager_) {
         if (_asset == address(0) || _vault == address(0) || _aavePool == address(0)) {
             revert Errors.ZeroAddress();
         }
@@ -226,9 +224,8 @@ contract AaveAdapter is IYieldAdapter, RoleAware, ReentrancyGuard, Pausable {
      */
     function emergencyWithdraw() external override nonReentrant returns (uint256 returned) {
         if (
-            msg.sender != vault &&
-            !roleManager.hasRole(GUARDIAN_ROLE, msg.sender) &&
-            !roleManager.hasRole(VAULT_OPS_ROLE, msg.sender)
+            msg.sender != vault && !roleManager.hasRole(GUARDIAN_ROLE, msg.sender)
+                && !roleManager.hasRole(VAULT_OPS_ROLE, msg.sender)
         ) {
             revert Errors.UnauthorizedCaller(msg.sender);
         }

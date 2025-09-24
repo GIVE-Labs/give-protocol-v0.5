@@ -150,7 +150,9 @@ contract CampaignRegistry is RoleAware, Pausable {
         _maybeRefundStake(campaign);
 
         emit CampaignApproved(id, msg.sender);
-        emit CampaignStatusChanged(id, RegistryTypes.CampaignStatus.Submitted, RegistryTypes.CampaignStatus.Active, msg.sender);
+        emit CampaignStatusChanged(
+            id, RegistryTypes.CampaignStatus.Submitted, RegistryTypes.CampaignStatus.Active, msg.sender
+        );
     }
 
     /// @notice Rejects a campaign submission and optionally forwards the stake to treasury.
@@ -173,7 +175,9 @@ contract CampaignRegistry is RoleAware, Pausable {
         }
 
         emit CampaignRejected(id, msg.sender, slashStake);
-        emit CampaignStatusChanged(id, RegistryTypes.CampaignStatus.Submitted, RegistryTypes.CampaignStatus.Cancelled, msg.sender);
+        emit CampaignStatusChanged(
+            id, RegistryTypes.CampaignStatus.Submitted, RegistryTypes.CampaignStatus.Cancelled, msg.sender
+        );
     }
 
     /// @notice Allows campaign admins or curators to pause a live campaign.
@@ -181,9 +185,8 @@ contract CampaignRegistry is RoleAware, Pausable {
         Campaign storage campaign = _campaigns[id];
         if (campaign.id == 0) revert Errors.CampaignNotFound();
         if (
-            msg.sender != campaign.curator &&
-            !roleManager.hasRole(CAMPAIGN_ADMIN_ROLE, msg.sender) &&
-            !roleManager.hasRole(GUARDIAN_ROLE, msg.sender)
+            msg.sender != campaign.curator && !roleManager.hasRole(CAMPAIGN_ADMIN_ROLE, msg.sender)
+                && !roleManager.hasRole(GUARDIAN_ROLE, msg.sender)
         ) {
             revert Errors.UnauthorizedCurator();
         }
@@ -216,9 +219,9 @@ contract CampaignRegistry is RoleAware, Pausable {
         if (campaign.id == 0) revert Errors.CampaignNotFound();
         if (!roleManager.hasRole(CAMPAIGN_ADMIN_ROLE, msg.sender)) revert Errors.UnauthorizedManager();
         if (
-            finalStatus != RegistryTypes.CampaignStatus.Completed &&
-            finalStatus != RegistryTypes.CampaignStatus.Archived &&
-            finalStatus != RegistryTypes.CampaignStatus.Cancelled
+            finalStatus != RegistryTypes.CampaignStatus.Completed
+                && finalStatus != RegistryTypes.CampaignStatus.Archived
+                && finalStatus != RegistryTypes.CampaignStatus.Cancelled
         ) {
             revert Errors.StatusTransitionInvalid();
         }
@@ -287,7 +290,10 @@ contract CampaignRegistry is RoleAware, Pausable {
         Campaign storage campaign = _campaigns[id];
         if (campaign.id == 0) revert Errors.CampaignNotFound();
         if (!_isCuratorOrAdmin(campaign.curator, msg.sender)) revert Errors.UnauthorizedCurator();
-        if (campaign.status != RegistryTypes.CampaignStatus.Active && campaign.status != RegistryTypes.CampaignStatus.Submitted) {
+        if (
+            campaign.status != RegistryTypes.CampaignStatus.Active
+                && campaign.status != RegistryTypes.CampaignStatus.Submitted
+        ) {
             revert Errors.CampaignNotActive();
         }
 
