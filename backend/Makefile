@@ -55,8 +55,6 @@ help:
 	@echo "  $(GREEN)deploy$(NC)           - Deploy to specified network (NETWORK=...)"
 	@echo ""
 	@echo "$(YELLOW)Management commands:$(NC)"
-	@echo "  $(GREEN)register-ngo$(NC)     - Register test NGO (local only)"
-	@echo "  $(GREEN)update-metadata$(NC)  - Update NGO metadata"
 	@echo "  $(GREEN)verify$(NC)           - Verify contracts on Etherscan"
 	@echo ""
 	@echo "$(YELLOW)Environment variables:$(NC)"
@@ -139,29 +137,6 @@ deploy-scroll:
 		exit 1; \
 	fi
 	@$(MAKE) deploy NETWORK=scroll-sepolia RPC_URL=https://sepolia-rpc.scroll.io
-
-# Register test NGO (local only)
-register-ngo:
-	@echo "$(YELLOW)Registering test NGO...$(NC)"
-	@forge script script/RegisterTestNGO.s.sol:RegisterTestNGO --rpc-url $(RPC_URL) --private-key $(PRIVATE_KEY) --broadcast
-	@echo "$(GREEN)Test NGO registered!$(NC)"
-
-# Register NGO on Sepolia
-register-ngo-sepolia:
-	@echo "$(YELLOW)Registering NGO on Sepolia...$(NC)"
-	@source .env; \
-	if [ -z "$$ETHERSCAN_API_KEY" ]; then \
-		echo "$(RED)Error: ETHERSCAN_API_KEY is required for Sepolia registration$(NC)"; \
-		exit 1; \
-	fi; \
-	forge script script/RegisterSepoliaNGO.s.sol:RegisterSepoliaNGO --rpc-url "$$SEPOLIA_RPC" --account default --broadcast
-	@echo "$(GREEN)NGO registered on Sepolia!$(NC)"
-
-# Update NGO metadata
-update-metadata:
-	@echo "$(YELLOW)Updating NGO metadata...$(NC)"
-	@forge script script/UpdateNGOMetadata.s.sol:UpdateNGOMetadata --rpc-url $(RPC_URL) --private-key $(PRIVATE_KEY) --broadcast
-	@echo "$(GREEN)Metadata updated!$(NC)"
 
 # Verify contracts
 verify:

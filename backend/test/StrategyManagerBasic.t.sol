@@ -5,26 +5,54 @@ import "forge-std/Test.sol";
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "../src/vault/GiveVault4626.sol";
 import "../src/manager/StrategyManager.sol";
-import "../src/adapters/IYieldAdapter.sol";
+import "../src/interfaces/IYieldAdapter.sol";
+import "../src/access/RoleManager.sol";
+import "../src/manager/StrategyRegistry.sol";
+import "../src/manager/RegistryTypes.sol";
+import "../src/campaign/CampaignRegistry.sol";
+import "../src/payout/PayoutRouter.sol";
 
 contract StrategyManagerBasicTest is Test {
     GiveVault4626 public vault;
     StrategyManager public manager;
     MockERC20 public usdc;
     MockAdapter public adapter;
+    RoleManager public roleManager;
+    StrategyRegistry public strategyRegistry;
+    uint64 public registryStrategyId;
 
     address public admin = address(0xA11CE);
 
     function setUp() public {
         usdc = new MockERC20("Test USDC", "TUSDC", 6);
-        vault = new GiveVault4626(IERC20(address(usdc)), "GIVE USDC", "gvUSDC", admin);
-        manager = new StrategyManager(address(vault), admin);
-        adapter = new MockAdapter(IERC20(address(usdc)), address(vault));
+        roleManager = new RoleManager(address(this));
+        roleManager.grantRole(roleManager.ROLE_VAULT_OPS(), admin);
+        roleManager.grantRole(roleManager.ROLE_GUARDIAN(), admin);
+        roleManager.grantRole(roleManager.ROLE_STRATEGY_ADMIN(), admin);
+        roleManager.grantRole(roleManager.ROLE_TREASURY(), admin);
+        roleManager.grantRole(roleManager.ROLE_CAMPAIGN_ADMIN(), admin);
 
-        // Grant the manager permission to call vault setters invoked by manager
-        vm.startPrank(admin);
-        vault.grantRole(vault.VAULT_MANAGER_ROLE(), address(manager));
-        vm.stopPrank();
+        vault = new GiveVault4626(IERC20(address(usdc)), "GIVE USDC", "gvUSDC", address(roleManager));
+        manager = new StrategyManager(address(vault), address(roleManager));
+        adapter = new MockAdapter(IERC20(address(usdc)), address(vault));
+        strategyRegistry = new StrategyRegistry(address(roleManager));
+
+        roleManager.grantRole(roleManager.ROLE_VAULT_OPS(), address(manager));
+
+        vm.prank(admin);
+        registryStrategyId = strategyRegistry.createStrategy(
+            address(usdc), address(adapter), RegistryTypes.RiskTier.Conservative, "ipfs://strategy", 1_000_000 ether
+        );
+    }
+
+    function testActivateStrategyFromRegistry() public {
+        vm.prank(admin);
+        manager.setStrategyRegistry(address(strategyRegistry));
+
+        vm.prank(admin);
+        manager.activateStrategyFromRegistry(registryStrategyId);
+
+        assertEq(address(vault.activeAdapter()), address(adapter));
     }
 
     function testApproveAndActivateAdapter() public {
@@ -43,11 +71,13 @@ contract StrategyManagerBasicTest is Test {
         assertEq(maxLoss, 100);
     }
 
-    function testSetDonationRouter() public {
-        DonationRouter router = new DonationRouter(admin, address(new NGORegistry(admin)), address(0xFEE5), admin, 100);
+    function testSetPayoutRouter() public {
+        CampaignRegistry campaignRegistry =
+            new CampaignRegistry(address(roleManager), admin, address(strategyRegistry), 0);
+        PayoutRouter router = new PayoutRouter(address(roleManager), address(campaignRegistry), admin);
         vm.prank(admin);
-        manager.setDonationRouter(address(router));
-        assertEq(address(vault.donationRouter()), address(router));
+        manager.setPayoutRouter(address(router));
+        assertEq(address(vault.payoutRouter()), address(router));
     }
 }
 

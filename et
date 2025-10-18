@@ -1,0 +1,851 @@
+[33mcommit 8022ae7e3816babc08359e8b5ab2338d28111eb9[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mjoseph[m[33m)[m
+Author: joseph <yikwai1998@gmail.com>
+Date:   Mon Sep 22 12:30:15 2025 +0800
+
+    docs: update guidance handbook
+
+[33mcommit 1e012fec882194ac9337487cb0aa2e6e758cf580[m
+Author: joseph <yikwai1998@gmail.com>
+Date:   Mon Sep 22 12:29:13 2025 +0800
+
+    docs: add AGENTS contributor guide
+
+[33mcommit 1db8233b7a94eecd3d9d34409fe028655e96f10c[m
+Author: joseph <yikwai1998@gmail.com>
+Date:   Fri Sep 19 11:06:41 2025 +0800
+
+    chore: updated GUIDANCE notes
+
+[33mcommit 90a569006263b044216dc8288581787964791978[m[33m ([m[1;32mmain[m[33m)[m
+Author: Eddy <155239294+Eddy3129@users.noreply.github.com>
+Date:   Thu Sep 18 11:45:23 2025 +0800
+
+    corrected .env.example format
+
+[33mcommit 708ec5d234b28a4f1bdcd6eb88553b2b48f53b4f[m
+Author: Eddy <155239294+Eddy3129@users.noreply.github.com>
+Date:   Thu Sep 18 11:41:35 2025 +0800
+
+    fix hyperlink
+
+[33mcommit 6552e4f098b524c0282732fe8836686cae9bc02c[m
+Author: Eddy <155239294+Eddy3129@users.noreply.github.com>
+Date:   Thu Sep 18 11:20:09 2025 +0800
+
+    sepolia deployment
+
+[33mcommit d339abf580580b8c128ca4b60da9490a3049f092[m
+Author: Eddy <155239294+Eddy3129@users.noreply.github.com>
+Date:   Thu Sep 18 10:17:24 2025 +0800
+
+    fix deployment errors
+
+[33mcommit 881af617a39be1705032c64726bdeb6e7912f67d[m
+Author: Eddy <155239294+Eddy3129@users.noreply.github.com>
+Date:   Wed Sep 17 18:23:22 2025 +0800
+
+    local deploy ngo
+
+[33mcommit a20e250a617ce36ab6128ee41238bb2f205f27e3[m
+Author: Eddy <155239294+Eddy3129@users.noreply.github.com>
+Date:   Wed Sep 17 17:11:04 2025 +0800
+
+    added ngo add to form
+
+[33mcommit 7f8d37ff60a4a453d57fb675880e711b4671f56c[m
+Author: Eddy <155239294+Eddy3129@users.noreply.github.com>
+Date:   Wed Sep 17 16:23:36 2025 +0800
+
+    removed unused files
+
+[33mcommit c18e4884d970eb10c5dbcf455e2a7bc50125303c[m
+Author: joseph <yikwai1998@gmail.com>
+Date:   Wed Sep 17 16:21:47 2025 +0800
+
+    fix: fixed error type unassignable to ReactNode fixed
+
+[33mcommit efe1e1ac391931839a65e407ffdb9fee03266d86[m
+Author: Eddy <155239294+Eddy3129@users.noreply.github.com>
+Date:   Wed Sep 17 15:20:37 2025 +0800
+
+    error in campaignstaking line 927
+
+[33mcommit 4e0f3d194256a52bcb8961371ffd1a0a5a52a761[m
+Author: Eddy <155239294+Eddy3129@users.noreply.github.com>
+Date:   Wed Sep 17 12:35:09 2025 +0800
+
+    updated staking flow
+
+[33mcommit c52327c788c48008215b4b3600b868fd6d3dcfe6[m
+Author: Eddy <155239294+Eddy3129@users.noreply.github.com>
+Date:   Mon Sep 15 18:07:28 2025 +0800
+
+    updated instructions
+
+[33mcommit b1cc87d27a24050c4cde1e52ad59eaed0dbbf55e[m
+Author: Eddy <155239294+Eddy3129@users.noreply.github.com>
+Date:   Mon Sep 15 17:56:08 2025 +0800
+
+    fetches ipfs data correctly
+
+[33mcommit 14c455c512146cec3f181780a8a531ca197fc9ff[m
+Author: Eddy <155239294+Eddy3129@users.noreply.github.com>
+Date:   Mon Sep 15 17:23:44 2025 +0800
+
+    updated pinata metadata fetching
+
+[33mcommit 247638ef55b5f3b0cf9bde7606a94c59c6c8f345[m
+Author: Eddy <155239294+Eddy3129@users.noreply.github.com>
+Date:   Mon Sep 15 15:44:27 2025 +0800
+
+    refactor(abis): replace TS ABIs with JSON files and update imports
+    feat(ipfs): add Pinata IPFS service for NGO metadata storage
+
+[33mcommit eab39a8832610b807dfd4e667952a5ff166f3d3a[m
+Author: Eddy <155239294+Eddy3129@users.noreply.github.com>
+Date:   Mon Sep 15 13:22:56 2025 +0800
+
+    integrated anvil and mock yield to frontend
+
+[33mcommit fc925a0ef021df27a01464832039ddfd04a7230e[m
+Author: Eddy <155239294+Eddy3129@users.noreply.github.com>
+Date:   Mon Sep 15 13:21:17 2025 +0800
+
+    integrated anvil with mock yield
+
+[33mcommit c1fd29aa41007bdc7c088eeae7a49ed5a4589eba[m
+Author: Eddy <155239294+Eddy3129@users.noreply.github.com>
+Date:   Sun Sep 14 23:34:58 2025 +0800
+
+    fixed abi errors
+
+[33mcommit 6be1dc274223fb369b1a251b84a8b10655200cf9[m
+Author: Eddy <155239294+Eddy3129@users.noreply.github.com>
+Date:   Sun Sep 14 23:14:06 2025 +0800
+
+    new weth adapter
+
+[33mcommit 3c168cafca04c1182a5eacf51260a30b3e6269ca[m
+Author: Eddy <155239294+Eddy3129@users.noreply.github.com>
+Date:   Sun Sep 14 17:17:40 2025 +0800
+
+    refine ui
+
+[33mcommit 0164ddf7120f44734748d7df697eda71284d0f28[m
+Author: Eddy <155239294+Eddy3129@users.noreply.github.com>
+Date:   Sun Sep 14 16:23:23 2025 +0800
+
+    standadized design
+
+[33mcommit e3d31c728dc6a88953b477dfe1c1a7c45ba25b12[m
+Author: Eddy <155239294+Eddy3129@users.noreply.github.com>
+Date:   Sun Sep 14 15:22:05 2025 +0800
+
+    refined campaign ui
+
+[33mcommit 8964215e7c22dc3e06f8c37346e9a4a969edee69[m
+Author: Eddy <155239294+Eddy3129@users.noreply.github.com>
+Date:   Sat Sep 13 22:58:32 2025 +0800
+
+    feat(campaign): add campaign staking page and update NGO listing
+
+[33mcommit 65cc04308b17d2307c9ecdc71391798a222cdd72[m
+Author: Eddy <155239294+Eddy3129@users.noreply.github.com>
+Date:   Sat Sep 13 22:22:14 2025 +0800
+
+    added featured ngo
+
+[33mcommit 274f943771315bb4bb7acaab669c4438f29579f4[m
+Author: Eddy <155239294+Eddy3129@users.noreply.github.com>
+Date:   Sat Sep 13 21:33:53 2025 +0800
+
+    refined landing page
+
+[33mcommit 0ab3b074a7d362f08e729bbba30c21f167416355[m
+Author: Eddy <155239294+Eddy3129@users.noreply.github.com>
+Date:   Sat Sep 13 17:13:10 2025 +0800
+
+    feat:  update frontend config and ABIs for Sepolia deployment
+
+[33mcommit 2dceb626b0cb577ce33c095dc0a2a4ece285b46e[m
+Author: Eddy <155239294+Eddy3129@users.noreply.github.com>
+Date:   Sat Sep 13 13:49:55 2025 +0800
+
+    feat: implement core vault system with yield generation and donation distribution
+
+[33mcommit 3208661b84cfa4b94e918b6d3aa19d4d4e94b349[m
+Author: Eddy <155239294+Eddy3129@users.noreply.github.com>
+Date:   Sat Sep 13 12:25:20 2025 +0800
+
+    Initial commit
+
+[33mcommit dc413e9cb6e09902d8f0fbd1fefe5e12b3f43b84[m
+Author: Alvin Yap <leaf.alvin@gmail.com>
+Date:   Thu Aug 7 22:33:04 2025 +0800
+
+    fix: complete NGO image mapping and hook improvements
+    
+    - Fix syntax errors in NGORegistry hook
+    - Add useCallback for loadNGOs function to fix reference errors
+    - Update placeholder images to high-quality unsplash URLs
+    - Ensure all NGO data is consistent with deployed contract addresses
+    - Fix frontend breaking issues with proper React hooks
+
+[33mcommit d86ac5609a49d36886b90fb937f0fd82f6d4187c[m
+Author: Alvin Yap <leaf.alvin@gmail.com>
+Date:   Thu Aug 7 21:59:35 2025 +0800
+
+    fix: replace hardcoded mock NGOs with deployed contract addresses
+    
+    - Replace mock NGO data with actual deployed contract addresses from deployment script
+    - Use real NGO addresses: 0x1234567890123456789012345678901234567890, 0x2345678901234567890123456789012345678901, 0x3456789012345678901234567890123456789012
+    - Fix frontend stability issues caused by placeholder NGO addresses
+    - Ensure staking works with verified NGO contract addresses
+
+[33mcommit 070bddf1bdf274888b78e87b417eaf53c27f710a[m
+Author: Alvin Yap <leaf.alvin@gmail.com>
+Date:   Thu Aug 7 21:25:09 2025 +0800
+
+    fix: resolve staking failures and enhance error handling
+    
+    - Fix allowance check logic to properly trigger before staking
+    - Add comprehensive error handling for failed transactions
+    - Fix ABI type mismatch (uint16 -> uint256) for yieldShareBP parameter
+    - Fix lock period calculation (6*30 days -> proper 180-730 days range)
+    - Enhance StakingProgressModal with proper error states and XCircle icons
+    - Add debug logging for staking parameters to aid troubleshooting
+    
+    Closes issues with transaction 0x3c7cfdb45e370e55ce7634a7f5c3d63e775103a4755fcbc91d832863db516ac9
+
+[33mcommit 42f9a62dc6e84ce54f588150c6d718916c8bf043[m
+Author: Alvin Yap <leaf.alvin@gmail.com>
+Date:   Thu Aug 7 21:07:02 2025 +0800
+
+    Remove references directory from repository
+    
+    - references/ contains embedded git repository (GiveHope)
+    - Directory removed to prevent nested repository issues
+    - Maintained in local filesystem for reference only
+    - Added to .gitignore to prevent future tracking issues
+
+[33mcommit f6343b0c1362fbe898c1809f13e64e75e41ab7b0[m
+Author: Alvin Yap <leaf.alvin@gmail.com>
+Date:   Thu Aug 7 21:03:54 2025 +0800
+
+    Remove references directory from git tracking
+    
+    - references/ contains an embedded git repository (GiveHope)
+    - Removing to prevent nested git repository issues
+    - Directory remains on filesystem for local reference
+    - Added to .gitignore to prevent future tracking
+
+[33mcommit ecc7ca7a9dc443dfe4b4715a919ba64e9c61398d[m
+Author: Alvin Yap <leaf.alvin@gmail.com>
+Date:   Thu Aug 7 21:00:52 2025 +0800
+
+    chore: update gitignore
+
+[33mcommit 284b09f73f6e242b02834674eec54d5f532358bf[m
+Author: Alvin Yap <leaf.alvin@gmail.com>
+Date:   Thu Aug 7 21:00:27 2025 +0800
+
+    chore: update gitignore
+
+[33mcommit 0cde95723e80453d26c360484817a1443ac5afaf[m
+Author: Alvin Yap <leaf.alvin@gmail.com>
+Date:   Thu Aug 7 20:47:22 2025 +0800
+
+    Add frontend .gitignore for NextJS project
+    
+    - Configure frontend-specific gitignore for NextJS and Vite
+    - Exclude build artifacts, dependencies, and environment files
+    - Ensure proper frontend development setup
+
+[33mcommit 69c544627e243d7c2981ba176e1bb7bc2d69fd55[m
+Author: Alvin Yap <leaf.alvin@gmail.com>
+Date:   Thu Aug 7 20:47:07 2025 +0800
+
+    Add AGENTS.md project overview file
+    
+    - Document agent collaboration setup and project structure
+    - Include comprehensive project overview for new contributors
+    - Add development timeline and key milestones
+
+[33mcommit bb53acc2f94dbf9df0204eefb5f7438dbad8c4f4[m
+Author: Alvin Yap <leaf.alvin@gmail.com>
+Date:   Thu Aug 7 20:46:53 2025 +0800
+
+    Add project documentation directory
+    
+    - Include development documentation and project specifications
+    - Add backend development guides and contract documentation
+    - Provide comprehensive project documentation for team collaboration
+
+[33mcommit 368622bf689f2943ab4d689316d79d856c48c323[m
+Author: Alvin Yap <leaf.alvin@gmail.com>
+Date:   Thu Aug 7 20:46:38 2025 +0800
+
+    Add CLAUDE.md project instructions file
+    
+    - Include comprehensive project overview and technology stack details
+    - Document multi-LLM collaboration rules and change logging protocol
+    - Provide development setup instructions and common commands
+    - Specify core features to implement and getting started checklist
+
+[33mcommit 29a1e55da71d686ca367402fb661134c6dfd10a0[m
+Author: Alvin Yap <leaf.alvin@gmail.com>
+Date:   Thu Aug 7 20:45:38 2025 +0800
+
+    Add LLM collaboration files and changelog
+    
+    - Include LLM-CHANGELOG.md with comprehensive change tracking
+    - Add LLM-INSTRUCTIONS.md for multi-LLM collaboration rules
+    - Document all project phases and improvements
+
+[33mcommit 798fbe634ba4126dde43d046e33d7462d7ee8b89[m
+Author: Alvin Yap <leaf.alvin@gmail.com>
+Date:   Thu Aug 7 20:45:05 2025 +0800
+
+    Update .gitignore to include LLM collaboration files in git tracking
+    
+    - Commented out exclusions for llm/, CLAUDE.md, docs/, and references/
+    - Allows LLM collaboration files to be tracked in git for team sharing
+
+[33mcommit 209783e047cf1d19a60c889203ebb98e06c9280d[m
+Author: Alvin Yap <leaf.alvin@gmail.com>
+Date:   Thu Aug 7 20:42:13 2025 +0800
+
+    refactor: improve StakingForm allowance and flow handling
+    
+    - Enhance allowance checking with proper loading states
+    - Add comprehensive error handling for approval/staking
+    - Fix needsApproval calculation logic
+    - Add refetching for balance and allowance after transactions
+    - Improve button states and loading indicators
+    - Add debugging output for development
+    - Streamline stake flow into single button
+
+[33mcommit a540ac7ce4b00b406e0618e71ef97ac9075ada9b[m
+Author: Alvin Yap <leaf.alvin@gmail.com>
+Date:   Thu Aug 7 20:41:56 2025 +0800
+
+    refactor: complete NGODetails overhaul with allowance fixes
+    
+    - Implement comprehensive allowance checking system
+    - Add token address memoization for reliable queries
+    - Fix undefined allowance handling in needsApproval calc
+    - Add proper BigInt comparison for allowance vs amount
+    - Implement progress modal integration with error states
+    - Add refetch logic for allowance on token changes
+    - Fix undefined variable references in transaction hooks
+
+[33mcommit 4931124118b596252fad1398526712bd07ff102d[m
+Author: Alvin Yap <leaf.alvin@gmail.com>
+Date:   Thu Aug 7 20:40:49 2025 +0800
+
+    fix: enhance StakingProgressModal with error handling
+    
+    - Add XCircle icon for failed transaction states
+    - Add isError and errorMessage props for proper error display
+    - Fix button states for error vs success scenarios
+    - Improve error messaging in modal footer
+    - Add proper close button styling for error states
+    
+    🤖 Generated with [Claude Code](https://claude.ai/code)
+    
+    Co-Authored-By: Claude <noreply@anthropic.com>
+
+[33mcommit d354494b8cb160b64b8d8e1bd2a4f1267f172900[m
+Merge: b0b885c 0dea06e
+Author: Alvin Yap <leaf.alvin@gmail.com>
+Date:   Thu Aug 7 17:15:40 2025 +0800
+
+    Merge branch 'main' of github.com:Hackathon-2025-08-MorphImpact/Hackathon-2025-08-MorphImpact
+    
+    merger
+
+[33mcommit b0b885c4aec10302998f0f0840fc854536f67c8c[m
+Author: Alvin Yap <leaf.alvin@gmail.com>
+Date:   Thu Aug 7 17:13:32 2025 +0800
+
+    fix: correct .gitignore to properly exclude artifacts
+
+[33mcommit 81af28b35b629d61426485d3e987c0b2e87ee9e6[m
+Author: Alvin Yap <leaf.alvin@gmail.com>
+Date:   Thu Aug 7 17:12:07 2025 +0800
+
+    feat: add staking progress modal for user feedback
+
+[33mcommit 208fd26b3d495642540fd90580881f92a5bb856e[m
+Author: Alvin Yap <leaf.alvin@gmail.com>
+Date:   Thu Aug 7 17:12:01 2025 +0800
+
+    feat: implement staking form UI and logic
+
+[33mcommit 5c56f1a5b88bf5fdb3d8538df836799c1a0a116c[m
+Author: Alvin Yap <leaf.alvin@gmail.com>
+Date:   Thu Aug 7 17:11:53 2025 +0800
+
+    chore: update .gitignore to exclude llm, docs, and other artifacts
+
+[33mcommit 0dea06e670bfa382d218d6b5d7fe3df3ead8908a[m
+Author: Alvin Yap <leaf.alvin@gmail.com>
+Date:   Wed Aug 6 19:01:30 2025 +0800
+
+    chore: finalize wagmi integration and configuration
+    
+    Update Header component for wagmi compatibility
+    Configure main.tsx with proper wagmi provider setup
+    Update vite.config.ts for wagmi build configuration
+    Update .gitignore for new build artifacts
+
+[33mcommit ec91fd7b36b168ba1604201dbb0d58e0f8109bcf[m
+Author: Alvin Yap <leaf.alvin@gmail.com>
+Date:   Wed Aug 6 19:00:50 2025 +0800
+
+    chore: migrate from thirdweb to wagmi stack
+    
+    Remove @thirdweb-dev/react and @thirdweb-dev/sdk dependencies
+    Add @rainbow-me/rainbowkit and related wagmi ecosystem packages
+    Update lockfile to reflect dependency migration
+
+[33mcommit 9a83ab87167afac78e1bc38cad81c7ee1ec82d05[m
+Author: Alvin Yap <leaf.alvin@gmail.com>
+Date:   Wed Aug 6 19:00:18 2025 +0800
+
+    refactor: remove deprecated useNGORegistry hook
+    
+    Remove old thirdweb-based NGO registry hook in favor of
+    wagmi-compatible useNGORegistryWagmi implementation
+
+[33mcommit 444c00beee87c422086bf9f02f9dc9dcd7285c97[m
+Author: Alvin Yap <leaf.alvin@gmail.com>
+Date:   Wed Aug 6 18:59:20 2025 +0800
+
+    fix: update WalletConnect project ID for proper wallet integration
+    
+    Replace placeholder with actual WalletConnect project ID to enable
+    proper wallet icon loading and connection functionality
+
+[33mcommit 52d3263bd93c8ee68ea31e691b7ff89af51ac0d5[m
+Author: Alvin Yap <leaf.alvin@gmail.com>
+Date:   Wed Aug 6 18:58:25 2025 +0800
+
+    fix: resolve NGODetails component infinite loading and hoisting issues
+    
+    - Fix JavaScript hoisting issue with contract address constants
+    - Resolve infinite loading loop by removing ngoHook from dependency array
+    - Add comprehensive staking interface with token selection
+    - Add proper error handling and loading states
+    - Update from mock thirdweb implementation to full wagmi integration
+
+[33mcommit 5a80841cc202d6df52388501009e0937287ba5ff[m
+Author: Alvin Yap <leaf.alvin@gmail.com>
+Date:   Wed Aug 6 17:29:19 2025 +0800
+
+    style: enhance NGO card design with full hero photo display
+
+[33mcommit f014e7397de93f43bde992c785e8ffb83dafc517[m
+Author: Alvin Yap <leaf.alvin@gmail.com>
+Date:   Wed Aug 6 17:27:28 2025 +0800
+
+    fix: update NGODetails page to use wagmi instead of thirdweb
+
+[33mcommit be5c432538c07eb6dc54fa88cd43fb9cbcf6286b[m
+Author: Alvin Yap <leaf.alvin@gmail.com>
+Date:   Wed Aug 6 17:27:14 2025 +0800
+
+    feat: update home page to use real contract data for statistics
+
+[33mcommit ee6719408a4b5b03f425e23a0b3f6a9468137abf[m
+Author: Alvin Yap <leaf.alvin@gmail.com>
+Date:   Wed Aug 6 17:26:18 2025 +0800
+
+    feat: update discover page to use real contract data with proper calculations
+
+[33mcommit 54d54aec7da658187bb8a8641d45fbf436bed7cd[m
+Author: Alvin Yap <leaf.alvin@gmail.com>
+Date:   Wed Aug 6 17:23:52 2025 +0800
+
+    feat: add wagmi-compatible NGO registry hook for real contract data
+
+[33mcommit 8ffbdb3c8c9c1b78e36724d84078fdbb29ecbb86[m
+Author: Alvin Yap <leaf.alvin@gmail.com>
+Date:   Wed Aug 6 15:13:24 2025 +0800
+
+    refactor: update portfolio and staking components for contract integration
+    
+    - Updated PortfolioCard to handle new NGO interface structure
+    - Ensured StakeModal compatibility with real contract data
+    - Fixed component props to match updated type definitions
+
+[33mcommit a5a465c5763a90517add0296f6d8d18dc38bd1f1[m
+Author: Alvin Yap <leaf.alvin@gmail.com>
+Date:   Wed Aug 6 15:12:59 2025 +0800
+
+    chore: add Web3 dependencies for smart contract integration
+    
+    - Added @thirdweb-dev/react and @thirdweb-dev/sdk for contract interaction
+    - Updated package.json with required Web3 dependencies
+    - Updated lock file with new dependency versions
+
+[33mcommit c0af8527603ad225989d57dfd827b769296f62c4[m
+Author: Alvin Yap <leaf.alvin@gmail.com>
+Date:   Wed Aug 6 15:12:23 2025 +0800
+
+    fix: resolve TypeScript compilation errors and interface compatibility
+    
+    - Added missing isActive property to mock data for interface compatibility
+    - Fixed StakingForm token selection TypeScript errors
+    - Removed unused imports in App.tsx
+    - Updated type definitions to match contract data structure
+
+[33mcommit d36b468e9d0b840ab7a20c62e21630b75f7cea52[m
+Author: Alvin Yap <leaf.alvin@gmail.com>
+Date:   Wed Aug 6 15:11:43 2025 +0800
+
+    style: update footer text and How It Works section
+    
+    - Changed footer from 'Built on Morph Chain' to 'Powered by Morph Chain'
+    - Updated How It Works to 5-step process with detailed NGO obligations
+    - Added quarterly reporting requirement for NGOs in step 4
+    - Updated step 5 to clarify principal return to donors
+
+[33mcommit 757e25f883943993db37824319ab556659e19228[m
+Author: Alvin Yap <leaf.alvin@gmail.com>
+Date:   Wed Aug 6 15:11:07 2025 +0800
+
+    feat: update NGO pages to use real contract data instead of mock data
+    
+    - Discover page now fetches verified NGOs from contract
+    - NGODetails page fetches individual NGO data from contract
+    - Added loading states and error handling for contract calls
+    - Replaced mockNGOs with real contract data throughout
+
+[33mcommit 03d4109354d10cd4a9d06780067b552cbb9c3d11[m
+Author: Alvin Yap <leaf.alvin@gmail.com>
+Date:   Wed Aug 6 15:10:26 2025 +0800
+
+    feat: add smart contract integration for NGO data fetching
+    
+    - Created useNGORegistry hook for thirdweb SDK integration
+    - Updated NGO interface to match contract data structure
+    - Added contract read functions for verified NGOs
+
+[33mcommit 20407ae5d634045f241a46eb56ffcb36a5d4745a[m
+Author: Alvin Yap <leaf.alvin@gmail.com>
+Date:   Wed Aug 6 13:41:05 2025 +0800
+
+    style: update footer to 'Powered by Morph Chain' from 'Built on'
+
+[33mcommit 6340b2170cfedb686af23688723af1478aa3dcca[m
+Author: Alvin Yap <leaf.alvin@gmail.com>
+Date:   Wed Aug 6 13:39:50 2025 +0800
+
+    feat: update how it works to 5-step process with detailed NGO obligations
+
+[33mcommit 36825a9284e19f4b1875925802e43b3f170108b3[m
+Author: Alvin Yap <leaf.alvin@gmail.com>
+Date:   Wed Aug 6 13:30:41 2025 +0800
+
+    style: redesign hero text with proper line breaks and enhanced typography
+
+[33mcommit 8333acbb133e6320e16ff2742050868f5f43e453[m
+Author: Alvin Yap <leaf.alvin@gmail.com>
+Date:   Wed Aug 6 13:26:11 2025 +0800
+
+    style: enhance 'Fueling Impact' with gradient colors and same font size
+
+[33mcommit cda0717633d112aeae6a931b6ed3082405391a4f[m
+Author: Alvin Yap <leaf.alvin@gmail.com>
+Date:   Wed Aug 6 13:23:04 2025 +0800
+
+    style: enlarge powered by Morph badge with larger rectangle and content
+
+[33mcommit 60e9b99df93756d51f911caaa1ba13054a157548[m
+Author: Alvin Yap <leaf.alvin@gmail.com>
+Date:   Wed Aug 6 13:21:38 2025 +0800
+
+    style: enhance powered by Morph badge with rounded rectangle and larger logo
+
+[33mcommit a08f1826a07e0b08a3ea5acb25a5ed27bc53e43f[m
+Author: Alvin Yap <leaf.alvin@gmail.com>
+Date:   Wed Aug 6 13:20:07 2025 +0800
+
+    style: refine Morph logo positioning to match reference design
+
+[33mcommit d6a53f95ef1ccd0cb892b610aaf863cd9dee44bb[m
+Author: Alvin Yap <leaf.alvin@gmail.com>
+Date:   Wed Aug 6 13:15:34 2025 +0800
+
+    style: update branding with reference design elements
+    
+    - Change hero title to 'Reimagining Donations' with 'Fueling Impact' tagline
+    - Add powered by Morph logo in hero section
+    - Move morph-logo.png to src/assets folder
+    - Update styling to match reference design patterns
+
+[33mcommit e4d7074932d4d4d99d5aa7a84db1921be557dd2c[m
+Author: Alvin Yap <leaf.alvin@gmail.com>
+Date:   Tue Aug 5 21:34:13 2025 +0800
+
+    feat: implement Phase 3 - staking interface with yield contribution selection and portfolio dashboard
+    
+    - Create StakeModal component with yield contribution selector (50%/75%/100%)
+    - Add StakingForm with token selection, approval flow, and lock period selection
+    - Update NGODetails page with integrated staking interface
+    - Create Dashboard with portfolio tracking and impact statistics
+    - Add portfolio components: PortfolioCard and DashboardStats
+    - Fix contract ABI exports and type definitions
+    - Update mock data with additional UI fields
+
+[33mcommit e4b29ab0c837445c1ebcc829b98a2101cf4705d4[m
+Author: Alvin Yap <leaf.alvin@gmail.com>
+Date:   Tue Aug 5 21:09:45 2025 +0800
+
+    chore: clean up old NextJS files and finalize frontend structure
+
+[33mcommit 8d73a34f6acf7dd908233208f098a56ccde6d036[m
+Author: Alvin Yap <leaf.alvin@gmail.com>
+Date:   Tue Aug 5 21:08:39 2025 +0800
+
+    feat: add NGO components and pages with mock data and contract ABIs
+
+[33mcommit 2041c5af6ee617e57182588fa5b431356805681c[m
+Author: Alvin Yap <leaf.alvin@gmail.com>
+Date:   Tue Aug 5 21:07:31 2025 +0800
+
+    feat: add core frontend structure with React Router and Web3 configuration
+
+[33mcommit 9bd92f6ae56a093fb7b9f1e7ce394bb8de3c8997[m
+Author: Alvin Yap <leaf.alvin@gmail.com>
+Date:   Tue Aug 5 21:03:39 2025 +0800
+
+    docs: add comprehensive frontend development plan with 5-phase roadmap
+
+[33mcommit eb043d1f7a674218c51827122e847ff5772bd1dd[m
+Author: Alvin Yap <leaf.alvin@gmail.com>
+Date:   Tue Aug 5 21:02:58 2025 +0800
+
+    config: update frontend configuration files with React + Vite + Tailwind setup
+
+[33mcommit af7c83f688ddf50f3d9b270c5e1ec71f3bba2d9e[m
+Author: Alvin Yap <leaf.alvin@gmail.com>
+Date:   Tue Aug 5 17:05:41 2025 +0800
+
+    chore: update .gitignore for project structure
+    
+    - Add exclusions for build artifacts and dependencies
+    - Include frontend configuration and IDE files
+    - Add backend build and cache directories
+
+[33mcommit b1716fc2389386b5c52be4985d0824f1002b7cb1[m
+Author: Alvin Yap <leaf.alvin@gmail.com>
+Date:   Tue Aug 5 17:04:07 2025 +0800
+
+    docs: add deployment configuration and addresses
+    
+    - Add DEPLOYMENT-ADDRESSES.md with latest contract addresses on Morph Holesky
+    - Update foundry.toml with proper Morph network configuration
+    - Document all deployed contracts and mock tokens
+    - Include registered NGOs and deployment details
+
+[33mcommit 7fdb16fece0f3659262184e30e802732d1c3ce06[m
+Author: Alvin Yap <leaf.alvin@gmail.com>
+Date:   Tue Aug 5 17:03:20 2025 +0800
+
+    feat: update deployment script with complete contract deployment sequence
+    
+    - Add deployment for all core contracts: NGORegistry, MockYieldVault, MorphImpactStaking, YieldDistributor
+    - Include mock token deployment for USDC and WETH
+    - Configure initial NGO registration and yield vault setup
+    - Add comprehensive deployment logging and verification
+
+[33mcommit d7de853996caacc1f3a22fd512a94f9e0455703c[m
+Author: Alvin Yap <leaf.alvin@gmail.com>
+Date:   Tue Aug 5 10:49:57 2025 +0800
+
+    docs: add comprehensive contract interaction guide for frontend
+    
+    - Added complete thirdweb SDK integration guide
+    - Included all contract interaction examples for NGO Registry, Staking, and Yield Distribution
+    - Provided React component structure with practical examples
+    - Added error handling patterns and security best practices
+    - Included complete testing checklist for frontend validation
+    
+    This guide enables the frontend team to build the NextJS interface using thirdweb SDK
+
+[33mcommit 44ee88a48d2e5cde981b8f60dd78b88e224f68cc[m
+Author: Alvin Yap <leaf.alvin@gmail.com>
+Date:   Tue Aug 5 10:12:48 2025 +0800
+
+    chore: update MockYieldVault and tests for consistency
+    
+    - Updated MockYieldVault to properly handle yield simulation
+    - Fixed test expectations for yield calculation timing in multiple deposits test
+    - Ensures consistent behavior across all test scenarios
+
+[33mcommit 2f744e1cb1185315780cd08cf21f1f25b30a4fda[m
+Author: Alvin Yap <leaf.alvin@gmail.com>
+Date:   Tue Aug 5 10:12:24 2025 +0800
+
+    test: fix test assumptions and expectations
+    
+    - Updated test_RevertIf_DistributionTooFrequent() to use unauthorized caller
+    - Fixed vault funding in MorphImpactStaking tests to ensure sufficient liquidity
+    - Corrected test expectations to match actual contract behavior
+    
+    All tests now pass with the corrected yield calculation and withdrawal logic
+
+[33mcommit 471b6bcf3f44ad8f6c2027ea5d7a41700b79bfc5[m
+Author: Alvin Yap <leaf.alvin@gmail.com>
+Date:   Tue Aug 5 10:12:10 2025 +0800
+
+    fix: correct yield calculation and withdrawal logic in MorphImpactStaking
+    
+    - Fixed yield calculation to use individual user yield tracking instead of aggregate vault yield
+    - Updated claimYield() to use yieldVault.claimYield() instead of withdraw()
+    - Updated unstake() to use claimYield() for yield + withdraw() for principal only
+    - Ensures proper vault balance management and prevents insufficient balance errors
+
+[33mcommit ccc8e707680157a5969642ae1a560cb631ea5959[m
+Author: Alvin Yap <leaf.alvin@gmail.com>
+Date:   Tue Aug 5 09:25:13 2025 +0800
+
+    Update Foundry configuration for MorphImpact project
+    
+    - Configure Solidity version 0.8.20 for OpenZeppelin v5 compatibility
+    - Set up remappings for OpenZeppelin contracts
+    - Configure optimizer settings for deployment
+    - Set up test and script directories structure
+    - Ready for production deployment configuration
+
+[33mcommit ed9789eaae3e2f710eadc9ec7043f2882067fe83[m
+Author: Alvin Yap <leaf.alvin@gmail.com>
+Date:   Tue Aug 5 09:24:59 2025 +0800
+
+    Add comprehensive test suites for all smart contracts
+    
+    - NGORegistry tests: 21 tests covering registration, verification, and management
+    - MockYieldVault tests: 19 tests for yield simulation and token operations
+    - MorphImpactStaking tests: 19 tests for staking, unstaking, and yield claiming
+    - YieldDistributor tests: 23 tests for distribution system and integration
+    - Mock tokens and test utilities for comprehensive testing
+    - All core functionality verified through extensive test coverage
+
+[33mcommit 6e26c71bee2c6c6a5ec31cdd548e9b04beef6c8b[m
+Author: Alvin Yap <leaf.alvin@gmail.com>
+Date:   Tue Aug 5 09:24:41 2025 +0800
+
+    Add deployment script with complete contract deployment sequence
+    
+    - Sequential deployment of all contracts
+    - Proper contract initialization with dependencies
+    - Role assignment for verifiers
+    - Console logging for deployment tracking
+    - Ready for mainnet/testnet deployment
+
+[33mcommit db655fbfacc9d0208e1d3c2c1cc6d75a9229d692[m
+Author: Alvin Yap <leaf.alvin@gmail.com>
+Date:   Tue Aug 5 09:24:21 2025 +0800
+
+    Add YieldDistributor.sol - Automated yield distribution system
+    
+    - 7-day automated distribution cycles
+    - NGO yield allocation based on staking activity
+    - Authorized distributor system
+    - Token support management
+    - Distribution round tracking
+    - Integration with staking contracts
+    - Emergency withdrawal capabilities
+
+[33mcommit 75eefe705eb64bc1d0bd1770e43a0a488e28a4be[m
+Author: Alvin Yap <leaf.alvin@gmail.com>
+Date:   Tue Aug 5 09:24:07 2025 +0800
+
+    Add MorphImpactStaking.sol - Main staking contract
+    
+    - User staking functionality with lock periods
+    - Configurable yield contribution rates (50-100%)
+    - Integration with NGORegistry for verification
+    - Yield claiming without unstaking
+    - Support for multiple tokens
+    - Comprehensive stake tracking and management
+    - Emergency withdrawal capabilities
+
+[33mcommit 10c604eeacc50b6b6498545c6743b7a4ca75af20[m
+Author: Alvin Yap <leaf.alvin@gmail.com>
+Date:   Tue Aug 5 09:23:49 2025 +0800
+
+    Add MockYieldVault.sol - Yield simulation contract for testing
+    
+    - Simulates yield generation with configurable APY
+    - Deposit/withdraw functionality with yield calculation
+    - Support for multiple tokens with different APYs
+    - Emergency withdrawal capabilities
+    - Comprehensive test utilities including simulateYield
+    - SafeERC20 integration for secure token handling
+
+[33mcommit a5603330622bc29e3c972d228fdc9a2221a5f70b[m
+Author: Alvin Yap <leaf.alvin@gmail.com>
+Date:   Mon Aug 4 14:45:16 2025 +0800
+
+    forge install: openzeppelin-contracts
+    
+    v5.4.0
+
+[33mcommit 346eeb4cc0fe8384e65458550f180b55daf354c3[m
+Author: Alvin Yap <leaf.alvin@gmail.com>
+Date:   Mon Aug 4 14:45:08 2025 +0800
+
+    Add OpenZeppelin contracts dependency
+
+[33mcommit 8e39c191fd3ccc3bb0ce561e180f0229137301d6[m
+Author: Alvin Yap <leaf.alvin@gmail.com>
+Date:   Mon Aug 4 10:08:36 2025 +0800
+
+    feat: initialize Foundry backend with cleaned structure
+    
+    - Set up Foundry project structure for smart contracts
+    - Remove default Counter files
+    - Configure forge-std submodule
+    - Ready for MorphImpact contract development
+
+[33mcommit 2fdb987d075a915b969a383ca9e624b9d21b5adb[m
+Author: Alvin Yap <leaf.alvin@gmail.com>
+Date:   Mon Aug 4 09:48:28 2025 +0800
+
+    docs: simplify README and update .gitignore
+    
+    - Simplify README.md to be more natural and concise
+    - Add docs/ directory to .gitignore
+    - Maintain MorphImpact branding throughout documentation
+    - Keep essential setup instructions and project overview
+
+[33mcommit 25b5e99e21a5ebc4bac72f0fa6e8422e47427932[m
+Author: Alvin Yap <leaf.alvin@gmail.com>
+Date:   Mon Aug 4 09:32:22 2025 +0800
+
+    chore: update environment configuration
+    
+    - Add thirdweb client ID to .env.local
+    - Update .env.example with documentation and optional variables
+    - Configure environment variables for web3 functionality
+
+[33mcommit c91653bea2fd2cb42735e923f667df6f1f2f3695[m
+Author: Alvin Yap <leaf.alvin@gmail.com>
+Date:   Mon Aug 4 09:24:33 2025 +0800
+
+    feat: initialize thirdweb NextJS frontend with pnpm
+    
+    - Set up NextJS 14.1.0 with TypeScript and TailwindCSS
+    - Integrate thirdweb SDK 5.105.26 for web3 functionality
+    - Configure pnpm package manager exclusively
+    - Add standard NextJS structure with src/app directory
+    - Include development dependencies and tooling
+
+[33mcommit 6489e57eab038103ed103a0c32e7bc9a4b982881[m
+Author: Alvin Yap <leaf.alvin@gmail.com>
+Date:   Mon Aug 4 09:14:21 2025 +0800
+
+    first commit

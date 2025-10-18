@@ -36,31 +36,10 @@ library Errors {
     error InvalidAsset();
     error AdapterNotInitialized();
 
-    // === NGO Registry Errors ===
-    error NGONotApproved();
-    error NGOAlreadyApproved();
-    error NGONotRegistered();
-    error NGOAlreadyRegistered();
-    error InvalidNGOAddress();
-    error NGORemovalFailed();
-    error UnauthorizedNGOManager();
-    error InvalidMetadataCid();
-    error InvalidKycHash();
-    error InvalidAttestor();
+    // === Legacy Timelock Errors (Subject to removal after migration) ===
     error TimelockNotReady();
     error NoTimelockPending();
     error TimelockAlreadySet();
-
-    // === Donation Router Errors ===
-    error InvalidDonationAmount();
-    error DonationFailed();
-    error NoNGOConfigured();
-    error InvalidFeeRecipient();
-    error FeeTooHigh();
-    error InvalidFeeBps();
-    error NoFundsToDistribute();
-    error InvalidNGO();
-    error DonationRouterPaused();
 
     // === Strategy Manager Errors ===
     error InvalidSlippageBps();
@@ -69,6 +48,22 @@ library Errors {
     error UnauthorizedManager();
     error StrategyNotSet();
     error InvalidStrategy();
+
+    // === Registry Errors ===
+    error InvalidMetadataCid();
+    error StrategyAlreadyExists();
+    error StrategyNotFound();
+    error CampaignNotFound();
+    error CampaignNotActive();
+    error StrategyInactive();
+    error UnauthorizedCurator();
+    error StakeTooLow(uint256 provided, uint256 minimumRequired);
+    error StakeLocked();
+    error StatusTransitionInvalid();
+    error LockProfileNotAllowed();
+    error WithdrawalLocked(uint256 unlockTimestamp);
+    error EpochNotReady(uint256 nextEpochTimestamp);
+    error InvalidBeneficiary();
 
     // === Access Control Errors ===
     error InvalidRole();
@@ -91,7 +86,7 @@ library Errors {
     error MathOverflow();
     error MathUnderflow();
     error DivisionByZero();
-    
+
     // === User Preference Errors ===
     error InvalidAllocationPercentage(uint8 percentage);
     error UnauthorizedCaller(address caller);

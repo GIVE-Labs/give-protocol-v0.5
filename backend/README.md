@@ -6,10 +6,11 @@ Smart contracts for the GiveProtocol - a no-loss giving platform built on ERC-46
 
 The GiveProtocol consists of several key components:
 
-- **GiveVault4626**: ERC-4626 compliant vault that accepts deposits and generates yield
-- **AaveAdapter**: Yield strategy adapter that supplies assets to Aave for yield generation
-- **NGORegistry**: Registry for approved NGOs that can receive donations
-- **DonationRouter**: Routes harvested yield to selected NGOs based on user preferences
+- **GiveVault4626 / CampaignVault**: ERC-4626 compliant vaults that accept deposits and generate yield for campaigns
+- **StrategyRegistry**: Catalog of approved yield strategies that campaigns can adopt
+- **CampaignRegistry**: Permissionless registry for campaign submissions, approvals, and strategy attachments
+- **PayoutRouter**: Routes harvested yield to campaigns and supporter beneficiaries according to preferences
+- **CampaignVaultFactory**: Deploys campaign-bound vaults with predefined lock profiles and strategies
 - **HelperConfig**: Network configuration for different deployment environments
 
 ## Prerequisites
@@ -122,8 +123,6 @@ make lint           # Check code formatting
 
 ### Contract Management
 ```bash
-make register-ngo   # Register a test NGO (local only)
-make update-metadata # Update NGO metadata
 make verify         # Verify contracts on Etherscan
 ```
 
@@ -172,8 +171,8 @@ backend/
 ├── src/
 │   ├── GiveVault4626.sol      # Main vault contract
 │   ├── AaveAdapter.sol        # Aave yield strategy
-│   ├── NGORegistry.sol        # NGO management
-│   ├── DonationRouter.sol     # Yield distribution
+│   ├── campaign/              # Campaign registry + types
+│   ├── payout/                # Yield distribution (PayoutRouter)
 │   └── interfaces/            # Contract interfaces
 ├── script/
 │   ├── Deploy.s.sol           # Main deployment script

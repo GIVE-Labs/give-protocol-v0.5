@@ -620,11 +620,11 @@ export default function CampaignStaking() {
       </div>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 relative z-10">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 lg:h-fit">
           {/* Left Column - Campaign Info */}
-          <div className="lg:col-span-2 space-y-6">
+          <div className="lg:col-span-2 flex flex-col">
             <motion.div 
-              className="bg-white/80 backdrop-blur-xl rounded-3xl overflow-hidden shadow-xl border border-white/50"
+              className="bg-white/80 backdrop-blur-xl rounded-3xl overflow-hidden shadow-xl border border-white/50 flex-1"
               initial={{ opacity: 0, y: 30 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.6 }}
@@ -763,16 +763,21 @@ export default function CampaignStaking() {
                   </div>
                 </div>
                 <div className="mb-8">
-                  <p className="text-gray-700 text-md leading-relaxed text-justify">
-                    {showFullDescription ? ngo.description : `${ngo.description.slice(0, 150)}...`}
+                  <p className="text-gray-700 text-sm leading-relaxed text-justify">
+                    {ngo.description.length > 1000 && !showFullDescription 
+                      ? `${ngo.description.slice(0, 1000)}...` 
+                      : ngo.description
+                    }
                   </p>
-                  <motion.button
-                    onClick={() => setShowFullDescription(!showFullDescription)}
-                    className="text-emerald-600 hover:text-emerald-700 text-sm font-medium mt-2 transition-colors"
-                    whileHover={{ scale: 1.02 }}
-                  >
-                    {showFullDescription ? 'Show Less' : 'Read More'}
-                  </motion.button>
+                  {ngo.description.length > 1000 && (
+                    <motion.button
+                      onClick={() => setShowFullDescription(!showFullDescription)}
+                      className="text-emerald-600 hover:text-emerald-700 text-sm font-medium mt-2 transition-colors"
+                      whileHover={{ scale: 1.02 }}
+                    >
+                      {showFullDescription ? 'Show Less' : 'Read More'}
+                    </motion.button>
+                  )}
                 </div>
 
                 {/* Campaign Stats */}
@@ -781,9 +786,9 @@ export default function CampaignStaking() {
           </div>
 
           {/* Right Column - Tabbed Sidebar */}
-          <div className="lg:col-span-1">
+          <div className="lg:col-span-1 flex flex-col">
             <motion.div 
-              className="bg-white/80 backdrop-blur-xl rounded-3xl shadow-xl border border-white/50 sticky top-8 overflow-hidden"
+              className="bg-white/80 backdrop-blur-xl rounded-3xl shadow-xl border border-white/50 overflow-hidden flex-1 flex flex-col"
               initial={{ opacity: 0, x: 30 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ duration: 0.6, delay: 0.3 }}
@@ -815,7 +820,7 @@ export default function CampaignStaking() {
               </div>
 
               {/* Tab Content */}
-              <div className="p-6">
+              <div className="p-6 flex-1 flex flex-col">
                 {activeTab === 'details' && (
                   <motion.div
                     initial={{ opacity: 0, y: 10 }}
@@ -1133,37 +1138,37 @@ export default function CampaignStaking() {
                   <div className="flex justify-between items-center">
                     <div className="flex items-center gap-1">
                       <span className="text-xs text-gray-600 font-medium">Total Yield:</span>
-                      <img src={selectedTokenInfo.icon} alt={selectedTokenInfo.symbol} className="w-3 h-3" />
-                      <span className="text-xs text-gray-600 font-medium">{selectedTokenInfo.symbol}</span>
                     </div>
-                    <span className="font-bold text-cyan-600 text-sm">{totalYield.toFixed(4)}</span>
+                    <span className="font-bold text-cyan-600 text-sm">{totalYield.toFixed(4)}
+                      <img src={selectedTokenInfo.icon} alt={selectedTokenInfo.symbol} className="w-3 h-3 inline ml-1" />
+                    </span>
                   </div>
                   <div className="border-t border-emerald-200 pt-3">
                     <div className="flex justify-between items-center text-emerald-600 mb-1">
                       <div className="flex items-center gap-1">
                         <span className="text-xs font-medium">To NGO ({yieldSharingRatio}%):</span>
-                        <img src={selectedTokenInfo.icon} alt={selectedTokenInfo.symbol} className="w-3 h-3" />
-                        <span className="text-xs font-medium">{selectedTokenInfo.symbol}</span>
                       </div>
-                      <span className="font-bold text-sm">{ngoShare.toFixed(4)}</span>
+                      <span className="font-bold text-sm">{ngoShare.toFixed(4)}
+                          <img src={selectedTokenInfo.icon} alt={selectedTokenInfo.symbol} className="w-3 h-3 inline ml-1" />
+                      </span>
                     </div>
                     <div className="flex justify-between items-center text-cyan-600">
                       <div className="flex items-center gap-1">
                         <span className="text-xs font-medium">To You ({100 - yieldSharingRatio}%):</span>
-                        <img src={selectedTokenInfo.icon} alt={selectedTokenInfo.symbol} className="w-3 h-3" />
-                        <span className="text-xs font-medium">{selectedTokenInfo.symbol}</span>
                       </div>
-                      <span className="font-bold text-sm">{userShare.toFixed(4)}</span>
+                      <span className="font-bold text-sm">{userShare.toFixed(4)}
+                        <img src={selectedTokenInfo.icon} alt={selectedTokenInfo.symbol} className="w-3 h-3 inline ml-1" />
+                      </span>
                     </div>
                   </div>
                   <div className="border-t border-emerald-200 pt-3">
                     <div className="flex justify-between items-center">
                       <div className="flex items-center gap-1">
                         <span className="text-xs font-bold text-gray-700">You Get Back:</span>
-                        <img src={selectedTokenInfo.icon} alt={selectedTokenInfo.symbol} className="w-4 h-4" />
-                        <span className="text-xs font-bold text-gray-700">{selectedTokenInfo.symbol}</span>
                       </div>
-                      <span className="font-bold text-base bg-gradient-to-r from-emerald-600 to-cyan-600 bg-clip-text text-transparent">{userGetBack.toFixed(4)}</span>
+                      <span className="font-bold text-base bg-gradient-to-r from-emerald-600 to-cyan-600 bg-clip-text text-transparent">{userGetBack.toFixed(4)}
+                        <img src={selectedTokenInfo.icon} alt={selectedTokenInfo.symbol} className="w-4 h-4 inline ml-1" />
+                      </span>
                     </div>
                   </div>
                 </div>

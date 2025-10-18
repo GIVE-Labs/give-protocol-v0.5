@@ -1,22 +1,24 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import "@openzeppelin/contracts/access/AccessControl.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/utils/Pausable.sol";
 import "../vault/GiveVault4626.sol";
-import "../adapters/IYieldAdapter.sol";
+import "../interfaces/IYieldAdapter.sol";
 import "../utils/Errors.sol";
+import "../access/RoleAware.sol";
+import {StrategyRegistry} from "./StrategyRegistry.sol";
+import {RegistryTypes} from "./RegistryTypes.sol";
 
 /**
  * @title StrategyManager
  * @dev Manages strategy configuration and adapter parameters for GiveVault4626
  * @notice Provides a centralized configuration surface for vault operations
  */
-contract StrategyManager is AccessControl, ReentrancyGuard, Pausable {
-    // === Roles ===
-    bytes32 public constant STRATEGY_MANAGER_ROLE = keccak256("STRATEGY_MANAGER_ROLE");
-    bytes32 public constant EMERGENCY_ROLE = keccak256("EMERGENCY_ROLE");
+contract StrategyManager is RoleAware, ReentrancyGuard, Pausable {
+    // === Cached role ids ===
+    bytes32 public immutable STRATEGY_ADMIN_ROLE;
+    bytes32 public immutable GUARDIAN_ROLE;
 
     // === Constants ===
     uint256 public constant BASIS_POINTS = 10000;
@@ -37,6 +39,9 @@ contract StrategyManager is AccessControl, ReentrancyGuard, Pausable {
     bool public autoRebalanceEnabled = true;
     bool public emergencyMode;
 
+    /// @notice External registry for approved strategies (optional).
+    StrategyRegistry public strategyRegistry;
+
     // === Events ===
     event AdapterApproved(address indexed adapter, bool approved);
     event AdapterActivated(address indexed adapter);
@@ -48,16 +53,15 @@ contract StrategyManager is AccessControl, ReentrancyGuard, Pausable {
     event ParametersUpdated(uint256 cashBufferBps, uint256 slippageBps, uint256 maxLossBps);
 
     // === Constructor ===
-    constructor(address _vault, address _admin) {
-        if (_vault == address(0) || _admin == address(0)) {
+    constructor(address _vault, address roleManager_) RoleAware(roleManager_) {
+        if (_vault == address(0)) {
             revert Errors.ZeroAddress();
         }
 
         vault = GiveVault4626(payable(_vault));
 
-        _grantRole(DEFAULT_ADMIN_ROLE, _admin);
-        _grantRole(STRATEGY_MANAGER_ROLE, _admin);
-        _grantRole(EMERGENCY_ROLE, _admin);
+        STRATEGY_ADMIN_ROLE = roleManager.ROLE_STRATEGY_ADMIN();
+        GUARDIAN_ROLE = roleManager.ROLE_GUARDIAN();
 
         lastRebalanceTime = block.timestamp;
     }
@@ -69,7 +73,11 @@ contract StrategyManager is AccessControl, ReentrancyGuard, Pausable {
      * @param adapter The adapter address
      * @param approved Whether to approve the adapter
      */
-    function setAdapterApproval(address adapter, bool approved) external onlyRole(STRATEGY_MANAGER_ROLE) {
+    function setAdapterApproval(address adapter, bool approved) external onlyRole(STRATEGY_ADMIN_ROLE) {
+        _setAdapterApproval(adapter, approved);
+    }
+
+    function _setAdapterApproval(address adapter, bool approved) internal {
         if (adapter == address(0)) revert Errors.ZeroAddress();
 
         bool wasApproved = approvedAdapters[adapter];
@@ -87,11 +95,32 @@ contract StrategyManager is AccessControl, ReentrancyGuard, Pausable {
         emit AdapterApproved(adapter, approved);
     }
 
+    /// @notice Links the manager to a shared strategy registry for adapter discovery.
+    function setStrategyRegistry(address registry) external onlyRole(STRATEGY_ADMIN_ROLE) {
+        strategyRegistry = StrategyRegistry(registry);
+    }
+
+    /// @notice Convenience method to activate a strategy from the registry by id.
+    function activateStrategyFromRegistry(uint64 strategyId) external onlyRole(STRATEGY_ADMIN_ROLE) {
+        StrategyRegistry registry = strategyRegistry;
+        if (address(registry) == address(0)) revert Errors.InvalidConfiguration();
+
+        StrategyRegistry.Strategy memory strategy = registry.getStrategy(strategyId);
+        if (strategy.status != RegistryTypes.StrategyStatus.Active) revert Errors.StrategyInactive();
+
+        _setAdapterApproval(strategy.adapter, true);
+        _setActiveAdapter(strategy.adapter);
+    }
+
     /**
      * @dev Sets the active adapter for the vault
      * @param adapter The adapter to activate
      */
-    function setActiveAdapter(address adapter) external onlyRole(STRATEGY_MANAGER_ROLE) whenNotPaused {
+    function setActiveAdapter(address adapter) external onlyRole(STRATEGY_ADMIN_ROLE) whenNotPaused {
+        _setActiveAdapter(adapter);
+    }
+
+    function _setActiveAdapter(address adapter) internal whenNotPaused {
         if (adapter != address(0) && !approvedAdapters[adapter]) {
             revert Errors.InvalidAdapter();
         }
@@ -112,7 +141,7 @@ contract StrategyManager is AccessControl, ReentrancyGuard, Pausable {
      */
     function updateVaultParameters(uint256 cashBufferBps, uint256 slippageBps, uint256 maxLossBps)
         external
-        onlyRole(STRATEGY_MANAGER_ROLE)
+        onlyRole(STRATEGY_ADMIN_ROLE)
     {
         vault.setCashBufferBps(cashBufferBps);
         vault.setSlippageBps(slippageBps);
@@ -125,8 +154,8 @@ contract StrategyManager is AccessControl, ReentrancyGuard, Pausable {
      * @dev Sets the donation router for the vault
      * @param router The donation router address
      */
-    function setDonationRouter(address router) external onlyRole(STRATEGY_MANAGER_ROLE) {
-        vault.setDonationRouter(router);
+    function setPayoutRouter(address router) external onlyRole(STRATEGY_ADMIN_ROLE) {
+        vault.setPayoutRouter(router);
     }
 
     // === Rebalancing ===
@@ -135,7 +164,7 @@ contract StrategyManager is AccessControl, ReentrancyGuard, Pausable {
      * @dev Sets the rebalance interval
      * @param interval New interval in seconds
      */
-    function setRebalanceInterval(uint256 interval) external onlyRole(STRATEGY_MANAGER_ROLE) {
+    function setRebalanceInterval(uint256 interval) external onlyRole(STRATEGY_ADMIN_ROLE) {
         if (interval < MIN_REBALANCE_INTERVAL || interval > MAX_REBALANCE_INTERVAL) {
             revert Errors.ParameterOutOfRange();
         }
@@ -150,7 +179,7 @@ contract StrategyManager is AccessControl, ReentrancyGuard, Pausable {
      * @dev Toggles auto-rebalancing
      * @param enabled Whether auto-rebalancing is enabled
      */
-    function setAutoRebalanceEnabled(bool enabled) external onlyRole(STRATEGY_MANAGER_ROLE) {
+    function setAutoRebalanceEnabled(bool enabled) external onlyRole(STRATEGY_ADMIN_ROLE) {
         autoRebalanceEnabled = enabled;
         emit AutoRebalanceToggled(enabled);
     }
@@ -158,7 +187,7 @@ contract StrategyManager is AccessControl, ReentrancyGuard, Pausable {
     /**
      * @dev Manually triggers a rebalance to the best performing adapter
      */
-    function rebalance() external onlyRole(STRATEGY_MANAGER_ROLE) whenNotPaused {
+    function rebalance() external onlyRole(STRATEGY_ADMIN_ROLE) whenNotPaused {
         _performRebalance();
     }
 
@@ -178,7 +207,7 @@ contract StrategyManager is AccessControl, ReentrancyGuard, Pausable {
      * @dev Sets the emergency exit threshold
      * @param threshold Loss threshold in basis points
      */
-    function setEmergencyExitThreshold(uint256 threshold) external onlyRole(STRATEGY_MANAGER_ROLE) {
+    function setEmergencyExitThreshold(uint256 threshold) external onlyRole(STRATEGY_ADMIN_ROLE) {
         if (threshold > 5000) revert Errors.ParameterOutOfRange(); // Max 50%
 
         uint256 oldThreshold = emergencyExitThreshold;
@@ -190,7 +219,7 @@ contract StrategyManager is AccessControl, ReentrancyGuard, Pausable {
     /**
      * @dev Activates emergency mode
      */
-    function activateEmergencyMode() external onlyRole(EMERGENCY_ROLE) {
+    function activateEmergencyMode() external onlyRole(GUARDIAN_ROLE) {
         emergencyMode = true;
         vault.emergencyPause();
 
@@ -208,7 +237,7 @@ contract StrategyManager is AccessControl, ReentrancyGuard, Pausable {
     /**
      * @dev Emergency withdrawal from current adapter
      */
-    function emergencyWithdraw() external onlyRole(EMERGENCY_ROLE) returns (uint256 withdrawn) {
+    function emergencyWithdraw() external onlyRole(GUARDIAN_ROLE) returns (uint256 withdrawn) {
         withdrawn = vault.emergencyWithdrawFromAdapter();
     }
 
@@ -217,14 +246,14 @@ contract StrategyManager is AccessControl, ReentrancyGuard, Pausable {
     /**
      * @dev Pauses/unpauses vault investing
      */
-    function setInvestPaused(bool paused) external onlyRole(EMERGENCY_ROLE) {
+    function setInvestPaused(bool paused) external onlyRole(GUARDIAN_ROLE) {
         vault.setInvestPaused(paused);
     }
 
     /**
      * @dev Pauses/unpauses vault harvesting
      */
-    function setHarvestPaused(bool paused) external onlyRole(EMERGENCY_ROLE) {
+    function setHarvestPaused(bool paused) external onlyRole(GUARDIAN_ROLE) {
         vault.setHarvestPaused(paused);
     }
 

@@ -69,6 +69,16 @@ src/
 3. Connect wallet to Sepolia testnet
 4. Get Sepolia ETH and USDC for testing
 
+### Force local contracts (optional)
+
+By default, the frontend uses Sepolia testnet contract addresses. If you need to test against local Anvil contracts, set the environment variable `VITE_USE_LOCAL=true` when starting the dev server.
+
+Example (Linux/macOS):
+
+```bash
+VITE_USE_LOCAL=true pnpm dev
+```
+
 ### Testing the Demo
 - Navigate to `/demo` route
 - Connect wallet and switch to Sepolia

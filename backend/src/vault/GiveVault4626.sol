@@ -3,25 +3,24 @@ pragma solidity ^0.8.20;
 
 import "@openzeppelin/contracts/token/ERC20/extensions/ERC4626.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import "@openzeppelin/contracts/access/AccessControl.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/utils/Pausable.sol";
-import "../adapters/IYieldAdapter.sol";
-import "../donation/DonationRouter.sol";
+import "../interfaces/IYieldAdapter.sol";
+import "../payout/PayoutRouter.sol";
 import "../utils/Errors.sol";
-import "../utils/IWETH.sol";
+import "../interfaces/IWETH.sol";
+import "../access/RoleAware.sol";
 
 /**
  * @title GiveVault4626
- * @dev ERC-4626 vault for no-loss giving with yield routing to NGOs
- * @notice Users deposit assets, earn shares, while yield goes to approved NGOs
+ * @dev ERC-4626 vault for no-loss giving with yield routing to registered campaigns
+ * @notice Users deposit assets, earn shares, while yield flows to campaign payouts via the router
  */
-contract GiveVault4626 is ERC4626, AccessControl, ReentrancyGuard, Pausable {
+contract GiveVault4626 is ERC4626, RoleAware, ReentrancyGuard, Pausable {
     using SafeERC20 for IERC20;
 
-    // === Roles ===
-    bytes32 public constant VAULT_MANAGER_ROLE = keccak256("VAULT_MANAGER_ROLE");
-    bytes32 public constant PAUSER_ROLE = keccak256("PAUSER_ROLE");
+    bytes32 public immutable VAULT_MANAGER_ROLE;
+    bytes32 public immutable PAUSER_ROLE;
 
     // === Constants ===
     uint256 public constant BASIS_POINTS = 10000;
@@ -31,7 +30,7 @@ contract GiveVault4626 is ERC4626, AccessControl, ReentrancyGuard, Pausable {
 
     // === State Variables ===
     IYieldAdapter public activeAdapter;
-    address public donationRouter;
+    address public payoutRouter;
     address public wrappedNative; // Optional: if set and equals asset(), enables ETH convenience methods
 
     uint256 public cashBufferBps = 100; // 1% default
@@ -50,7 +49,7 @@ contract GiveVault4626 is ERC4626, AccessControl, ReentrancyGuard, Pausable {
     event CashBufferUpdated(uint256 oldBps, uint256 newBps);
     event SlippageUpdated(uint256 oldBps, uint256 newBps);
     event MaxLossUpdated(uint256 oldBps, uint256 newBps);
-    event DonationRouterUpdated(address indexed oldRouter, address indexed newRouter);
+    event PayoutRouterUpdated(address indexed oldRouter, address indexed newRouter);
     event Harvest(uint256 profit, uint256 loss, uint256 donated);
     event InvestPaused(bool paused);
     event HarvestPaused(bool paused);
@@ -58,15 +57,13 @@ contract GiveVault4626 is ERC4626, AccessControl, ReentrancyGuard, Pausable {
     event WrappedNativeSet(address indexed token);
 
     // === Constructor ===
-    constructor(IERC20 _asset, string memory _name, string memory _symbol, address _admin)
+    constructor(IERC20 _asset, string memory _name, string memory _symbol, address roleManager_)
         ERC4626(_asset)
         ERC20(_name, _symbol)
+        RoleAware(roleManager_)
     {
-        if (_admin == address(0)) revert Errors.ZeroAddress();
-
-        _grantRole(DEFAULT_ADMIN_ROLE, _admin);
-        _grantRole(VAULT_MANAGER_ROLE, _admin);
-        _grantRole(PAUSER_ROLE, _admin);
+        VAULT_MANAGER_ROLE = roleManager.ROLE_VAULT_OPS();
+        PAUSER_ROLE = roleManager.ROLE_GUARDIAN();
 
         _lastHarvestTime = block.timestamp;
     }
@@ -103,38 +100,54 @@ contract GiveVault4626 is ERC4626, AccessControl, ReentrancyGuard, Pausable {
     /**
      * @dev Deposit assets and mint shares with reentrancy protection
      */
-    function deposit(uint256 assets, address receiver) 
-        public 
-        override 
-        nonReentrant 
-        whenNotPaused 
-        returns (uint256) 
-    {
+    function deposit(uint256 assets, address receiver) public virtual override nonReentrant whenNotPaused returns (uint256) {
         return super.deposit(assets, receiver);
     }
 
     /**
      * @dev Mint shares for assets with reentrancy protection
      */
-    function mint(uint256 shares, address receiver) 
-        public 
-        override 
-        nonReentrant 
-        whenNotPaused 
-        returns (uint256) 
-    {
+    function mint(uint256 shares, address receiver) public virtual override nonReentrant whenNotPaused returns (uint256) {
         return super.mint(shares, receiver);
+    }
+
+    /**
+     * @dev Deposit assets from a third-party address on behalf of a receiver.
+     */
+    function depositFor(address from, uint256 assets, address receiver)
+        public
+        virtual
+        nonReentrant
+        whenNotPaused
+        returns (uint256 shares)
+    {
+        if (from == address(0)) revert Errors.InvalidOwner();
+        if (receiver == address(0)) revert Errors.InvalidReceiver();
+        if (assets == 0) revert Errors.InvalidAmount();
+
+        shares = previewDeposit(assets);
+        if (shares == 0) revert Errors.ZeroShares();
+
+        IERC20(asset()).safeTransferFrom(from, address(this), assets);
+        _mint(receiver, shares);
+
+        emit Deposit(from, receiver, assets, shares);
+
+        _afterDeposit(from, receiver, assets, shares);
+
+        return shares;
     }
 
     /**
      * @dev Withdraw assets by burning shares with reentrancy protection
      */
-    function withdraw(uint256 assets, address receiver, address owner) 
-        public 
-        override 
-        nonReentrant 
-        whenNotPaused 
-        returns (uint256) 
+    function withdraw(uint256 assets, address receiver, address owner)
+        public
+        virtual
+        override
+        nonReentrant
+        whenNotPaused
+        returns (uint256)
     {
         return super.withdraw(assets, receiver, owner);
     }
@@ -142,12 +155,13 @@ contract GiveVault4626 is ERC4626, AccessControl, ReentrancyGuard, Pausable {
     /**
      * @dev Redeem shares for assets with reentrancy protection
      */
-    function redeem(uint256 shares, address receiver, address owner) 
-        public 
-        override 
-        nonReentrant 
-        whenNotPaused 
-        returns (uint256) 
+    function redeem(uint256 shares, address receiver, address owner)
+        public
+        virtual
+        override
+        nonReentrant
+        whenNotPaused
+        returns (uint256)
     {
         return super.redeem(shares, receiver, owner);
     }
@@ -161,12 +175,9 @@ contract GiveVault4626 is ERC4626, AccessControl, ReentrancyGuard, Pausable {
         whenNotPaused
     {
         super._deposit(caller, receiver, assets, shares);
-        
+
         // Update user shares in donation router for yield distribution
-        if (donationRouter != address(0)) {
-            DonationRouter(payable(donationRouter)).updateUserShares(receiver, asset(), balanceOf(receiver));
-        }
-        
+        _updateUserShares(receiver);
         _investExcessCash();
     }
 
@@ -175,10 +186,7 @@ contract GiveVault4626 is ERC4626, AccessControl, ReentrancyGuard, Pausable {
      */
     function _afterDeposit(address caller, address receiver, uint256 assets, uint256 shares) internal {
         // Update user shares in donation router for yield distribution
-        if (donationRouter != address(0)) {
-            DonationRouter(payable(donationRouter)).updateUserShares(receiver, asset(), balanceOf(receiver));
-        }
-        
+        _updateUserShares(receiver);
         _investExcessCash();
     }
 
@@ -192,10 +200,13 @@ contract GiveVault4626 is ERC4626, AccessControl, ReentrancyGuard, Pausable {
     {
         _ensureSufficientCash(assets);
         super._withdraw(caller, receiver, owner, assets, shares);
-        
-        // Update user shares in donation router after withdrawal
-        if (donationRouter != address(0)) {
-            DonationRouter(payable(donationRouter)).updateUserShares(owner, asset(), balanceOf(owner));
+
+        _updateUserShares(owner);
+    }
+
+    function _updateUserShares(address account) internal virtual {
+        if (payoutRouter != address(0)) {
+            PayoutRouter(payable(payoutRouter)).updateUserShares(account, address(this), balanceOf(account));
         }
     }
 
@@ -216,8 +227,12 @@ contract GiveVault4626 is ERC4626, AccessControl, ReentrancyGuard, Pausable {
      */
     function setActiveAdapter(IYieldAdapter _adapter) external onlyRole(VAULT_MANAGER_ROLE) {
         if (address(_adapter) != address(0)) {
-            if (_adapter.asset() != IERC20(asset())) revert Errors.InvalidAsset();
-            if (_adapter.vault() != address(this)) revert Errors.InvalidAdapter();
+            if (_adapter.asset() != IERC20(asset())) {
+                revert Errors.InvalidAsset();
+            }
+            if (_adapter.vault() != address(this)) {
+                revert Errors.InvalidAdapter();
+            }
         }
 
         address oldAdapter = address(activeAdapter);
@@ -230,13 +245,13 @@ contract GiveVault4626 is ERC4626, AccessControl, ReentrancyGuard, Pausable {
      * @dev Sets the donation router address
      * @param _router The new donation router address
      */
-    function setDonationRouter(address _router) external onlyRole(VAULT_MANAGER_ROLE) {
+    function setPayoutRouter(address _router) external onlyRole(VAULT_MANAGER_ROLE) {
         if (_router == address(0)) revert Errors.ZeroAddress();
 
-        address oldRouter = donationRouter;
-        donationRouter = _router;
+        address oldRouter = payoutRouter;
+        payoutRouter = _router;
 
-        emit DonationRouterUpdated(oldRouter, _router);
+        emit PayoutRouterUpdated(oldRouter, _router);
     }
 
     /**
@@ -314,7 +329,7 @@ contract GiveVault4626 is ERC4626, AccessControl, ReentrancyGuard, Pausable {
      */
     function harvest() external nonReentrant whenHarvestNotPaused returns (uint256 profit, uint256 loss) {
         if (address(activeAdapter) == address(0)) revert Errors.AdapterNotSet();
-        if (donationRouter == address(0)) revert Errors.InvalidConfiguration();
+        if (payoutRouter == address(0)) revert Errors.InvalidConfiguration();
 
         // Harvest from adapter
         (profit, loss) = activeAdapter.harvest();
@@ -328,10 +343,10 @@ contract GiveVault4626 is ERC4626, AccessControl, ReentrancyGuard, Pausable {
         uint256 donated = 0;
         if (profit > 0) {
             // Transfer profit to donation router
-            IERC20(asset()).safeTransfer(donationRouter, profit);
+            IERC20(asset()).safeTransfer(payoutRouter, profit);
 
-            // Distribute yield to all users based on their preferences
-            donated = DonationRouter(payable(donationRouter)).distributeToAllUsers(asset(), profit);
+            // Distribute yield to all users or campaigns based on router implementation
+            donated = _handleHarvestDistribution(asset(), profit);
         }
 
         emit Harvest(profit, loss, donated);
@@ -345,6 +360,21 @@ contract GiveVault4626 is ERC4626, AccessControl, ReentrancyGuard, Pausable {
 
         withdrawn = activeAdapter.emergencyWithdraw();
         emit EmergencyWithdraw(withdrawn);
+
+        if (withdrawn > 0 && payoutRouter != address(0)) {
+            IERC20(asset()).safeTransfer(payoutRouter, withdrawn);
+            _handleEmergencyDistribution(asset(), withdrawn);
+        }
+    }
+
+    /// @dev Hook that routes harvested yield to the configured router. Overridable by subclasses.
+    function _handleHarvestDistribution(address payoutAsset, uint256 amount) internal virtual returns (uint256) {
+        return PayoutRouter(payable(payoutRouter)).distributeToAllUsers(payoutAsset, amount);
+    }
+
+    /// @dev Hook used during emergency withdrawals to route yield appropriately. Overridable by subclasses.
+    function _handleEmergencyDistribution(address payoutAsset, uint256 amount) internal virtual {
+        PayoutRouter(payable(payoutRouter)).distributeToAllUsers(payoutAsset, amount);
     }
 
     // === Internal Functions ===
@@ -373,7 +403,9 @@ contract GiveVault4626 is ERC4626, AccessControl, ReentrancyGuard, Pausable {
 
         if (currentCash >= needed) return;
 
-        if (address(activeAdapter) == address(0)) revert Errors.InsufficientCash();
+        if (address(activeAdapter) == address(0)) {
+            revert Errors.InsufficientCash();
+        }
 
         uint256 shortfall = needed - currentCash;
         uint256 returned = activeAdapter.divest(shortfall);
@@ -445,6 +477,7 @@ contract GiveVault4626 is ERC4626, AccessControl, ReentrancyGuard, Pausable {
         payable
         nonReentrant
         whenNotPaused
+        virtual
         returns (uint256 shares)
     {
         if (wrappedNative == address(0) || wrappedNative != address(asset())) {
@@ -455,7 +488,9 @@ contract GiveVault4626 is ERC4626, AccessControl, ReentrancyGuard, Pausable {
 
         // Calculate shares before wrapping to avoid double-counting
         shares = previewDeposit(msg.value);
-        if (shares < minShares) revert Errors.SlippageExceeded(minShares, shares);
+        if (shares < minShares) {
+            revert Errors.SlippageExceeded(minShares, shares);
+        }
 
         // Wrap ETH to WETH into this contract
         IWETH(wrappedNative).deposit{value: msg.value}();
@@ -482,6 +517,7 @@ contract GiveVault4626 is ERC4626, AccessControl, ReentrancyGuard, Pausable {
         external
         nonReentrant
         whenNotPaused
+        virtual
         returns (uint256 assets)
     {
         if (wrappedNative == address(0) || wrappedNative != address(asset())) {
@@ -491,14 +527,16 @@ contract GiveVault4626 is ERC4626, AccessControl, ReentrancyGuard, Pausable {
         if (shares == 0) revert Errors.InvalidAmount();
 
         assets = previewRedeem(shares);
-        if (assets < minAssets) revert Errors.SlippageExceeded(minAssets, assets);
+        if (assets < minAssets) {
+            revert Errors.SlippageExceeded(minAssets, assets);
+        }
 
         // Withdraw WETH to this contract using our overridden function
         _withdraw(msg.sender, address(this), owner, assets, shares);
 
         // Unwrap and send ETH
         IWETH(wrappedNative).withdraw(assets);
-        (bool ok, ) = payable(receiver).call{value: assets}("");
+        (bool ok,) = payable(receiver).call{value: assets}("");
         if (!ok) revert Errors.TransferFailed();
 
         return assets;
@@ -515,6 +553,7 @@ contract GiveVault4626 is ERC4626, AccessControl, ReentrancyGuard, Pausable {
         external
         nonReentrant
         whenNotPaused
+        virtual
         returns (uint256 shares)
     {
         if (wrappedNative == address(0) || wrappedNative != address(asset())) {
@@ -524,14 +563,16 @@ contract GiveVault4626 is ERC4626, AccessControl, ReentrancyGuard, Pausable {
         if (assets == 0) revert Errors.InvalidAmount();
 
         shares = previewWithdraw(assets);
-        if (shares > maxShares) revert Errors.SlippageExceeded(shares, maxShares);
+        if (shares > maxShares) {
+            revert Errors.SlippageExceeded(shares, maxShares);
+        }
 
         // Withdraw WETH to this contract using our overridden function
         _withdraw(msg.sender, address(this), owner, assets, shares);
 
         // Unwrap and send ETH
         IWETH(wrappedNative).withdraw(assets);
-        (bool ok, ) = payable(receiver).call{value: assets}("");
+        (bool ok,) = payable(receiver).call{value: assets}("");
         if (!ok) revert Errors.TransferFailed();
 
         return shares;
