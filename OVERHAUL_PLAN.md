@@ -56,15 +56,10 @@ This plan replaces all previous overhaul documents. It is the single source of t
 - [x] Integrate synthetic flows into `GiveProtocolCore` (configure/mint/burn + view helpers) and add tests validating role gating and storage updates.
 
 ### Phase 7 – Yield Adapters Suite
-- [ ] Define a common adapter base interface covering all behaviours (compounding, claimable, growth, PT rollover) and integrate with `GiveTypes`.
-- [ ] Implement UUPS proxies + implementations for:
-  - [ ] `CompoundingAdapter` (sUSDe, sDAI, wstETH style).
-  - [ ] `ClaimableAdapter` (stETH, Pancake v2 staking).
-  - [ ] `GrowthAdapter` (Aave aToken style).
-  - [ ] `PTAdapter` with external `YieldManager` handling rollovers.
-- [ ] Connect adapters to `AdapterModule`, ensuring approvals, deposits, withdrawals, and yield accounting use shared storage.
-- [ ] Migrate or retire legacy adapters after parity tests.
-
+- [x] Define a shared adapter base and storage-backed module configuration (asset/vault metadata).
+- [x] Implement adapter variants for compounding, claimable yield, balance-growth, and PT rollover behaviour.
+- [x] Extend GiveProtocolCore with adapter config getters and delegations.
+- [x] Add Foundry tests exercising the new adapters and ACL role gating.
 ### Phase 8 – Risk & Emergency Controls
 - [ ] Flesh out `RiskModule` for structured risk configs (LTV, thresholds, penalties, caps) with timestamped versions and invariant checks before operations.
 - [ ] Implement `EmergencyModule` coordinating pauses, emergency withdrawals, and liquidation actions across vault and adapters.

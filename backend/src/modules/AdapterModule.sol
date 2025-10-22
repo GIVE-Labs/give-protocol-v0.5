@@ -12,8 +12,9 @@ library AdapterModule {
         address proxy;
         address implementation;
         address asset;
+        address vault;
         GiveTypes.AdapterKind kind;
-        bytes32 vaultId;
+        bytes32 metadataHash;
     }
 
     event AdapterConfigured(bytes32 indexed id, address proxy, address implementation, address asset);
@@ -24,8 +25,9 @@ library AdapterModule {
         info.proxy = cfg.proxy;
         info.implementation = cfg.implementation;
         info.asset = cfg.asset;
+        info.vault = cfg.vault;
         info.kind = cfg.kind;
-        info.vaultId = cfg.vaultId;
+        info.metadataHash = cfg.metadataHash;
         info.active = true;
 
         emit AdapterConfigured(adapterId, cfg.proxy, cfg.implementation, cfg.asset);

@@ -68,8 +68,9 @@ contract GiveProtocolCoreTest is Test {
             proxy: address(0x123),
             implementation: address(0x456),
             asset: address(0x789),
+            vault: address(0xABC),
             kind: GiveTypes.AdapterKind.CompoundingValue,
-            vaultId: keccak256("vault")
+            metadataHash: bytes32(0)
         });
 
         vm.expectRevert();

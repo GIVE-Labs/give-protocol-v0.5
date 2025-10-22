@@ -88,12 +88,17 @@ contract GiveProtocolCore is Initializable, UUPSUpgradeable {
         SyntheticLogic.burn(syntheticId, account, amount);
     }
 
+    function getAdapterConfig(bytes32 adapterId) external view returns (address assetAddress, address vaultAddress, GiveTypes.AdapterKind kind, bool active) {
+        GiveTypes.AdapterConfig storage cfg = StorageLib.adapter(adapterId);
+        return (cfg.asset, cfg.vault, cfg.kind, cfg.active);
+    }
+
     function getSyntheticBalance(bytes32 syntheticId, address account) external view returns (uint256) {
-        return StorageLib.syntheticStorage(syntheticId).balances[account];
+        return StorageLib.syntheticState(syntheticId).balances[account];
     }
 
     function getSyntheticTotalSupply(bytes32 syntheticId) external view returns (uint256) {
-        return StorageLib.syntheticStorage(syntheticId).totalSupply;
+        return StorageLib.syntheticState(syntheticId).totalSupply;
     }
 
     function getSyntheticConfig(bytes32 syntheticId)
@@ -101,7 +106,7 @@ contract GiveProtocolCore is Initializable, UUPSUpgradeable {
         view
         returns (address proxy, address asset, bool active)
     {
-        GiveTypes.SyntheticAsset storage syntheticAsset = StorageLib.syntheticStorage(syntheticId);
+        GiveTypes.SyntheticAsset storage syntheticAsset = StorageLib.syntheticState(syntheticId);
         return (syntheticAsset.proxy, syntheticAsset.asset, syntheticAsset.active);
     }
 

@@ -15,7 +15,7 @@ library SyntheticLogic {
     function configure(bytes32 syntheticId, address proxy, address asset) internal {
         if (proxy == address(0) || asset == address(0)) revert();
 
-        GiveTypes.SyntheticAsset storage syntheticAsset = StorageLib.syntheticStorage(syntheticId);
+        GiveTypes.SyntheticAsset storage syntheticAsset = StorageLib.syntheticState(syntheticId);
         syntheticAsset.id = syntheticId;
         syntheticAsset.proxy = proxy;
         syntheticAsset.asset = asset;
@@ -26,7 +26,7 @@ library SyntheticLogic {
 
     function mint(bytes32 syntheticId, address account, uint256 amount) internal {
         if (amount == 0) return;
-        GiveTypes.SyntheticAsset storage syntheticAsset = StorageLib.syntheticStorage(syntheticId);
+        GiveTypes.SyntheticAsset storage syntheticAsset = StorageLib.syntheticState(syntheticId);
         if (!syntheticAsset.active) revert SyntheticInactive(syntheticId);
 
         uint256 newBalance = syntheticAsset.balances[account] + amount;
@@ -38,7 +38,7 @@ library SyntheticLogic {
 
     function burn(bytes32 syntheticId, address account, uint256 amount) internal {
         if (amount == 0) return;
-        GiveTypes.SyntheticAsset storage syntheticAsset = StorageLib.syntheticStorage(syntheticId);
+        GiveTypes.SyntheticAsset storage syntheticAsset = StorageLib.syntheticState(syntheticId);
         if (!syntheticAsset.active) revert SyntheticInactive(syntheticId);
 
         uint256 balance = syntheticAsset.balances[account];
@@ -52,10 +52,10 @@ library SyntheticLogic {
     }
 
     function balanceOf(bytes32 syntheticId, address account) internal view returns (uint256) {
-        return StorageLib.syntheticStorage(syntheticId).balances[account];
+        return StorageLib.syntheticState(syntheticId).balances[account];
     }
 
     function totalSupply(bytes32 syntheticId) internal view returns (uint256) {
-        return StorageLib.syntheticStorage(syntheticId).totalSupply;
+        return StorageLib.syntheticState(syntheticId).totalSupply;
     }
 }

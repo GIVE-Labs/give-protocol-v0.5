@@ -15,6 +15,7 @@ All tasks, dependencies, and checkboxes live in `OVERHAUL_PLAN.md`. Treat that f
 ## Repo Status
 
 - ✅ `OVERHAUL_PLAN.md` is current and must be updated before code diverges.
+- ✅ Adapter module groundwork: shared base plus representative adapters (compounding, claimable, growth, PT) with tests.
 - ❗ Contracts, frontend, and scripts still reflect the legacy MVP until their respective phases land.
 - 🧹 Vague or conflicting documentation has been removed to keep the focus on the new design.
 

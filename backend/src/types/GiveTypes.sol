@@ -7,10 +7,10 @@ library GiveTypes {
     /// @dev Enumerates adapter behaviours so modules can apply the right accounting logic.
     enum AdapterKind {
         Unknown,
-        CompoundingValue, // e.g. sDAI, sUSDe, wstETH (value accrues in-place)
-        ClaimableYield, // e.g. stETH, campaign staking with claim step
-        BalanceGrowth, // e.g. Aave aToken style (token balance grows)
-        PerpetualYieldToken // e.g. Pendle PT requiring scheduled rollover
+        CompoundingValue,
+        ClaimableYield,
+        BalanceGrowth,
+        PerpetualYieldToken
     }
 
     /// @dev Tracks global protocol wiring information.
@@ -61,6 +61,7 @@ library GiveTypes {
         address proxy;
         address implementation;
         address asset;
+        address vault;
         AdapterKind kind;
         bytes32 vaultId;
         bytes32 metadataHash;
