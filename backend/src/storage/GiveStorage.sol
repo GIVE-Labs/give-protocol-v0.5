@@ -17,6 +17,7 @@ library GiveStorage {
         mapping(bytes32 => GiveTypes.RiskConfig) riskConfigs;
         mapping(bytes32 => GiveTypes.PositionState) positions;
         mapping(bytes32 => GiveTypes.RoleAssignments) roles;
+        mapping(bytes32 => GiveTypes.SyntheticAsset) synthetics;
         GiveTypes.DonationRouterState donationRouter;
         GiveTypes.NGORegistryState ngoRegistry;
         mapping(bytes32 => bytes32) bytes32Registry;

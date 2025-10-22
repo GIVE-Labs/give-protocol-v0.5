@@ -51,9 +51,9 @@ This plan replaces all previous overhaul documents. It is the single source of t
 - [x] Update Foundry tests to operate against the new DonationRouter/NGORegistry architecture.
 
 ### Phase 6 – Synthetic Asset Support
-- [ ] Deploy a storage-only `SyntheticProxy` contract that holds shared storage state without executable logic.
-- [ ] Implement `SyntheticLogic` as a library handling synthetic mint/burn, validation, and config updates through `StorageLib`.
-- [ ] Integrate synthetic asset flows into `GiveProtocolCore` via `SyntheticModule` and add coverage for mint, burn, and role-gated operations.
+- [x] Deploy a storage-only `SyntheticProxy` contract that anchors synthetic storage without execution logic.
+- [x] Implement `SyntheticLogic` to manage shared storage, mint/burn, and balance accounting for synthetic assets.
+- [x] Integrate synthetic flows into `GiveProtocolCore` (configure/mint/burn + view helpers) and add tests validating role gating and storage updates.
 
 ### Phase 7 – Yield Adapters Suite
 - [ ] Define a common adapter base interface covering all behaviours (compounding, claimable, growth, PT rollover) and integrate with `GiveTypes`.

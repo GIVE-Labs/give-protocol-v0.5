@@ -67,6 +67,15 @@ library GiveTypes {
         bool active;
     }
 
+    struct SyntheticAsset {
+        bytes32 id;
+        address proxy;
+        address asset;
+        uint256 totalSupply;
+        bool active;
+        mapping(address => uint256) balances;
+    }
+
     /// @dev Versioned risk parameters applied per vault or asset grouping.
     struct RiskConfig {
         bytes32 id;

@@ -11,6 +11,7 @@ import "../modules/DonationModule.sol";
 import "../modules/SyntheticModule.sol";
 import "../modules/RiskModule.sol";
 import "../modules/EmergencyModule.sol";
+import "../synthetic/SyntheticLogic.sol";
 
 /// @title GiveProtocolCore
 /// @notice Thin orchestration layer that delegates lifecycle operations to module libraries.
@@ -71,6 +72,37 @@ contract GiveProtocolCore is Initializable, UUPSUpgradeable {
         onlyRole(SyntheticModule.MANAGER_ROLE)
     {
         SyntheticModule.configure(syntheticId, cfg);
+    }
+
+    function mintSynthetic(bytes32 syntheticId, address account, uint256 amount)
+        external
+        onlyRole(SyntheticModule.MANAGER_ROLE)
+    {
+        SyntheticLogic.mint(syntheticId, account, amount);
+    }
+
+    function burnSynthetic(bytes32 syntheticId, address account, uint256 amount)
+        external
+        onlyRole(SyntheticModule.MANAGER_ROLE)
+    {
+        SyntheticLogic.burn(syntheticId, account, amount);
+    }
+
+    function getSyntheticBalance(bytes32 syntheticId, address account) external view returns (uint256) {
+        return StorageLib.syntheticStorage(syntheticId).balances[account];
+    }
+
+    function getSyntheticTotalSupply(bytes32 syntheticId) external view returns (uint256) {
+        return StorageLib.syntheticStorage(syntheticId).totalSupply;
+    }
+
+    function getSyntheticConfig(bytes32 syntheticId)
+        external
+        view
+        returns (address proxy, address asset, bool active)
+    {
+        GiveTypes.SyntheticAsset storage syntheticAsset = StorageLib.syntheticStorage(syntheticId);
+        return (syntheticAsset.proxy, syntheticAsset.asset, syntheticAsset.active);
     }
 
     function configureRisk(bytes32 riskId, RiskModule.RiskConfigInput memory cfg)

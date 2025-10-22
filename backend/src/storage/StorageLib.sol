@@ -59,6 +59,11 @@ library StorageLib {
         state = s.ngoRegistry;
     }
 
+    function syntheticStorage(bytes32 syntheticId) internal view returns (GiveTypes.SyntheticAsset storage asset) {
+        GiveStorage.Store storage s = GiveStorage.store();
+        asset = s.synthetics[syntheticId];
+    }
+
     function role(bytes32 roleId) internal view returns (GiveTypes.RoleAssignments storage assignment) {
         GiveStorage.Store storage s = GiveStorage.store();
         assignment = s.roles[roleId];
