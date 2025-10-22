@@ -281,9 +281,7 @@ contract DonationRouter is Initializable, UUPSUpgradeable, ACLShim, ReentrancyGu
         }
 
         address[] storage users = s.usersWithShares[asset];
-        uint256 totalNGOAmount;
-        uint256 totalTreasuryAmount;
-        uint256 totalProtocolAmount;
+        YieldTotals memory totals;
 
         for (uint256 i = 0; i < users.length; i++) {
             address user = users[i];
@@ -296,9 +294,9 @@ contract DonationRouter is Initializable, UUPSUpgradeable, ACLShim, ReentrancyGu
             (uint256 ngoAmount, uint256 treasuryAmount, uint256 protocolAmount) =
                 calculateUserDistribution(user, userYield);
 
-            totalNGOAmount += ngoAmount;
-            totalTreasuryAmount += treasuryAmount;
-            totalProtocolAmount += protocolAmount;
+            totals.ngo += ngoAmount;
+            totals.treasury += treasuryAmount;
+            totals.protocol += protocolAmount;
 
             emit UserYieldDistributed(
                 user,
@@ -310,23 +308,23 @@ contract DonationRouter is Initializable, UUPSUpgradeable, ACLShim, ReentrancyGu
             );
         }
 
-        if (totalProtocolAmount > 0) {
-            token.safeTransfer(s.protocolTreasury, totalProtocolAmount);
-            s.totalProtocolFees[asset] += totalProtocolAmount;
-            emit ProtocolFeeCollected(asset, totalProtocolAmount);
+        if (totals.protocol > 0) {
+            token.safeTransfer(s.protocolTreasury, totals.protocol);
+            s.totalProtocolFees[asset] += totals.protocol;
+            emit ProtocolFeeCollected(asset, totals.protocol);
         }
 
-        if (totalNGOAmount > 0) {
+        if (totals.ngo > 0) {
             _distributeToNGOs(asset, totalYield, totalShares, users, token, s);
         }
 
-        if (totalTreasuryAmount > 0) {
-            token.safeTransfer(s.feeRecipient, totalTreasuryAmount);
-            s.totalFeeCollected[asset] += totalTreasuryAmount;
+        if (totals.treasury > 0) {
+            token.safeTransfer(s.feeRecipient, totals.treasury);
+            s.totalFeeCollected[asset] += totals.treasury;
         }
 
         s.totalDistributions++;
-        return totalNGOAmount + totalTreasuryAmount + totalProtocolAmount;
+        return totals.ngo + totals.treasury + totals.protocol;
     }
 
     function distribute(address asset, uint256 amount)
@@ -383,36 +381,29 @@ contract DonationRouter is Initializable, UUPSUpgradeable, ACLShim, ReentrancyGu
         IERC20 token = IERC20(asset);
         if (token.balanceOf(address(this)) < amount) revert Errors.InsufficientBalance();
 
-        for (uint256 i = 0; i < ngos.length; i++) {
-            if (!NGORegistry(s.registry).isApproved(ngos[i])) revert Errors.NGONotApproved();
+        _validateNGOList(s, ngos);
+
+        DonationSplit memory split;
+        split.feeAmount = (amount * s.feeBps) / 10_000;
+        split.netDonation = amount - split.feeAmount;
+
+        if (split.netDonation > 0) {
+            split.amountPerNGO = split.netDonation / ngos.length;
+            split.remainder = split.netDonation % ngos.length;
         }
 
-        feeAmount = (amount * s.feeBps) / 10_000;
-        totalNetDonation = amount - feeAmount;
-
-        if (feeAmount > 0) {
-            token.safeTransfer(s.feeRecipient, feeAmount);
-            s.totalFeeCollected[asset] += feeAmount;
-            emit FeeCollected(asset, s.feeRecipient, feeAmount);
+        if (split.feeAmount > 0) {
+            token.safeTransfer(s.feeRecipient, split.feeAmount);
+            s.totalFeeCollected[asset] += split.feeAmount;
+            emit FeeCollected(asset, s.feeRecipient, split.feeAmount);
         }
 
-        if (totalNetDonation > 0) {
-            uint256 amountPerNGO = totalNetDonation / ngos.length;
-            uint256 remainder = totalNetDonation % ngos.length;
-
-            for (uint256 i = 0; i < ngos.length; i++) {
-                uint256 donationAmount = amountPerNGO;
-                if (i == 0) donationAmount += remainder;
-                if (donationAmount == 0) continue;
-
-                token.safeTransfer(ngos[i], donationAmount);
-                s.totalDonated[asset] += donationAmount;
-                NGORegistry(s.registry).recordDonation(ngos[i], donationAmount);
-
-                s.totalDistributions++;
-                emit DonationDistributed(asset, ngos[i], donationAmount, i == 0 ? feeAmount : 0, s.totalDistributions);
-            }
+        if (split.netDonation > 0) {
+            _distributeInEqualParts(asset, token, ngos, split, s);
         }
+
+        totalNetDonation = split.netDonation;
+        feeAmount = split.feeAmount;
     }
 
     // ===== Emergency =====
@@ -472,6 +463,19 @@ contract DonationRouter is Initializable, UUPSUpgradeable, ACLShim, ReentrancyGu
         return totalYield;
     }
 
+    struct DonationSplit {
+        uint256 amountPerNGO;
+        uint256 remainder;
+        uint256 netDonation;
+        uint256 feeAmount;
+    }
+
+    struct YieldTotals {
+        uint256 ngo;
+        uint256 treasury;
+        uint256 protocol;
+    }
+
     function _distributeToNGOs(
         address asset,
         uint256 totalYield,
@@ -495,6 +499,35 @@ contract DonationRouter is Initializable, UUPSUpgradeable, ACLShim, ReentrancyGu
             token.safeTransfer(pref.selectedNGO, ngoAmount);
             s.totalDonated[asset] += ngoAmount;
             NGORegistry(s.registry).recordDonation(pref.selectedNGO, ngoAmount);
+        }
+    }
+
+    function _validateNGOList(GiveTypes.DonationRouterState storage s, address[] calldata ngos) private view {
+        for (uint256 i = 0; i < ngos.length; i++) {
+            if (!NGORegistry(s.registry).isApproved(ngos[i])) revert Errors.NGONotApproved();
+        }
+    }
+
+    function _distributeInEqualParts(
+        address asset,
+        IERC20 token,
+        address[] calldata ngos,
+        DonationSplit memory split,
+        GiveTypes.DonationRouterState storage s
+    ) private {
+        uint256 length = ngos.length;
+        for (uint256 i = 0; i < length; i++) {
+            uint256 donationAmount = split.amountPerNGO;
+            if (i == 0) donationAmount += split.remainder;
+            if (donationAmount == 0) continue;
+
+            address ngo = ngos[i];
+            token.safeTransfer(ngo, donationAmount);
+            s.totalDonated[asset] += donationAmount;
+            NGORegistry(s.registry).recordDonation(ngo, donationAmount);
+
+            s.totalDistributions++;
+            emit DonationDistributed(asset, ngo, donationAmount, i == 0 ? split.feeAmount : 0, s.totalDistributions);
         }
     }
 

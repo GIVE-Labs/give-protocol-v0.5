@@ -1,86 +1,78 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import "forge-std/Test.sol";
-import "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
-import "../src/core/GiveProtocolCore.sol";
-import "../src/governance/ACLManager.sol";
+import "./utils/BaseProtocolTest.sol";
 import "../src/modules/VaultModule.sol";
 import "../src/modules/AdapterModule.sol";
 import "../src/types/GiveTypes.sol";
 
-contract GiveProtocolCoreTest is Test {
-    ACLManager internal acl;
-    GiveProtocolCore internal core;
-    address internal superAdmin;
-    address internal upgrader;
+contract GiveProtocolCoreTest is BaseProtocolTest {
     address internal manager;
+    bytes32 internal constant NEW_VAULT_ID = keccak256("vault.test");
+    bytes32 internal constant NEW_ADAPTER_ID = keccak256("adapter.test");
 
-    function setUp() public {
-        superAdmin = makeAddr("superAdmin");
-        upgrader = makeAddr("upgrader");
+    function setUp() public override {
+        super.setUp();
         manager = makeAddr("manager");
 
-        ACLManager implementation = new ACLManager();
-        bytes memory initData = abi.encodeWithSelector(ACLManager.initialize.selector, superAdmin, upgrader);
-        ERC1967Proxy aclProxy = new ERC1967Proxy(address(implementation), initData);
-        acl = ACLManager(address(aclProxy));
-
-        vm.prank(superAdmin);
-        acl.createRole(VaultModule.MANAGER_ROLE, superAdmin);
-        vm.prank(superAdmin);
-        acl.createRole(AdapterModule.MANAGER_ROLE, superAdmin);
-
-        GiveProtocolCore coreImpl = new GiveProtocolCore();
-        ERC1967Proxy coreProxy = new ERC1967Proxy(address(coreImpl), "");
-        core = GiveProtocolCore(address(coreProxy));
-
-        vm.prank(superAdmin);
-        core.initialize(address(acl));
+        _grantRole(VaultModule.MANAGER_ROLE, manager);
+        _grantRole(AdapterModule.MANAGER_ROLE, manager);
     }
 
     function testConfigureVaultRequiresRole() public {
-        VaultModule.VaultConfigInput memory input = VaultModule.VaultConfigInput({
-            id: keccak256("vault"),
-            proxy: address(0x1234),
-            implementation: address(0x5678),
-            asset: address(0x9),
-            adapterId: keccak256("adapter"),
-            donationModuleId: bytes32(0),
-            riskId: bytes32(0),
-            cashBufferBps: 100,
-            slippageBps: 50,
-            maxLossBps: 50
+        VaultModule.VaultConfigInput memory cfg = VaultModule.VaultConfigInput({
+            id: NEW_VAULT_ID,
+            proxy: address(0x123456),
+            implementation: address(0x654321),
+            asset: address(asset),
+            adapterId: NEW_ADAPTER_ID,
+            donationModuleId: bytes32("donation"),
+            riskId: bytes32("risk"),
+            cashBufferBps: 150,
+            slippageBps: 75,
+            maxLossBps: 25
         });
 
-        vm.expectRevert();
-        core.configureVault(input.id, input);
+        address unauthorized = makeAddr("unauthorized");
 
-        vm.prank(superAdmin);
-        acl.grantRole(VaultModule.MANAGER_ROLE, manager);
+        vm.startPrank(unauthorized);
+        vm.expectRevert(_expectUnauthorized(VaultModule.MANAGER_ROLE, unauthorized));
+        core.configureVault(cfg.id, cfg);
+        vm.stopPrank();
 
-        vm.prank(manager);
-        core.configureVault(input.id, input);
+        vm.startPrank(manager);
+        core.configureVault(cfg.id, cfg);
+        vm.stopPrank();
     }
 
     function testConfigureAdapterRequiresRole() public {
         AdapterModule.AdapterConfigInput memory cfg = AdapterModule.AdapterConfigInput({
-            id: keccak256("adapter"),
-            proxy: address(0x123),
-            implementation: address(0x456),
-            asset: address(0x789),
-            vault: address(0xABC),
+            id: NEW_ADAPTER_ID,
+            proxy: address(adapter),
+            implementation: address(adapter),
+            asset: address(asset),
+            vault: address(vault),
             kind: GiveTypes.AdapterKind.CompoundingValue,
-            metadataHash: bytes32(0)
+            metadataHash: bytes32("meta")
         });
 
-        vm.expectRevert();
-        core.configureAdapter(cfg.id, cfg);
+        address unauthorized = makeAddr("adapter-unauthed");
 
-        vm.prank(superAdmin);
-        acl.grantRole(AdapterModule.MANAGER_ROLE, manager);
-
-        vm.prank(manager);
+        vm.startPrank(unauthorized);
+        vm.expectRevert(_expectUnauthorized(AdapterModule.MANAGER_ROLE, unauthorized));
         core.configureAdapter(cfg.id, cfg);
+        vm.stopPrank();
+
+        vm.startPrank(manager);
+        core.configureAdapter(cfg.id, cfg);
+        vm.stopPrank();
+
+        (address assetAddress, address vaultAddress, GiveTypes.AdapterKind kind, bool active) =
+            core.getAdapterConfig(cfg.id);
+
+        assertEq(uint256(uint160(assetAddress)), uint256(uint160(address(asset))));
+        assertEq(uint256(uint160(vaultAddress)), uint256(uint160(address(vault))));
+        assertEq(uint8(kind), uint8(GiveTypes.AdapterKind.CompoundingValue));
+        assertTrue(active);
     }
 }

@@ -75,8 +75,8 @@ This plan replaces all previous overhaul documents. It is the single source of t
 - [x] Add tests or dry-run scripts verifying bootstrap determinism and idempotency.
 
 ### Phase 10 – Testing Harness & Coverage
-- [ ] Create a Foundry base harness deploying the entire stack once per test file, exposing helper functions for scenarios.
-- [ ] Port legacy unit tests to the new harness and add scenarios for: governance actions, onboarding, synthetic asset flows, PT rollovers, risk updates, pause/unpause, and upgrade authorization.
+- [x] Create a Foundry base harness deploying the entire stack once per test file, exposing helper functions for scenarios.
+- [x] Port legacy unit tests to the new harness and add scenarios for: governance actions, onboarding, synthetic asset flows, PT rollovers, risk updates, pause/unpause, and upgrade authorization.
 - [ ] Integrate gas reports and coverage checks into CI (update Makefile as needed).
 
 ### Phase 11 – Documentation & Observability
