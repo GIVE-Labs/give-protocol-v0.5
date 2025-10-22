@@ -1,19 +1,19 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import "@openzeppelin/contracts/access/AccessControl.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/utils/Pausable.sol";
 import "../vault/GiveVault4626.sol";
 import "../interfaces/IYieldAdapter.sol";
 import "../utils/Errors.sol";
+import "../utils/ACLShim.sol";
 
 /**
  * @title StrategyManager
  * @dev Manages strategy configuration and adapter parameters for GiveVault4626
  * @notice Provides a centralized configuration surface for vault operations
  */
-contract StrategyManager is AccessControl, ReentrancyGuard, Pausable {
+contract StrategyManager is ACLShim, ReentrancyGuard, Pausable {
     // === Roles ===
     bytes32 public constant STRATEGY_MANAGER_ROLE = keccak256("STRATEGY_MANAGER_ROLE");
     bytes32 public constant EMERGENCY_ROLE = keccak256("EMERGENCY_ROLE");

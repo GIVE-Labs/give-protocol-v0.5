@@ -3,15 +3,15 @@ pragma solidity ^0.8.20;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import "@openzeppelin/contracts/access/AccessControl.sol";
 import "../interfaces/IYieldAdapter.sol";
+import "../utils/ACLShim.sol";
 
 /**
  * @title MockYieldAdapter
  * @dev Mock yield adapter for testing purposes
  * @notice Simulates yield generation for local testing
  */
-contract MockYieldAdapter is IYieldAdapter, AccessControl {
+contract MockYieldAdapter is IYieldAdapter, ACLShim {
     using SafeERC20 for IERC20;
 
     bytes32 public constant VAULT_ROLE = keccak256("VAULT_ROLE");

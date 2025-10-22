@@ -1,0 +1,96 @@
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.20;
+
+import "@openzeppelin/contracts/proxy/utils/Initializable.sol";
+import "@openzeppelin/contracts/proxy/utils/UUPSUpgradeable.sol";
+import "../interfaces/IACLManager.sol";
+import "../storage/StorageLib.sol";
+import "../modules/VaultModule.sol";
+import "../modules/AdapterModule.sol";
+import "../modules/DonationModule.sol";
+import "../modules/SyntheticModule.sol";
+import "../modules/RiskModule.sol";
+import "../modules/EmergencyModule.sol";
+
+/// @title GiveProtocolCore
+/// @notice Thin orchestration layer that delegates lifecycle operations to module libraries.
+contract GiveProtocolCore is Initializable, UUPSUpgradeable {
+    IACLManager public aclManager;
+
+    event Initialized(address indexed acl, address indexed caller);
+
+    modifier onlyRole(bytes32 roleId) {
+        if (!aclManager.hasRole(roleId, msg.sender)) {
+            revert Unauthorized(roleId, msg.sender);
+        }
+        _;
+    }
+
+    error Unauthorized(bytes32 roleId, address account);
+
+    bytes32 public constant ROLE_UPGRADER = keccak256("ROLE_UPGRADER");
+
+    function initialize(address _aclManager) external initializer {
+        if (_aclManager == address(0)) revert Unauthorized(ROLE_UPGRADER, address(0));
+        aclManager = IACLManager(_aclManager);
+
+        GiveTypes.SystemConfig storage sys = StorageLib.system();
+        sys.aclManager = _aclManager;
+        sys.initialized = true;
+        sys.version += 1;
+        sys.lastBootstrapAt = uint64(block.timestamp);
+
+        emit Initialized(_aclManager, msg.sender);
+    }
+
+    // === Module entrypoints ===
+
+    function configureVault(bytes32 vaultId, VaultModule.VaultConfigInput memory cfg)
+        external
+        onlyRole(VaultModule.MANAGER_ROLE)
+    {
+        VaultModule.configure(vaultId, cfg);
+    }
+
+    function configureAdapter(bytes32 adapterId, AdapterModule.AdapterConfigInput memory cfg)
+        external
+        onlyRole(AdapterModule.MANAGER_ROLE)
+    {
+        AdapterModule.configure(adapterId, cfg);
+    }
+
+    function configureDonation(bytes32 donationId, DonationModule.DonationConfigInput memory cfg)
+        external
+        onlyRole(DonationModule.MANAGER_ROLE)
+    {
+        DonationModule.configure(donationId, cfg);
+    }
+
+    function configureSynthetic(bytes32 syntheticId, SyntheticModule.SyntheticConfigInput memory cfg)
+        external
+        onlyRole(SyntheticModule.MANAGER_ROLE)
+    {
+        SyntheticModule.configure(syntheticId, cfg);
+    }
+
+    function configureRisk(bytes32 riskId, RiskModule.RiskConfigInput memory cfg)
+        external
+        onlyRole(RiskModule.MANAGER_ROLE)
+    {
+        RiskModule.configure(riskId, cfg);
+    }
+
+    function triggerEmergency(bytes32 vaultId, EmergencyModule.EmergencyAction action, bytes calldata data)
+        external
+        onlyRole(keccak256("EMERGENCY_ROLE"))
+    {
+        EmergencyModule.execute(vaultId, action, data);
+    }
+
+    /// @inheritdoc UUPSUpgradeable
+    function _authorizeUpgrade(address) internal view override {
+        if (!aclManager.hasRole(ROLE_UPGRADER, msg.sender)) {
+            revert Unauthorized(ROLE_UPGRADER, msg.sender);
+        }
+    }
+}

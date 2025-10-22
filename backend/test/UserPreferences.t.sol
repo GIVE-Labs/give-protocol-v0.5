@@ -4,8 +4,10 @@ pragma solidity ^0.8.28;
 import "forge-std/Test.sol";
 import "../src/donation/DonationRouter.sol";
 import "../src/donation/NGORegistry.sol";
+import "../src/governance/ACLManager.sol";
 import "../src/vault/GiveVault4626.sol";
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import "../src/types/GiveTypes.sol";
 
 contract MockERC20 is ERC20 {
     constructor() ERC20("Mock USDC", "USDC") {}
@@ -32,28 +34,32 @@ contract UserPreferencesTest is Test {
     address feeRecipient = makeAddr("feeRecipient");
     address protocolTreasury = makeAddr("protocolTreasury");
     address caller = makeAddr("caller");
+    ACLManager acl;
 
     function setUp() public {
         usdc = new MockERC20();
 
+        acl = new ACLManager();
+        acl.initialize(admin, admin);
+
+        registry = new NGORegistry();
+        registry.initialize(address(acl));
+
+        router = new DonationRouter();
+        router.initialize(address(acl), address(registry), feeRecipient, protocolTreasury, 250);
+
         vm.startPrank(admin);
-        registry = new NGORegistry(admin);
-        router = new DonationRouter(admin, address(registry), feeRecipient, protocolTreasury, 250); // 2.5% fee
+        acl.createRole(registry.NGO_MANAGER_ROLE(), admin);
+        acl.grantRole(registry.NGO_MANAGER_ROLE(), admin);
+        acl.createRole(router.VAULT_MANAGER_ROLE(), admin);
+        acl.grantRole(router.VAULT_MANAGER_ROLE(), admin);
+        acl.createRole(router.FEE_MANAGER_ROLE(), admin);
+        acl.grantRole(router.FEE_MANAGER_ROLE(), admin);
+        acl.createRole(registry.DONATION_RECORDER_ROLE(), admin);
+        acl.grantRole(registry.DONATION_RECORDER_ROLE(), address(router));
 
-        // Grant NGO manager role to admin
-        registry.grantRole(registry.NGO_MANAGER_ROLE(), admin);
-
-        // Grant vault manager role to admin for authorizing callers
-        router.grantRole(router.VAULT_MANAGER_ROLE(), admin);
-
-        // Grant donation recorder role to router so it can record donations
-        registry.grantRole(registry.DONATION_RECORDER_ROLE(), address(router));
-
-        // Setup NGOs
         registry.addNGO(ngo1, "NGO1", bytes32("kyc1"), admin);
         registry.addNGO(ngo2, "NGO2", bytes32("kyc2"), admin);
-
-        // Authorize caller
         router.setAuthorizedCaller(caller, true);
         vm.stopPrank();
 
@@ -141,7 +147,7 @@ contract UserPreferencesTest is Test {
         vm.prank(user1);
         router.setUserPreference(ngo1, 50);
 
-        DonationRouter.UserPreference memory preference = router.getUserPreference(user1);
+        GiveTypes.UserPreference memory preference = router.getUserPreference(user1);
         assertEq(preference.selectedNGO, ngo1, "Should return correct NGO");
         assertEq(preference.allocationPercentage, 50, "Should return correct allocation");
     }

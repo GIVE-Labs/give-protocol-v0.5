@@ -3,11 +3,11 @@ pragma solidity ^0.8.20;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import "@openzeppelin/contracts/access/AccessControl.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/utils/Pausable.sol";
 import "../interfaces/IYieldAdapter.sol";
 import "../utils/Errors.sol";
+import "../utils/ACLShim.sol";
 
 // Aave V3 interfaces
 interface IPool {
@@ -44,7 +44,7 @@ struct ReserveData {
  * @dev Yield adapter for Aave V3 protocol (supply-only)
  * @notice Supplies assets to Aave and tracks yield through aToken balance changes
  */
-contract AaveAdapter is IYieldAdapter, AccessControl, ReentrancyGuard, Pausable {
+contract AaveAdapter is IYieldAdapter, ACLShim, ReentrancyGuard, Pausable {
     using SafeERC20 for IERC20;
 
     // === Constants ===

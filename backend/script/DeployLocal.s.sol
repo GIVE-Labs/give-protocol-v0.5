@@ -85,13 +85,7 @@ contract DeployLocal is Script {
         // Register the mock NGO
         NGORegistry registry = NGORegistry(deployed.registry);
 
-        // Ensure deployer has NGO_MANAGER_ROLE
         vm.startBroadcast(deployerKey);
-        if (!registry.hasRole(registry.NGO_MANAGER_ROLE(), deployer_addr)) {
-            registry.grantRole(registry.NGO_MANAGER_ROLE(), deployer_addr);
-            console.log("Granted NGO_MANAGER_ROLE to deployer");
-        }
-
         registry.addNGO(mockNGOAddress, mockMetadataCid, mockKycHash, mockAttestor);
         vm.stopBroadcast();
 
@@ -100,8 +94,8 @@ contract DeployLocal is Script {
         console.log("  Metadata CID:", mockMetadataCid);
         console.log("  KYC Hash:", vm.toString(mockKycHash));
         console.log("  Attestor:", mockAttestor);
-        console.log("  Is Approved:", registry.isNGOApproved(mockNGOAddress));
-        console.log("  Current NGO:", registry.getCurrentNGO());
+        console.log("  Is Approved:", registry.isApproved(mockNGOAddress));
+        console.log("  Current NGO:", registry.currentNGO());
 
         console.log("\n=== Frontend Config Format ===");
         console.log("Copy these addresses to frontend/src/config/local.ts:");

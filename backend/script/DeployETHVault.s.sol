@@ -12,6 +12,7 @@ import {MockYieldAdapter} from "../src/adapters/MockYieldAdapter.sol";
 import {IYieldAdapter} from "../src/interfaces/IYieldAdapter.sol";
 import {NGORegistry} from "../src/donation/NGORegistry.sol";
 import {DonationRouter} from "../src/donation/DonationRouter.sol";
+import {ACLManager} from "../src/governance/ACLManager.sol";
 import {HelperConfig} from "./HelperConfig.s.sol";
 
 /**
@@ -64,6 +65,9 @@ contract DeployETHVault is Script {
         console.log("WETH address:", weth);
         console.log("Aave Pool address:", aavePool);
 
+        ACLManager acl = new ACLManager();
+        acl.initialize(admin, admin);
+
         // Deploy or reuse existing registry and router
         NGORegistry registry;
         DonationRouter router;
@@ -79,12 +83,27 @@ contract DeployETHVault is Script {
             router = DonationRouter(payable(existingRouter));
         } else {
             console.log("Deploying new Registry and Router...");
-            registry = new NGORegistry(deployer);
-            router = new DonationRouter(deployer, address(registry), feeRecipient, admin, feeBps);
+            registry = new NGORegistry();
+            registry.initialize(address(acl));
+            router = new DonationRouter();
+            router.initialize(address(acl), address(registry), feeRecipient, admin, feeBps);
 
-            // Setup registry roles
-            registry.grantRole(registry.NGO_MANAGER_ROLE(), admin);
-            registry.grantRole(registry.DONATION_RECORDER_ROLE(), address(router));
+            vm.prank(admin);
+            acl.createRole(registry.NGO_MANAGER_ROLE(), admin);
+            vm.prank(admin);
+            acl.grantRole(registry.NGO_MANAGER_ROLE(), admin);
+            vm.prank(admin);
+            acl.createRole(router.VAULT_MANAGER_ROLE(), admin);
+            vm.prank(admin);
+            acl.grantRole(router.VAULT_MANAGER_ROLE(), admin);
+            vm.prank(admin);
+            acl.createRole(router.FEE_MANAGER_ROLE(), admin);
+            vm.prank(admin);
+            acl.grantRole(router.FEE_MANAGER_ROLE(), admin);
+            vm.prank(admin);
+            acl.createRole(registry.DONATION_RECORDER_ROLE(), admin);
+            vm.prank(admin);
+            acl.grantRole(registry.DONATION_RECORDER_ROLE(), address(router));
         }
 
         // Deploy ETH Vault with WETH as underlying asset

@@ -1,243 +1,58 @@
-# GIVE Protocol
+# GIVE Protocol – Architecture Revamp
 
-No-loss giving built on ERC-4626 vaults. Users deposit an asset, keep their principal redeemable, and route realized yield to approved NGOs.
+This repository is mid-flight on a complete rebuild to adopt the modular architecture captured in `OVERHAUL_PLAN.md`. The legacy MVP (single ERC-4626 vault, NGO registry, strategy manager) is being dismantled in favour of a composable system that looks like:
 
-## The Problem
+- **Governance:** Timelock → Multisig → ACL Manager issuing functional roles plus a single Upgrader role controlling every UUPS proxy.
+- **Core Orchestrator:** `GiveProtocolCore` proxy that delegates to stateless module libraries (`VaultModule`, `AdapterModule`, `DonationModule`, `SyntheticModule`, `RiskModule`, `EmergencyModule`) all reading/writing through shared storage.
+- **Shared State:** `GiveTypes`, `GiveStorage`, and `StorageLib` to consolidate protocol data and prevent slot clashes.
+- **Proxied Components:** UUPS implementations for the vault, donation router, registry, synthetic storage proxy, and each adapter flavour (compounding, claimable-yield, growth, PT rollover with a yield manager).
+- **Bootstrap & Tests:** Deterministic Foundry bootstrap wiring proxies, roles, configs, and approvals; a new full-stack Foundry harness for governance, onboarding, synthetic asset, and emergency scenarios.
 
-Traditional NGO donations have issues:
-- 30-50% goes to intermediaries
-- You lose your money forever
-- No transparency in fund usage
-- Zero engagement after donating
-
-## How It Works
-
-Users deposit into an ERC-4626 vault (e.g., USDC vault). The vault invests via a pluggable adapter (e.g., Aave). Principal stays redeemable as vault shares track totalAssets; only realized profit is harvested and routed to NGOs via a Donation Router.
-
-Example:
-- Deposit 1,000 USDC into the USDC GiveVault4626
-- Vault keeps a cash buffer and supplies excess to Aave via adapter
-- Periodically, `harvest()` realizes profit and donates it to the current NGO
-- You can withdraw your principal (subject to available liquidity)
-
-## Quick Start
-
-### Prerequisites
-- Node.js 18+ (with pnpm)
-- Foundry (forge, cast, anvil)
-- Git
-- Wallet with Scroll Sepolia configured (for testnet deployment)
-
-### Installation
-
-#### 1. Clone the Repository
-```bash
-git clone <repository-url>
-cd GiveProtocol_MVP
-```
-
-#### 2. Install Frontend Dependencies
-```bash
-cd frontend
-pnpm install
-```
-
-#### 3. Install Backend Dependencies
-```bash
-cd ../backend
-make install
-# or manually: forge install
-```
-
-#### 4. Environment Configuration
-
-**Frontend (.env.local):**
-```bash
-cd frontend
-cp .env.example .env.local
-# Edit .env.local with your configuration
-```
-
-**Backend (.env):**
-```bash
-cd backend
-cp .env.example .env
-# Add your private key and API keys:
-# DEPLOYER_KEY=your_private_key
-# SCROLL_SEPOLIA_RPC_URL=https://sepolia-rpc.scroll.io
-# ETHERSCAN_API_KEY=your_etherscan_api_key
-```
-
-#### 5. Build and Test
-```bash
-# Build contracts
-cd backend
-make build
-
-# Run tests
-make test
-
-# Build frontend
-cd ../frontend
-pnpm build
-```
-
-### Development Setup
-
-#### Option A: Full Local Development
-```bash
-# Terminal 1: Start local blockchain
-cd backend
-make dev  # Starts Anvil and deploys contracts
-
-# Terminal 2: Start frontend
-cd frontend
-pnpm dev
-```
-
-#### Option B: Manual Setup
-```bash
-# Terminal 1: Start Anvil
-anvil
-
-# Terminal 2: Deploy contracts locally
-cd backend
-make deploy-local
-
-# Terminal 3: Start frontend
-cd frontend
-pnpm dev
-```
-
-### Deployment
-
-#### Local Deployment
-```bash
-cd backend
-make deploy-local
-```
-
-#### Testnet Deployment (Ethereum Sepolia)
-```bash
-cd backend
-# Ensure ETHERSCAN_API_KEY is set in .env
-make deploy-sepolia
-```
-
-**Deployed Addresses (Sepolia Testnet - September 18, 2025):**
-- **GiveVault4626 (USDC):** [`0x9816de1f27c15AAe597548f09E2188d16752C4C8`](https://sepolia.etherscan.io/address/0x9816de1f27c15aae597548f09e2188d16752c4c8)
-- **StrategyManager:** [`0x42cB507dfe0f7D8a01c9ad9e1b18B84CCf0A41B9`](https://sepolia.etherscan.io/address/0x42cb507dfe0f7d8a01c9ad9e1b18b84ccf0a41b9)
-- **AaveAdapter:** [`0xFc03875B2B2a84D9D1Bd24E41281fF371b3A1948`](https://sepolia.etherscan.io/address/0xfc03875b2b2a84d9d1bd24e41281ff371b3a1948)
-- **NGORegistry:** [`0x77182f2C8E86233D3B0095446Da20ecDecF96Cc2`](https://sepolia.etherscan.io/address/0x77182f2c8e86233d3b0095446da20ecdecf96cc2)
-- **DonationRouter:** [`0x33952be800FbBc7f8198A0efD489204720f64A4C`](https://sepolia.etherscan.io/address/0x33952be800fbbc7f8198a0efd489204720f64a4c)
-
-#### Testnet Deployment (Scroll Sepolia)
-```bash
-cd backend
-# Ensure ETHERSCAN_API_KEY is set in .env
-make deploy-scroll
-```
-
-#### Other Networks
-```bash
-# Custom network
-make deploy NETWORK=custom RPC_URL=your_rpc_url
-```
-
-## Tech Stack
-
-- Frontend: Next.js + TypeScript + TailwindCSS + Viem/Wagmi
-- Contracts: Foundry + Solidity (ERC-4626 vault, Aave adapters, registry/router)
-- Networks: Ethereum Sepolia (deployed), Scroll Sepolia (configurable)
-- DeFi Integration: Aave V3 for yield generation
-- Tokens: Asset-specific vaults (USDC deployed, wstETH configurable)
-
-## Project Structure
-
-```
-.
-├── frontend/          # Next.js web app (TypeScript, TailwindCSS)
-├── backend/           # Foundry contracts (Solidity)
-├── docs/              # Documentation & design notes
-├── llm/               # AI collaboration & prompts
-└── README.md          # Quick start & overview
-```
-
-## Key Features
-
-### For Supporters
-- Deposit into simple ERC-4626 vault interface
-- Keep principal redeemable; donate only yield
-- **Choose your impact**: Select 50%, 75%, or 100% of yield to donate
-- **Select your NGO**: Pick from approved organizations
-- Transparent harvest/donation events
-- Withdraw anytime within liquidity constraints
-- Remaining yield goes to protocol treasury for sustainability
-
-### For NGOs
-- Apply and get approved in the NGO Registry
-- Receive ongoing yield based on user preferences
-- Transparent on-chain donation receipts
-- Proportional distribution based on user allocations
-
-## Development
-
-### Smart Contracts
-```bash
-cd backend
-
-# Development
-make help           # Show all available commands
-make build          # Build contracts
-make test           # Run tests
-make test-fork      # Run fork tests
-make format         # Format code
-make lint           # Lint code
-
-# Deployment
-make deploy-local   # Deploy to local Anvil
-make deploy-sepolia # Deploy to Ethereum Sepolia
-make deploy-scroll  # Deploy to Scroll Sepolia
-
-# Management
-make register-ngo   # Register test NGO (local)
-make verify         # Verify contracts on Etherscan
-make check-env      # Check environment setup
-```
-
-### Frontend
-```bash
-cd frontend
-pnpm dev           # Start dev server
-pnpm build         # Build for production
-pnpm test          # Run tests
-pnpm lint          # Lint code
-pnpm type-check    # TypeScript check
-```
-
-## Current Status
-
-- ✅ Docs updated for GIVE Protocol architecture
-- ✅ Implemented v0.1: GiveVault4626 + Aave adapter + Registry/Router
-- ✅ **Deployed to Sepolia testnet** (September 18, 2025)
-- ✅ All contracts verified on Etherscan
-- 🔄 Frontend integration with testnet deployment
-- 🎯 User testing and feedback collection
-
-## Getting Started
-
-1. Clone the repo
-2. Install dependencies: `pnpm install`
-3. Configure environment: `.env.local` for frontend as needed
-4. Start the dev server: `pnpm dev`
-
-## Contributing
-
-1. Read docs in `/docs/SystemRequirements.md` for architecture
-2. Write tests first
-3. Follow repo guidelines in `AGENTS.md`
-4. Submit PRs with clear descriptions
+All tasks, dependencies, and checkboxes live in `OVERHAUL_PLAN.md`. Treat that file as the source of truth when deciding what to build next.
 
 ---
 
-Target network: Scroll Sepolia — GIVE Protocol MVP
+## Repo Status
+
+- ✅ `OVERHAUL_PLAN.md` is current and must be updated before code diverges.
+- ❗ Contracts, frontend, and scripts still reflect the legacy MVP until their respective phases land.
+- 🧹 Vague or conflicting documentation has been removed to keep the focus on the new design.
+
+Expect breaking changes until Phase 12 of the plan completes.
+
+---
+
+## Working Guidelines
+
+- **Follow the plan:** every PR should map to a checklist item. Update the checkbox when done.
+- **Respect shared storage:** new contracts interact with protocol state only through `StorageLib`.
+- **Guard upgrades:** only the ACL-managed Upgrader role may call `upgradeTo` on any UUPS proxy.
+- **Document in code:** keep Markdown light; add concise comments where logic would otherwise be opaque.
+
+---
+
+## Legacy Commands (reference only)
+
+```bash
+# Contracts (legacy)
+cd backend
+forge build
+forge test
+
+# Frontend (legacy)
+cd frontend
+pnpm install
+pnpm dev
+```
+
+Run these only if you need to inspect legacy behaviour prior to migration.
+
+---
+
+## Next Steps
+
+1. Start with Phase 1 in `OVERHAUL_PLAN.md` (shared types + storage).
+2. Record plan updates before touching code if requirements change.
+3. Keep commits scoped per phase so reviewers and auditors can trace the migration path.
+
+Let’s keep the documentation as sharp as the architecture we’re building.*** End Patch

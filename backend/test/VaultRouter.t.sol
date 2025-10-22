@@ -7,6 +7,7 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "../src/vault/GiveVault4626.sol";
 import "../src/donation/NGORegistry.sol";
 import "../src/donation/DonationRouter.sol";
+import "../src/governance/ACLManager.sol";
 import "../src/interfaces/IYieldAdapter.sol";
 
 contract VaultRouterTest is Test {
@@ -22,6 +23,7 @@ contract VaultRouterTest is Test {
     address public user;
     address public feeRecipient;
     address public ngo;
+    ACLManager public acl;
 
     function setUp() public {
         // Addresses
@@ -35,17 +37,27 @@ contract VaultRouterTest is Test {
         usdc = new MockERC20("Test USDC", "TUSDC", 6);
         usdc.mint(user, 1_000_000e6);
 
-        // Registry + Router
-        registry = new NGORegistry(admin);
-        router = new DonationRouter(admin, address(registry), feeRecipient, admin, 250); // 2.5%
+        // ACL + Registry + Router
+        acl = new ACLManager();
+        acl.initialize(admin, admin);
+        registry = new NGORegistry();
+        registry.initialize(address(acl));
+        router = new DonationRouter();
+        router.initialize(address(acl), address(registry), feeRecipient, admin, 250);
 
         // Vault
         vault = new GiveVault4626(IERC20(address(usdc)), "GIVE USDC", "gvUSDC", admin);
 
         // Roles and wiring
         vm.startPrank(admin);
-        registry.grantRole(registry.NGO_MANAGER_ROLE(), admin);
-        registry.grantRole(registry.DONATION_RECORDER_ROLE(), address(router));
+        acl.createRole(registry.NGO_MANAGER_ROLE(), admin);
+        acl.grantRole(registry.NGO_MANAGER_ROLE(), admin);
+        acl.createRole(router.VAULT_MANAGER_ROLE(), admin);
+        acl.grantRole(router.VAULT_MANAGER_ROLE(), admin);
+        acl.createRole(router.FEE_MANAGER_ROLE(), admin);
+        acl.grantRole(router.FEE_MANAGER_ROLE(), admin);
+        acl.createRole(registry.DONATION_RECORDER_ROLE(), admin);
+        acl.grantRole(registry.DONATION_RECORDER_ROLE(), address(router));
         vault.grantRole(vault.VAULT_MANAGER_ROLE(), manager);
         vault.setDonationRouter(address(router));
         router.setAuthorizedCaller(address(vault), true);
@@ -56,8 +68,6 @@ contract VaultRouterTest is Test {
         registry.addNGO(ngo, "NGO", bytes32("kyc"), admin);
 
         // Ensure NGO is set as current (should happen automatically in addNGO)
-        vm.prank(admin);
-        registry.emergencySetCurrentNGO(ngo);
 
         // Adapter
         adapter = new MockAdapter(IERC20(address(usdc)), address(vault));

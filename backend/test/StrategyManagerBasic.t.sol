@@ -6,6 +6,9 @@ import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "../src/vault/GiveVault4626.sol";
 import "../src/manager/StrategyManager.sol";
 import "../src/interfaces/IYieldAdapter.sol";
+import "../src/donation/DonationRouter.sol";
+import "../src/donation/NGORegistry.sol";
+import "../src/governance/ACLManager.sol";
 
 contract StrategyManagerBasicTest is Test {
     GiveVault4626 public vault;
@@ -44,7 +47,26 @@ contract StrategyManagerBasicTest is Test {
     }
 
     function testSetDonationRouter() public {
-        DonationRouter router = new DonationRouter(admin, address(new NGORegistry(admin)), address(0xFEE5), admin, 100);
+        ACLManager localAcl = new ACLManager();
+        localAcl.initialize(admin, admin);
+
+        NGORegistry registry = new NGORegistry();
+        registry.initialize(address(localAcl));
+
+        DonationRouter router = new DonationRouter();
+        router.initialize(address(localAcl), address(registry), address(0xFEE5), admin, 100);
+
+        vm.startPrank(admin);
+        localAcl.createRole(registry.NGO_MANAGER_ROLE(), admin);
+        localAcl.grantRole(registry.NGO_MANAGER_ROLE(), admin);
+        localAcl.createRole(router.VAULT_MANAGER_ROLE(), admin);
+        localAcl.grantRole(router.VAULT_MANAGER_ROLE(), admin);
+        localAcl.createRole(router.FEE_MANAGER_ROLE(), admin);
+        localAcl.grantRole(router.FEE_MANAGER_ROLE(), admin);
+        localAcl.createRole(registry.DONATION_RECORDER_ROLE(), admin);
+        localAcl.grantRole(registry.DONATION_RECORDER_ROLE(), address(router));
+        vm.stopPrank();
+
         vm.prank(admin);
         manager.setDonationRouter(address(router));
         assertEq(address(vault.donationRouter()), address(router));

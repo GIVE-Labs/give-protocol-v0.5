@@ -8,6 +8,7 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "../src/vault/GiveVault4626.sol";
 import "../src/donation/NGORegistry.sol";
 import "../src/donation/DonationRouter.sol";
+import "../src/governance/ACLManager.sol";
 import "../src/adapters/AaveAdapter.sol";
 import "../src/interfaces/IYieldAdapter.sol";
 import "../src/manager/StrategyManager.sol";
@@ -37,6 +38,7 @@ contract VaultETH_AaveTest is Test {
     address public feeRecipient;
     address public ngo1;
     address public ngo2;
+    ACLManager public acl;
 
     // Test constants
     uint256 public constant INITIAL_ETH_BALANCE = 1000 ether;
@@ -66,9 +68,13 @@ contract VaultETH_AaveTest is Test {
         aWETH = new MockAToken("Aave WETH", "aWETH", 18, address(weth));
         aavePool = new MockAavePool(address(weth), address(aWETH));
 
-        // Deploy core contracts
-        registry = new NGORegistry(admin);
-        router = new DonationRouter(admin, address(registry), feeRecipient, admin, FEE_BPS);
+        acl = new ACLManager();
+        acl.initialize(admin, admin);
+
+        registry = new NGORegistry();
+        registry.initialize(address(acl));
+        router = new DonationRouter();
+        router.initialize(address(acl), address(registry), feeRecipient, admin, FEE_BPS);
 
         // Deploy ETH vault with WETH as underlying asset
         ethVault = new GiveVault4626(IERC20(address(weth)), "GIVE ETH Vault", "gvETH", admin);
@@ -82,8 +88,14 @@ contract VaultETH_AaveTest is Test {
 
         // Setup roles and permissions
         vm.startPrank(admin);
-        registry.grantRole(registry.NGO_MANAGER_ROLE(), admin);
-        registry.grantRole(registry.DONATION_RECORDER_ROLE(), address(router));
+        acl.createRole(registry.NGO_MANAGER_ROLE(), admin);
+        acl.grantRole(registry.NGO_MANAGER_ROLE(), admin);
+        acl.createRole(router.VAULT_MANAGER_ROLE(), admin);
+        acl.grantRole(router.VAULT_MANAGER_ROLE(), admin);
+        acl.createRole(router.FEE_MANAGER_ROLE(), admin);
+        acl.grantRole(router.FEE_MANAGER_ROLE(), admin);
+        acl.createRole(registry.DONATION_RECORDER_ROLE(), admin);
+        acl.grantRole(registry.DONATION_RECORDER_ROLE(), address(router));
         ethVault.grantRole(ethVault.VAULT_MANAGER_ROLE(), vaultManager);
         ethVault.grantRole(ethVault.VAULT_MANAGER_ROLE(), address(manager));
         ethVault.setDonationRouter(address(router));
@@ -98,11 +110,10 @@ contract VaultETH_AaveTest is Test {
         vm.stopPrank();
 
         // Register and approve NGOs
-        vm.startPrank(admin);
+        vm.prank(admin);
         registry.addNGO(ngo1, "Education NGO", bytes32("kyc1"), admin);
+        vm.prank(admin);
         registry.addNGO(ngo2, "Health NGO", bytes32("kyc2"), admin);
-        registry.emergencySetCurrentNGO(ngo1);
-        vm.stopPrank();
 
         // Give users ETH
         vm.deal(user1, INITIAL_ETH_BALANCE);

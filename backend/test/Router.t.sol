@@ -5,6 +5,7 @@ import "forge-std/Test.sol";
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "../src/donation/DonationRouter.sol";
 import "../src/donation/NGORegistry.sol";
+import "../src/governance/ACLManager.sol";
 import "../src/utils/Errors.sol";
 
 contract RouterTest is Test {
@@ -17,6 +18,7 @@ contract RouterTest is Test {
     address public ngo1;
     address public ngo2;
     address public feeRecipient;
+    ACLManager public acl;
 
     function setUp() public {
         admin = makeAddr("admin");
@@ -27,12 +29,25 @@ contract RouterTest is Test {
 
         usdc = new MockERC20("Test USDC", "TUSDC", 6);
         usdc.mint(address(this), 1_000_000e6);
-        registry = new NGORegistry(admin);
-        router = new DonationRouter(admin, address(registry), feeRecipient, admin, 0); // Using admin as protocol treasury
+        acl = new ACLManager();
+        acl.initialize(admin, admin);
+
+        registry = new NGORegistry();
+        registry.initialize(address(acl));
+
+        router = new DonationRouter();
+        router.initialize(address(acl), address(registry), feeRecipient, admin, 0);
 
         vm.startPrank(admin);
-        registry.grantRole(registry.NGO_MANAGER_ROLE(), admin);
-        registry.grantRole(registry.DONATION_RECORDER_ROLE(), address(router));
+        acl.createRole(registry.NGO_MANAGER_ROLE(), admin);
+        acl.grantRole(registry.NGO_MANAGER_ROLE(), admin);
+        acl.createRole(router.VAULT_MANAGER_ROLE(), admin);
+        acl.grantRole(router.VAULT_MANAGER_ROLE(), admin);
+        acl.createRole(router.FEE_MANAGER_ROLE(), admin);
+        acl.grantRole(router.FEE_MANAGER_ROLE(), admin);
+        acl.createRole(registry.DONATION_RECORDER_ROLE(), admin);
+        acl.grantRole(registry.DONATION_RECORDER_ROLE(), address(router));
+
         registry.addNGO(ngo1, "NGO1", bytes32("kyc1"), admin);
         registry.addNGO(ngo2, "NGO2", bytes32("kyc2"), admin);
         router.setAuthorizedCaller(caller, true);
@@ -42,7 +57,7 @@ contract RouterTest is Test {
     function testUpdateFeeConfig() public {
         vm.prank(admin);
         router.updateFeeConfig(feeRecipient, 250); // 2.5%
-        (address r, uint256 bps,) = router.getFeeConfig();
+        (address r, uint256 bps, ) = router.getFeeConfig();
         assertEq(r, feeRecipient);
         assertEq(bps, 250);
     }

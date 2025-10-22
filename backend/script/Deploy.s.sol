@@ -12,6 +12,7 @@ import {MockYieldAdapter} from "../src/adapters/MockYieldAdapter.sol";
 import {IYieldAdapter} from "../src/interfaces/IYieldAdapter.sol";
 import {NGORegistry} from "../src/donation/NGORegistry.sol";
 import {DonationRouter} from "../src/donation/DonationRouter.sol";
+import {ACLManager} from "../src/governance/ACLManager.sol";
 import {HelperConfig} from "./HelperConfig.s.sol";
 
 contract Deploy is Script {
@@ -61,8 +62,14 @@ contract Deploy is Script {
             vm.startBroadcast(deployerKey);
         }
 
-        NGORegistry registry = new NGORegistry(admin); // Use environment admin as admin
-        DonationRouter router = new DonationRouter(admin, address(registry), feeRecipient, admin, feeBps); // Use admin from environment for role management
+        ACLManager acl = new ACLManager();
+        acl.initialize(admin, admin);
+
+        NGORegistry registry = new NGORegistry();
+        registry.initialize(address(acl));
+
+        DonationRouter router = new DonationRouter();
+        router.initialize(address(acl), address(registry), feeRecipient, admin, feeBps);
 
         GiveVault4626 vault = new GiveVault4626(IERC20(assetAddress), assetName, assetSymbol, admin);
         StrategyManager manager = new StrategyManager(address(vault), admin);
@@ -80,8 +87,24 @@ contract Deploy is Script {
         // Wire roles & params
         console.log("Deployer address:", deployer);
         console.log("Admin address:", admin);
-        console.log("Has DEFAULT_ADMIN_ROLE:", registry.hasRole(registry.DEFAULT_ADMIN_ROLE(), admin));
-        registry.grantRole(registry.DONATION_RECORDER_ROLE(), address(router));
+
+        vm.prank(admin);
+        acl.createRole(registry.NGO_MANAGER_ROLE(), admin);
+        vm.prank(admin);
+        acl.grantRole(registry.NGO_MANAGER_ROLE(), admin);
+        vm.prank(admin);
+        acl.createRole(router.VAULT_MANAGER_ROLE(), admin);
+        vm.prank(admin);
+        acl.grantRole(router.VAULT_MANAGER_ROLE(), admin);
+        vm.prank(admin);
+        acl.createRole(router.FEE_MANAGER_ROLE(), admin);
+        vm.prank(admin);
+        acl.grantRole(router.FEE_MANAGER_ROLE(), admin);
+        vm.prank(admin);
+        acl.createRole(registry.DONATION_RECORDER_ROLE(), admin);
+        vm.prank(admin);
+        acl.grantRole(registry.DONATION_RECORDER_ROLE(), address(router));
+
         router.setAuthorizedCaller(address(vault), true);
 
         // Allow the StrategyManager to configure the vault
