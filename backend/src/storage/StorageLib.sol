@@ -10,6 +10,7 @@ library StorageLib {
     error StorageNotInitialized();
     error InvalidVault(bytes32 vaultId);
     error InvalidAdapter(bytes32 adapterId);
+    error InvalidRisk(bytes32 riskId);
 
     // === Core Accessors ===
 
@@ -42,6 +43,11 @@ library StorageLib {
     function riskConfig(bytes32 riskId) internal view returns (GiveTypes.RiskConfig storage cfg) {
         GiveStorage.Store storage s = GiveStorage.store();
         cfg = s.riskConfigs[riskId];
+    }
+
+    function ensureRiskConfig(bytes32 riskId) internal view returns (GiveTypes.RiskConfig storage cfg) {
+        cfg = riskConfig(riskId);
+        if (!cfg.exists) revert InvalidRisk(riskId);
     }
 
     function position(bytes32 positionId) internal view returns (GiveTypes.PositionState storage state) {

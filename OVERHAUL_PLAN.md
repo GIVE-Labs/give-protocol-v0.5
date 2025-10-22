@@ -16,7 +16,7 @@ This plan replaces all previous overhaul documents. It is the single source of t
 ## Execution Plan
 
 ### Phase 0 – Preparation & Documentation Alignment
-- [ ] Create a dedicated refactor branch (e.g., `refactor/new-architecture`) and snapshot current build/test status.
+- [x] Create a dedicated refactor branch `v-0.5` and snapshot current build/test status.
 - [x] Update root and backend READMEs to state the migration objective and reference this plan; remove or edit any docs that contradict the new architecture.
 - [x] Record existing deployment addresses/tests that must remain accessible during migration (for parity checks). _Forge test snapshot captured (36 passing tests) before revamp._
 
@@ -61,18 +61,18 @@ This plan replaces all previous overhaul documents. It is the single source of t
 - [x] Extend GiveProtocolCore with adapter config getters and delegations.
 - [x] Add Foundry tests exercising the new adapters and ACL role gating.
 ### Phase 8 – Risk & Emergency Controls
-- [ ] Flesh out `RiskModule` for structured risk configs (LTV, thresholds, penalties, caps) with timestamped versions and invariant checks before operations.
-- [ ] Implement `EmergencyModule` coordinating pauses, emergency withdrawals, and liquidation actions across vault and adapters.
-- [ ] Emit events for risk updates, invariant violations, and emergency actions suitable for indexers.
-- [ ] Extend tests to cover risk config changes, invariant enforcement, and emergency scenarios.
+- [x] Flesh out `RiskModule` for structured risk configs (LTV, thresholds, penalties, caps) with timestamped versions and invariant checks before operations.
+- [x] Implement `EmergencyModule` coordinating pauses, emergency withdrawals, and liquidation actions across vault and adapters.
+- [x] Emit events for risk updates, invariant violations, and emergency actions suitable for indexers.
+- [x] Extend tests to cover risk config changes, invariant enforcement, and emergency scenarios.
 
 ### Phase 9 – Bootstrap Automation
-- [ ] Replace existing deployment scripts with a deterministic `Bootstrap.s.sol` that:
+- [x] Replace existing deployment scripts with a deterministic `Bootstrap.s.sol` that:
   - Deploys all implementations and proxies.
   - Initializes storage, assigns roles via ACL Manager, sets configs, prefunds approvals.
   - Logs addresses and role assignments for documentation.
-- [ ] Provide environment-specific configuration (local, testnet, mainnet) for the bootstrap script.
-- [ ] Add tests or dry-run scripts verifying bootstrap determinism and idempotency.
+- [x] Provide environment-specific configuration (local, testnet, mainnet) for the bootstrap script.
+- [x] Add tests or dry-run scripts verifying bootstrap determinism and idempotency.
 
 ### Phase 10 – Testing Harness & Coverage
 - [ ] Create a Foundry base harness deploying the entire stack once per test file, exposing helper functions for scenarios.

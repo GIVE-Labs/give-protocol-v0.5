@@ -12,6 +12,7 @@ import "../modules/SyntheticModule.sol";
 import "../modules/RiskModule.sol";
 import "../modules/EmergencyModule.sol";
 import "../synthetic/SyntheticLogic.sol";
+import "../vault/GiveVault4626.sol";
 
 /// @title GiveProtocolCore
 /// @notice Thin orchestration layer that delegates lifecycle operations to module libraries.
@@ -117,11 +118,25 @@ contract GiveProtocolCore is Initializable, UUPSUpgradeable {
         RiskModule.configure(riskId, cfg);
     }
 
+    function assignVaultRisk(bytes32 vaultId, bytes32 riskId) external onlyRole(RiskModule.MANAGER_ROLE) {
+        GiveTypes.VaultConfig storage vaultCfg = StorageLib.vault(vaultId);
+        RiskModule.assignVaultRisk(vaultId, riskId);
+        address vaultProxy = vaultCfg.proxy;
+        if (vaultProxy != address(0)) {
+            GiveTypes.RiskConfig storage riskCfg = StorageLib.ensureRiskConfig(riskId);
+            GiveVault4626(payable(vaultProxy)).syncRiskLimits(riskId, riskCfg.maxDeposit, riskCfg.maxBorrow);
+        }
+    }
+
     function triggerEmergency(bytes32 vaultId, EmergencyModule.EmergencyAction action, bytes calldata data)
         external
         onlyRole(keccak256("EMERGENCY_ROLE"))
     {
         EmergencyModule.execute(vaultId, action, data);
+    }
+
+    function getRiskConfig(bytes32 riskId) external view returns (GiveTypes.RiskConfig memory) {
+        return StorageLib.riskConfig(riskId);
     }
 
     /// @inheritdoc UUPSUpgradeable

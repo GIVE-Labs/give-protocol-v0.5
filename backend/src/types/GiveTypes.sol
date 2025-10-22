@@ -31,6 +31,7 @@ library GiveTypes {
         address asset;
         bytes32 adapterId;
         bytes32 donationModuleId;
+        bytes32 riskId;
         address activeAdapter;
         address donationRouter;
         address wrappedNative;
@@ -40,6 +41,10 @@ library GiveTypes {
         uint256 lastHarvestTime;
         uint256 totalProfit;
         uint256 totalLoss;
+        uint256 maxVaultDeposit;
+        uint256 maxVaultBorrow;
+        bool emergencyShutdown;
+        uint64 emergencyActivatedAt;
         bool investPaused;
         bool harvestPaused;
         bool active;
@@ -88,6 +93,11 @@ library GiveTypes {
         uint16 borrowCapBps;
         uint16 depositCapBps;
         bytes32 dataHash; // arbitrary encoded risk parameters for extensions
+        uint64 version;
+        uint256 maxDeposit;
+        uint256 maxBorrow;
+        bool exists;
+        bool active;
     }
 
     /// @dev Tracks user position state for enumerability and analytics.

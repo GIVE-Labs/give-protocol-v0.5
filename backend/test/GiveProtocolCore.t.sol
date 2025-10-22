@@ -47,6 +47,7 @@ contract GiveProtocolCoreTest is Test {
             asset: address(0x9),
             adapterId: keccak256("adapter"),
             donationModuleId: bytes32(0),
+            riskId: bytes32(0),
             cashBufferBps: 100,
             slippageBps: 50,
             maxLossBps: 50

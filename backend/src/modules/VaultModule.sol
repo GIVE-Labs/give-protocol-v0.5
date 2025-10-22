@@ -14,6 +14,7 @@ library VaultModule {
         address asset;
         bytes32 adapterId;
         bytes32 donationModuleId;
+        bytes32 riskId;
         uint16 cashBufferBps;
         uint16 slippageBps;
         uint16 maxLossBps;
@@ -29,6 +30,7 @@ library VaultModule {
         info.asset = cfg.asset;
         info.adapterId = cfg.adapterId;
         info.donationModuleId = cfg.donationModuleId;
+        info.riskId = cfg.riskId;
         info.cashBufferBps = cfg.cashBufferBps;
         info.slippageBps = cfg.slippageBps;
         info.maxLossBps = cfg.maxLossBps;

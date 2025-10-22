@@ -9,6 +9,7 @@ import "../utils/Errors.sol";
 import "../interfaces/IWETH.sol";
 import "../types/GiveTypes.sol";
 import "./VaultTokenBase.sol";
+import "../modules/RiskModule.sol";
 
 /// @title GiveVault4626
 /// @dev ERC-4626 vault for no-loss giving with shared storage backing.
@@ -36,6 +37,7 @@ contract GiveVault4626 is ERC4626, VaultTokenBase {
     event HarvestPaused(bool paused);
     event EmergencyWithdraw(uint256 amount);
     event WrappedNativeSet(address indexed token);
+    event RiskLimitsUpdated(bytes32 indexed riskId, uint256 maxDeposit, uint256 maxBorrow);
 
     constructor(IERC20 _asset, string memory _name, string memory _symbol, address _admin)
         ERC4626(_asset)
@@ -168,6 +170,7 @@ contract GiveVault4626 is ERC4626, VaultTokenBase {
         override
         whenNotPaused
     {
+        RiskModule.enforceDepositLimit(vaultId(), totalAssets(), assets);
         super._deposit(caller, receiver, assets, shares);
 
         address router = _vaultConfig().donationRouter;
@@ -220,6 +223,14 @@ contract GiveVault4626 is ERC4626, VaultTokenBase {
         emit AdapterUpdated(oldAdapter, adapterAddr);
     }
 
+    function forceClearAdapter() external onlyRole(VAULT_MANAGER_ROLE) {
+        GiveTypes.VaultConfig storage cfg = _vaultConfig();
+        address oldAdapter = cfg.activeAdapter;
+        cfg.activeAdapter = address(0);
+        cfg.adapterId = bytes32(0);
+        emit AdapterUpdated(oldAdapter, address(0));
+    }
+
     function setDonationRouter(address router) external onlyRole(VAULT_MANAGER_ROLE) {
         if (router == address(0)) revert Errors.ZeroAddress();
         GiveTypes.VaultConfig storage cfg = _vaultConfig();
@@ -265,11 +276,37 @@ contract GiveVault4626 is ERC4626, VaultTokenBase {
         emit HarvestPaused(_paused);
     }
 
+    function syncRiskLimits(bytes32 riskId, uint256 maxDeposit, uint256 maxBorrow)
+        external
+        onlyRole(VAULT_MANAGER_ROLE)
+    {
+        GiveTypes.VaultConfig storage cfg = _vaultConfig();
+        cfg.riskId = riskId;
+        cfg.maxVaultDeposit = maxDeposit;
+        cfg.maxVaultBorrow = maxBorrow;
+        emit RiskLimitsUpdated(riskId, maxDeposit, maxBorrow);
+    }
+
     function emergencyPause() external onlyRole(PAUSER_ROLE) {
         GiveTypes.VaultConfig storage cfg = _vaultConfig();
         _pause();
         cfg.investPaused = true;
         cfg.harvestPaused = true;
+        cfg.emergencyShutdown = true;
+        cfg.emergencyActivatedAt = uint64(block.timestamp);
+        emit InvestPaused(true);
+        emit HarvestPaused(true);
+    }
+
+    function resumeFromEmergency() external onlyRole(PAUSER_ROLE) {
+        GiveTypes.VaultConfig storage cfg = _vaultConfig();
+        _unpause();
+        cfg.investPaused = false;
+        cfg.harvestPaused = false;
+        cfg.emergencyShutdown = false;
+        cfg.emergencyActivatedAt = 0;
+        emit InvestPaused(false);
+        emit HarvestPaused(false);
     }
 
     // === Yield Operations ===
@@ -377,6 +414,10 @@ contract GiveVault4626 is ERC4626, VaultTokenBase {
         return (cfg.cashBufferBps, cfg.slippageBps, cfg.maxLossBps, cfg.investPaused, cfg.harvestPaused);
     }
 
+    function emergencyShutdownActive() external view returns (bool) {
+        return _vaultConfig().emergencyShutdown;
+    }
+
     // === Native ETH Convenience Methods ===
 
     function depositETH(address receiver, uint256 minShares)
@@ -393,6 +434,7 @@ contract GiveVault4626 is ERC4626, VaultTokenBase {
         if (receiver == address(0)) revert Errors.InvalidReceiver();
         if (msg.value == 0) revert Errors.InvalidAmount();
 
+        RiskModule.enforceDepositLimit(vaultId(), totalAssets(), msg.value);
         shares = previewDeposit(msg.value);
         if (shares < minShares) revert Errors.SlippageExceeded(minShares, shares);
 
