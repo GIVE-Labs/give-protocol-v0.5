@@ -296,6 +296,13 @@ graph TB
 - `Core` → Upgradeable implementation
 - Storage preserved across upgrades
 
+Note: This diagram and the V2 codebase use the UUPS (ERC1967) upgrade pattern. Some earlier docs and tutorial diagrams reference `ProxyAdmin` (the Transparent proxy admin pattern). Those are alternative approaches — UUPS stores upgradeability logic in the implementation (requiring an UPGRADER_ROLE) while ProxyAdmin centralizes upgrade control in a separate admin contract. For production, consider timelocking the UPGRADER_ROLE or using a ProxyAdmin guarded by a timelock/multisig depending on operational preferences.
+
+Compatibility note: To remain compatible with tutorial diagrams and tooling that reference historical names, the repo includes thin wrapper contracts:
+- `backend/src/donation/DonationRouter.sol` — inherits `PayoutRouter` (keeps the `DonationRouter` name)
+- `backend/src/donation/NGORegistry.sol` — inherits `CampaignRegistry` (keeps the `NGORegistry` name)
+
+
 ### 2. **Diamond Storage (EIP-2535)**
 - Single storage slot: `keccak256("give.protocol.storage.v1") - 1`
 - All state in `AppStorage` struct

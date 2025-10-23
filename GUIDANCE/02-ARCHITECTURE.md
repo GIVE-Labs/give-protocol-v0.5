@@ -191,6 +191,36 @@ Implementation Contract ← Proxy Contract ← User Interface
 - Gradual feature rollouts
 - Bug fix capabilities
 
+Note: the repository implements UUPS / ERC1967 upgradeability in V2 (upgrade role + UUPS pattern). Some tutorial diagrams mention `ProxyAdmin` (Transparent/ProxyAdmin upgrade flow) as an alternative. For clarity: the project uses UUPS (an upgradeable implementation contract guarded by an upgrader role). Below are short, actionable notes and examples to avoid confusion and help deployment.
+
+UUPS vs ProxyAdmin (summary)
+- UUPS: The implementation contract includes the upgrade function (usually protected by an UPGRADER_ROLE). The proxy (ERC1967) simply forwards calls and stores the implementation address. This pattern is gas-efficient and keeps the admin logic closer to the implementation.
+- ProxyAdmin (Transparent Proxy): A separate, external admin contract (ProxyAdmin) is the owner of one or more proxies and performs upgrades on them. This is a convenient orchestration pattern when you want a single admin to manage multiple proxies.
+
+When to use which
+- Use UUPS when you prefer compact upgrade paths, gas-efficiency, and when each implementation can safely gate upgrades (this repo's V2 uses UUPS).
+- Use ProxyAdmin when you want a dedicated admin contract (for example, a multisig or TimelockController owning the ProxyAdmin) to centralize upgrades across multiple proxies.
+
+Quick deployment/upgrade snippets (conceptual)
+
+Deploy (pattern)
+1. Deploy implementation (ExampleImplementation)
+2. Deploy ERC1967 proxy pointing to implementation with initialize calldata
+3. Assign UPGRADER_ROLE to the multisig or timelock that should perform upgrades
+
+Upgrade (UUPS)
+1. The account with `UPGRADER_ROLE` calls `upgradeTo(newImplementation)` on the proxy (via the implementation's upgrade function)
+2. Optionally run any migration/initialize step on the new implementation
+
+Note: If you prefer a ProxyAdmin workflow, you can deploy a `ProxyAdmin` contract and have a multisig/TimelockController own the `ProxyAdmin`, then use `ProxyAdmin.upgrade(proxy, newImpl)` to perform upgrades.
+
+Security recommendation
+- In production, guard the `UPGRADER_ROLE` with a TimelockController (or similar) so upgrades are timelocked and transparent to the community. See `script/` for the repo's upgrade scripts; you can adapt them to grant the timelock the `UPGRADER_ROLE` during bootstrap.
+
+Diagram rendering and the master diagram
+- The master architecture diagram lives in `docs/MASTER_ARCHITECTURE_DIAGRAM.md`. If you need a rendered SVG, follow the local rendering instructions in `docs/DIAGRAM_RENDERING.md` (uses `@mermaid-js/mermaid-cli`). A placeholder SVG `docs/MASTER_ARCHITECTURE_DIAGRAM.svg` is included in the repo until you render the final version.
+
+
 ## 🌐 Network Architecture
 
 ### Multi-Chain Strategy

@@ -79,7 +79,65 @@ Tokenization Layer
 └── StakedGiveToken (optional future)
 
 Access Control
-└── ACLManager (role-based)
+└── ACL Manager (role-based)
+
+### ACL Manager
+
+The ACL Manager is the canonical source-of-truth for role assignments across the protocol. In the restructured architecture the `ACL Manager` is a lightweight, upgrade-safe contract whose responsibilities are:
+
+- Centralize role checks for all modules (Vaults, Adapters, Donation/Campaign modules).
+- Allow role delegation and batching of role grants/revocations via governance or a timelocked controller.
+- Expose a minimal, gas-efficient interface so modules can perform `hasRole(role, account)` checks without importing heavy access-control libraries.
+- Support meta-operations for onboarding (batch grant/revoke) and emergency role recovery for migration.
+
+Responsibilities & guarantees
+- Deterministic role lookup: O(1) role checks by role hash and account.
+- Low surface area: no complex logic beyond role administration and events.
+- Upgrade safety: keep this contract small and consider timelocking critical role changes.
+
+Example interface
+
+```solidity
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.26;
+
+interface IACLManager {
+    /// @notice Check whether `account` has `role`
+    function hasRole(bytes32 role, address account) external view returns (bool);
+
+    /// @notice Grant `role` to `account`
+    function grantRole(bytes32 role, address account) external;
+
+    /// @notice Revoke `role` from `account`
+    function revokeRole(bytes32 role, address account) external;
+
+    /// @notice Batch grant roles
+    function grantRoles(bytes32[] calldata roles, address[] calldata accounts) external;
+}
+```
+
+Suggested role list (non-exhaustive)
+- DEFAULT_ADMIN_ROLE (multisig / governance)
+- VAULT_MANAGER_ROLE
+- CAMPAIGN_CURATOR_ROLE
+- RISK_ADMIN_ROLE
+- PAUSER_ROLE
+- UPGRADER_ROLE
+- DONATION_RECORDER_ROLE
+
+Deployment and migration notes
+- Bootstrap: deploy `ACLManager` early and set the multisig or timelock as `DEFAULT_ADMIN_ROLE`. During migration, grant `UPGRADER_ROLE` temporarily to the deployer scripts and immediately transfer it to the timelock or multisig.
+- Timelock: For production, owner-sensitive roles (UPGRADER_ROLE, PAUSER_ROLE, DEFAULT_ADMIN_ROLE) should be administered via a TimelockController or multisig to introduce delay and transparency.
+- Migration helper: include a small migration script that can batch-grant roles for existing contracts when moving to the new diamond storage layout. Use `grantRoles` to reduce gas and complexity.
+
+Integration pattern for modules
+- Modules should call `IACLManager(aclManager).hasRole(role, msg.sender)` in their `ModuleBase.requireRole` implementation (see `src/libraries/ModuleBase.sol` placeholder). This keeps modules role-agnostic and migratable.
+
+Audit checklist for ACL Manager
+- Ensure `grantRole` / `revokeRole` are permissioned to `DEFAULT_ADMIN_ROLE` only.
+- Emit events for every role change and batch operation.
+- Limit storage growth by using mappings of `bytes32 => mapping(address => bool)`.
+- Add a safety mechanism to freeze role changes in emergency (optional but recommended).
 ```
 
 **Benefits:**

@@ -1,0 +1,6 @@
+{
+  "owners": ["0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"],
+  "threshold": 2,
+  "network": "sepolia",
+  "notes": "Replace owners with your multisig members and threshold before running safe creation. This file is a template and must not contain private keys."
+}
