@@ -21,84 +21,135 @@ library StorageLib {
         return GiveStorage.store();
     }
 
-    function system() internal pure returns (GiveTypes.SystemConfig storage cfg) {
+    function system()
+        internal
+        pure
+        returns (GiveTypes.SystemConfig storage cfg)
+    {
         GiveStorage.Store storage s = GiveStorage.store();
         assembly {
             cfg.slot := s.slot
         }
     }
 
-    function vault(bytes32 vaultId) internal view returns (GiveTypes.VaultConfig storage cfg) {
+    function vault(
+        bytes32 vaultId
+    ) internal view returns (GiveTypes.VaultConfig storage cfg) {
         GiveStorage.Store storage s = GiveStorage.store();
         cfg = s.vaults[vaultId];
     }
 
-    function adapter(bytes32 adapterId) internal view returns (GiveTypes.AdapterConfig storage cfg) {
+    function adapter(
+        bytes32 adapterId
+    ) internal view returns (GiveTypes.AdapterConfig storage cfg) {
         GiveStorage.Store storage s = GiveStorage.store();
         cfg = s.adapters[adapterId];
     }
 
-    function asset(bytes32 assetId) internal view returns (GiveTypes.AssetConfig storage cfg) {
+    function asset(
+        bytes32 assetId
+    ) internal view returns (GiveTypes.AssetConfig storage cfg) {
         GiveStorage.Store storage s = GiveStorage.store();
         cfg = s.assets[assetId];
     }
 
-    function riskConfig(bytes32 riskId) internal view returns (GiveTypes.RiskConfig storage cfg) {
+    function riskConfig(
+        bytes32 riskId
+    ) internal view returns (GiveTypes.RiskConfig storage cfg) {
         GiveStorage.Store storage s = GiveStorage.store();
         cfg = s.riskConfigs[riskId];
     }
 
-    function ensureRiskConfig(bytes32 riskId) internal view returns (GiveTypes.RiskConfig storage cfg) {
+    function ensureRiskConfig(
+        bytes32 riskId
+    ) internal view returns (GiveTypes.RiskConfig storage cfg) {
         cfg = riskConfig(riskId);
         if (!cfg.exists) revert InvalidRisk(riskId);
     }
 
-    function position(bytes32 positionId) internal view returns (GiveTypes.PositionState storage state) {
+    function position(
+        bytes32 positionId
+    ) internal view returns (GiveTypes.PositionState storage state) {
         GiveStorage.Store storage s = GiveStorage.store();
         state = s.positions[positionId];
     }
 
-    function ngoRegistry() internal view returns (GiveTypes.NGORegistryState storage state) {
+    function ngoRegistry()
+        internal
+        view
+        returns (GiveTypes.NGORegistryState storage state)
+    {
         GiveStorage.Store storage s = GiveStorage.store();
         state = s.ngoRegistry;
     }
 
-    function payoutRouter() internal view returns (GiveTypes.PayoutRouterState storage state) {
+    function payoutRouter()
+        internal
+        view
+        returns (GiveTypes.PayoutRouterState storage state)
+    {
         GiveStorage.Store storage s = GiveStorage.store();
         state = s.payoutRouter;
     }
 
-    function syntheticState(bytes32 syntheticId) internal view returns (GiveTypes.SyntheticAsset storage synthetic) {
+    function setVaultCampaign(
+        address vaultAddress,
+        bytes32 campaignId
+    ) internal {
+        GiveStorage.store().vaultCampaignLookup[vaultAddress] = campaignId;
+    }
+
+    function getVaultCampaign(
+        address vaultAddress
+    ) internal view returns (bytes32) {
+        return GiveStorage.store().vaultCampaignLookup[vaultAddress];
+    }
+
+    function syntheticState(
+        bytes32 syntheticId
+    ) internal view returns (GiveTypes.SyntheticAsset storage synthetic) {
         GiveStorage.Store storage s = GiveStorage.store();
         synthetic = s.synthetics[syntheticId];
     }
 
-    function strategy(bytes32 strategyId) internal view returns (GiveTypes.StrategyConfig storage cfg) {
+    function strategy(
+        bytes32 strategyId
+    ) internal view returns (GiveTypes.StrategyConfig storage cfg) {
         GiveStorage.Store storage s = GiveStorage.store();
         cfg = s.strategies[strategyId];
     }
 
-    function ensureStrategy(bytes32 strategyId) internal view returns (GiveTypes.StrategyConfig storage cfg) {
+    function ensureStrategy(
+        bytes32 strategyId
+    ) internal view returns (GiveTypes.StrategyConfig storage cfg) {
         cfg = strategy(strategyId);
         if (!cfg.exists) revert InvalidStrategy(strategyId);
     }
 
-    function campaign(bytes32 campaignId) internal view returns (GiveTypes.CampaignConfig storage cfg) {
+    function campaign(
+        bytes32 campaignId
+    ) internal view returns (GiveTypes.CampaignConfig storage cfg) {
         GiveStorage.Store storage s = GiveStorage.store();
         cfg = s.campaigns[campaignId];
     }
 
-    function ensureCampaign(bytes32 campaignId) internal view returns (GiveTypes.CampaignConfig storage cfg) {
+    function ensureCampaign(
+        bytes32 campaignId
+    ) internal view returns (GiveTypes.CampaignConfig storage cfg) {
         cfg = campaign(campaignId);
         if (!cfg.exists) revert InvalidCampaign(campaignId);
     }
 
-    function campaignStake(bytes32 campaignId) internal view returns (GiveTypes.CampaignStakeState storage stakeState) {
+    function campaignStake(
+        bytes32 campaignId
+    ) internal view returns (GiveTypes.CampaignStakeState storage stakeState) {
         GiveStorage.Store storage s = GiveStorage.store();
         stakeState = s.campaignStakes[campaignId];
     }
 
-    function campaignCheckpoints(bytes32 campaignId)
+    function campaignCheckpoints(
+        bytes32 campaignId
+    )
         internal
         view
         returns (GiveTypes.CampaignCheckpointState storage checkpointState)
@@ -107,22 +158,30 @@ library StorageLib {
         checkpointState = s.campaignCheckpoints[campaignId];
     }
 
-    function campaignVaultMeta(bytes32 vaultId) internal view returns (GiveTypes.CampaignVaultMeta storage meta) {
+    function campaignVaultMeta(
+        bytes32 vaultId
+    ) internal view returns (GiveTypes.CampaignVaultMeta storage meta) {
         GiveStorage.Store storage s = GiveStorage.store();
         meta = s.campaignVaults[vaultId];
     }
 
-    function ensureCampaignVault(bytes32 vaultId) internal view returns (GiveTypes.CampaignVaultMeta storage meta) {
+    function ensureCampaignVault(
+        bytes32 vaultId
+    ) internal view returns (GiveTypes.CampaignVaultMeta storage meta) {
         meta = campaignVaultMeta(vaultId);
         if (!meta.exists) revert InvalidCampaignVault(vaultId);
     }
 
-    function role(bytes32 roleId) internal view returns (GiveTypes.RoleAssignments storage assignment) {
+    function role(
+        bytes32 roleId
+    ) internal view returns (GiveTypes.RoleAssignments storage assignment) {
         GiveStorage.Store storage s = GiveStorage.store();
         assignment = s.roles[roleId];
     }
 
-    function ensureRole(bytes32 roleId) internal view returns (GiveTypes.RoleAssignments storage assignment) {
+    function ensureRole(
+        bytes32 roleId
+    ) internal view returns (GiveTypes.RoleAssignments storage assignment) {
         assignment = role(roleId);
         if (!assignment.exists) revert InvalidRole(roleId);
     }
@@ -135,15 +194,20 @@ library StorageLib {
         if (!system().initialized) revert StorageNotInitialized();
     }
 
-    function ensureVaultActive(bytes32 vaultId) internal view returns (GiveTypes.VaultConfig storage cfg) {
+    function ensureVaultActive(
+        bytes32 vaultId
+    ) internal view returns (GiveTypes.VaultConfig storage cfg) {
         cfg = vault(vaultId);
         if (cfg.proxy == address(0)) revert InvalidVault(vaultId);
         if (!cfg.active) revert InvalidVault(vaultId);
     }
 
-    function ensureAdapterActive(bytes32 adapterId) internal view returns (GiveTypes.AdapterConfig storage cfg) {
+    function ensureAdapterActive(
+        bytes32 adapterId
+    ) internal view returns (GiveTypes.AdapterConfig storage cfg) {
         cfg = adapter(adapterId);
-        if (cfg.proxy == address(0) || !cfg.active) revert InvalidAdapter(adapterId);
+        if (cfg.proxy == address(0) || !cfg.active)
+            revert InvalidAdapter(adapterId);
     }
 
     // === Registry Helpers ===
@@ -152,7 +216,9 @@ library StorageLib {
         GiveStorage.store().addressRegistry[key] = value;
     }
 
-    function strategyVaults(bytes32 strategyId) internal view returns (address[] storage list) {
+    function strategyVaults(
+        bytes32 strategyId
+    ) internal view returns (address[] storage list) {
         GiveStorage.Store storage s = GiveStorage.store();
         return s.strategyVaults[strategyId];
     }

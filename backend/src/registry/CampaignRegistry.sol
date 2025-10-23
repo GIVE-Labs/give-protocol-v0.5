@@ -181,6 +181,8 @@ contract CampaignRegistry is Initializable, UUPSUpgradeable {
         cfg.lockProfile = lockProfile;
         cfg.updatedAt = uint64(block.timestamp);
 
+        StorageLib.setVaultCampaign(vault, campaignId);
+
         emit CampaignVaultRegistered(campaignId, vault, lockProfile);
     }
 
@@ -441,6 +443,12 @@ contract CampaignRegistry is Initializable, UUPSUpgradeable {
         GiveTypes.CampaignConfig storage cfg = StorageLib.campaign(campaignId);
         if (!cfg.exists) revert CampaignNotFound(campaignId);
         return cfg;
+    }
+
+    function getCampaignByVault(address vault) external view returns (GiveTypes.CampaignConfig memory) {
+        bytes32 campaignId = StorageLib.getVaultCampaign(vault);
+        if (campaignId == bytes32(0)) revert CampaignNotFound(bytes32(0));
+        return StorageLib.campaign(campaignId);
     }
 
     function listCampaignIds() external view returns (bytes32[] memory) {

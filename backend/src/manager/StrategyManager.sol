@@ -5,6 +5,9 @@ import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/utils/Pausable.sol";
 import "../vault/GiveVault4626.sol";
 import "../interfaces/IYieldAdapter.sol";
+import "../registry/StrategyRegistry.sol";
+import "../registry/CampaignRegistry.sol";
+import "../types/GiveTypes.sol";
 import "../utils/Errors.sol";
 import "../utils/ACLShim.sol";
 
@@ -15,8 +18,11 @@ import "../utils/ACLShim.sol";
  */
 contract StrategyManager is ACLShim, ReentrancyGuard, Pausable {
     // === Roles ===
-    bytes32 public constant STRATEGY_MANAGER_ROLE = keccak256("STRATEGY_MANAGER_ROLE");
+    bytes32 public constant STRATEGY_MANAGER_ROLE =
+        keccak256("STRATEGY_MANAGER_ROLE");
     bytes32 public constant EMERGENCY_ROLE = keccak256("EMERGENCY_ROLE");
+    bytes32 public constant STRATEGY_ADMIN_ROLE =
+        keccak256("STRATEGY_ADMIN_ROLE");
 
     // === Constants ===
     uint256 public constant BASIS_POINTS = 10000;
@@ -26,6 +32,8 @@ contract StrategyManager is ACLShim, ReentrancyGuard, Pausable {
 
     // === State Variables ===
     GiveVault4626 public immutable vault;
+    StrategyRegistry public strategyRegistry;
+    CampaignRegistry public campaignRegistry;
 
     mapping(address => bool) public approvedAdapters;
     address[] public adapterList;
@@ -44,20 +52,35 @@ contract StrategyManager is ACLShim, ReentrancyGuard, Pausable {
     event EmergencyThresholdUpdated(uint256 oldThreshold, uint256 newThreshold);
     event AutoRebalanceToggled(bool enabled);
     event EmergencyModeActivated(bool activated);
-    event StrategyRebalanced(address indexed oldAdapter, address indexed newAdapter);
-    event ParametersUpdated(uint256 cashBufferBps, uint256 slippageBps, uint256 maxLossBps);
+    event StrategyRebalanced(
+        address indexed oldAdapter,
+        address indexed newAdapter
+    );
+    event ParametersUpdated(
+        uint256 cashBufferBps,
+        uint256 slippageBps,
+        uint256 maxLossBps
+    );
 
     // === Constructor ===
-    constructor(address _vault, address _admin) {
+    constructor(
+        address _vault,
+        address _admin,
+        address _strategyRegistry,
+        address _campaignRegistry
+    ) {
         if (_vault == address(0) || _admin == address(0)) {
             revert Errors.ZeroAddress();
         }
 
         vault = GiveVault4626(payable(_vault));
+        strategyRegistry = StrategyRegistry(_strategyRegistry);
+        campaignRegistry = CampaignRegistry(_campaignRegistry);
 
         _grantRole(DEFAULT_ADMIN_ROLE, _admin);
         _grantRole(STRATEGY_MANAGER_ROLE, _admin);
         _grantRole(EMERGENCY_ROLE, _admin);
+        _grantRole(STRATEGY_ADMIN_ROLE, _admin);
 
         lastRebalanceTime = block.timestamp;
     }
@@ -69,7 +92,10 @@ contract StrategyManager is ACLShim, ReentrancyGuard, Pausable {
      * @param adapter The adapter address
      * @param approved Whether to approve the adapter
      */
-    function setAdapterApproval(address adapter, bool approved) external onlyRole(STRATEGY_MANAGER_ROLE) {
+    function setAdapterApproval(
+        address adapter,
+        bool approved
+    ) external onlyRole(STRATEGY_MANAGER_ROLE) {
         if (adapter == address(0)) revert Errors.ZeroAddress();
 
         bool wasApproved = approvedAdapters[adapter];
@@ -91,11 +117,13 @@ contract StrategyManager is ACLShim, ReentrancyGuard, Pausable {
      * @dev Sets the active adapter for the vault
      * @param adapter The adapter to activate
      */
-    function setActiveAdapter(address adapter) external onlyRole(STRATEGY_MANAGER_ROLE) whenNotPaused {
-        if (adapter != address(0) && !approvedAdapters[adapter]) {
-            revert Errors.InvalidAdapter();
+    function setActiveAdapter(
+        address adapter
+    ) external onlyRole(STRATEGY_MANAGER_ROLE) whenNotPaused {
+        if (adapter != address(0)) {
+            if (!approvedAdapters[adapter]) revert Errors.InvalidAdapter();
+            _assertAdapterMatchesCampaign(adapter);
         }
-
         vault.setActiveAdapter(IYieldAdapter(adapter));
         lastRebalanceTime = block.timestamp;
 
@@ -110,10 +138,11 @@ contract StrategyManager is ACLShim, ReentrancyGuard, Pausable {
      * @param slippageBps Slippage tolerance in basis points
      * @param maxLossBps Maximum loss tolerance in basis points
      */
-    function updateVaultParameters(uint256 cashBufferBps, uint256 slippageBps, uint256 maxLossBps)
-        external
-        onlyRole(STRATEGY_MANAGER_ROLE)
-    {
+    function updateVaultParameters(
+        uint256 cashBufferBps,
+        uint256 slippageBps,
+        uint256 maxLossBps
+    ) external onlyRole(STRATEGY_MANAGER_ROLE) {
         vault.setCashBufferBps(cashBufferBps);
         vault.setSlippageBps(slippageBps);
         vault.setMaxLossBps(maxLossBps);
@@ -125,7 +154,9 @@ contract StrategyManager is ACLShim, ReentrancyGuard, Pausable {
      * @dev Sets the donation router for the vault
      * @param router The donation router address
      */
-    function setDonationRouter(address router) external onlyRole(STRATEGY_MANAGER_ROLE) {
+    function setDonationRouter(
+        address router
+    ) external onlyRole(STRATEGY_MANAGER_ROLE) {
         vault.setDonationRouter(router);
     }
 
@@ -135,8 +166,13 @@ contract StrategyManager is ACLShim, ReentrancyGuard, Pausable {
      * @dev Sets the rebalance interval
      * @param interval New interval in seconds
      */
-    function setRebalanceInterval(uint256 interval) external onlyRole(STRATEGY_MANAGER_ROLE) {
-        if (interval < MIN_REBALANCE_INTERVAL || interval > MAX_REBALANCE_INTERVAL) {
+    function setRebalanceInterval(
+        uint256 interval
+    ) external onlyRole(STRATEGY_MANAGER_ROLE) {
+        if (
+            interval < MIN_REBALANCE_INTERVAL ||
+            interval > MAX_REBALANCE_INTERVAL
+        ) {
             revert Errors.ParameterOutOfRange();
         }
 
@@ -150,7 +186,9 @@ contract StrategyManager is ACLShim, ReentrancyGuard, Pausable {
      * @dev Toggles auto-rebalancing
      * @param enabled Whether auto-rebalancing is enabled
      */
-    function setAutoRebalanceEnabled(bool enabled) external onlyRole(STRATEGY_MANAGER_ROLE) {
+    function setAutoRebalanceEnabled(
+        bool enabled
+    ) external onlyRole(STRATEGY_MANAGER_ROLE) {
         autoRebalanceEnabled = enabled;
         emit AutoRebalanceToggled(enabled);
     }
@@ -158,7 +196,11 @@ contract StrategyManager is ACLShim, ReentrancyGuard, Pausable {
     /**
      * @dev Manually triggers a rebalance to the best performing adapter
      */
-    function rebalance() external onlyRole(STRATEGY_MANAGER_ROLE) whenNotPaused {
+    function rebalance()
+        external
+        onlyRole(STRATEGY_MANAGER_ROLE)
+        whenNotPaused
+    {
         _performRebalance();
     }
 
@@ -178,7 +220,9 @@ contract StrategyManager is ACLShim, ReentrancyGuard, Pausable {
      * @dev Sets the emergency exit threshold
      * @param threshold Loss threshold in basis points
      */
-    function setEmergencyExitThreshold(uint256 threshold) external onlyRole(STRATEGY_MANAGER_ROLE) {
+    function setEmergencyExitThreshold(
+        uint256 threshold
+    ) external onlyRole(STRATEGY_MANAGER_ROLE) {
         if (threshold > 5000) revert Errors.ParameterOutOfRange(); // Max 50%
 
         uint256 oldThreshold = emergencyExitThreshold;
@@ -208,7 +252,11 @@ contract StrategyManager is ACLShim, ReentrancyGuard, Pausable {
     /**
      * @dev Emergency withdrawal from current adapter
      */
-    function emergencyWithdraw() external onlyRole(EMERGENCY_ROLE) returns (uint256 withdrawn) {
+    function emergencyWithdraw()
+        external
+        onlyRole(EMERGENCY_ROLE)
+        returns (uint256 withdrawn)
+    {
         withdrawn = vault.emergencyWithdrawFromAdapter();
     }
 
@@ -276,6 +324,26 @@ contract StrategyManager is ACLShim, ReentrancyGuard, Pausable {
     }
 
     /**
+     * @dev Validates adapter matches campaign's strategy
+     * @param adapter The adapter address to validate
+     */
+    function _assertAdapterMatchesCampaign(address adapter) internal view {
+        bytes32 campaignId = StorageLib.getVaultCampaign(address(vault));
+        if (campaignId == bytes32(0)) return; // No campaign assigned yet
+
+        GiveTypes.CampaignConfig memory campaign = campaignRegistry.getCampaign(
+            campaignId
+        );
+        GiveTypes.StrategyConfig memory strategy = strategyRegistry.getStrategy(
+            campaign.strategyId
+        );
+
+        if (strategy.adapter != adapter) {
+            revert Errors.InvalidStrategy();
+        }
+    }
+
+    /**
      * @dev Removes an adapter from the list
      */
     function _removeFromAdapterList(address adapter) internal {
@@ -326,13 +394,22 @@ contract StrategyManager is ACLShim, ReentrancyGuard, Pausable {
             uint256 lastRebalance
         )
     {
-        return (rebalanceInterval, emergencyExitThreshold, autoRebalanceEnabled, emergencyMode, lastRebalanceTime);
+        return (
+            rebalanceInterval,
+            emergencyExitThreshold,
+            autoRebalanceEnabled,
+            emergencyMode,
+            lastRebalanceTime
+        );
     }
 
     /**
      * @dev Checks if rebalancing is due
      */
     function isRebalanceDue() external view returns (bool) {
-        return autoRebalanceEnabled && !emergencyMode && block.timestamp >= lastRebalanceTime + rebalanceInterval;
+        return
+            autoRebalanceEnabled &&
+            !emergencyMode &&
+            block.timestamp >= lastRebalanceTime + rebalanceInterval;
     }
 }

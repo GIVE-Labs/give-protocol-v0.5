@@ -26,6 +26,7 @@ library GiveStorage {
         mapping(bytes32 => GiveTypes.CampaignCheckpointState) campaignCheckpoints;
         mapping(bytes32 => GiveTypes.CampaignVaultMeta) campaignVaults;
         mapping(bytes32 => address[]) strategyVaults;
+        mapping(address => bytes32) vaultCampaignLookup;
         mapping(bytes32 => bytes32) bytes32Registry;
         mapping(bytes32 => uint256) uintRegistry;
         mapping(bytes32 => address) addressRegistry;

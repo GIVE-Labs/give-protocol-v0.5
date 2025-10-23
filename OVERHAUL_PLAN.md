@@ -111,11 +111,11 @@ This plan replaces all previous overhaul documents. It is the single source of t
 - [x] Tests: Foundry coverage for checkpoint success/failure, payout halting, and stake exits (vault unlock behaviour documented).
 
 ### Phase 15 – Strategy Manager & Adapter Alignment
-- [ ] StrategyManager module: extend the core/module layer to manage strategy assignments, enforce adapter eligibility, and surface metadata to campaigns.
-- [ ] Adapter hardening: align existing adapters with new strategy metadata (allowance hygiene, health checks, emergency exits) and event coverage.
-- [ ] Keeper flows: add simulated keeper tests for rebalances, health monitoring, and emergency exits across multiple campaigns/strategies.
-- [ ] Core/API updates: expose strategy queries/setters via `GiveProtocolCore` and ensure registries/factory respect new constraints.
-- [ ] Tests: cross-module integration verifying deposits → adapter yield → campaign payouts under multiple strategies.
+- [x] StrategyManager module: extend the core/module layer to manage strategy assignments, enforce adapter eligibility, and surface metadata to campaigns.
+- [x] Adapter hardening: align existing adapters with new strategy metadata (allowance hygiene, health checks, emergency exits) and event coverage.
+- [x] Keeper flows: add simulated keeper tests for rebalances, health monitoring, and emergency exits across multiple campaigns/strategies.
+- [x] Core/API updates: expose strategy queries/setters via `GiveProtocolCore` and ensure registries/factory respect new constraints.
+- [x] Tests: cross-module integration verifying deposits → adapter yield → campaign payouts under multiple strategies.
 
 ### Phase 16 – Documentation, Observability & Cleanup
 - [ ] Architecture docs: refresh `/docs/` diagrams, mermaid flows, and role matrices for the campaign-centric layout, registries, and role manager.

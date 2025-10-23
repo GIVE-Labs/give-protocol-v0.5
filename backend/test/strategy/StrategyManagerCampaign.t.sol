@@ -3,59 +3,25 @@ pragma solidity ^0.8.20;
 
 import "forge-std/Test.sol";
 import "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
-import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 
-import "../src/manager/StrategyManager.sol";
-import "../src/vault/GiveVault4626.sol";
-import "../src/registry/StrategyRegistry.sol";
-import "../src/registry/CampaignRegistry.sol";
-import "../src/payout/PayoutRouter.sol";
-import "../src/governance/ACLManager.sol";
-import "../src/interfaces/IYieldAdapter.sol";
-import "../src/types/GiveTypes.sol";
-import "../src/utils/Errors.sol";
+import "./Mocks.sol";
+import "../../src/manager/StrategyManager.sol";
+import "../../src/vault/GiveVault4626.sol";
+import "../../src/registry/StrategyRegistry.sol";
+import "../../src/registry/CampaignRegistry.sol";
+import "../../src/payout/PayoutRouter.sol";
+import "../../src/governance/ACLManager.sol";
+import "../../src/types/GiveTypes.sol";
 
-contract MockERC20 is ERC20 {
-    constructor() ERC20("Mock Token", "MCK") {}
-
-    function mint(address to, uint256 amount) external {
-        _mint(to, amount);
-    }
-}
-
-contract MockAdapter is IYieldAdapter {
-    IERC20 public override asset;
-    address public override vault;
-
-    constructor(IERC20 _asset, address _vault) {
-        asset = _asset;
-        vault = _vault;
-    }
-
-    function totalAssets() external view override returns (uint256) {
-        return 0;
-    }
-    function invest(uint256 assets) external override {}
-    function divest(uint256 assets) external override returns (uint256) {
-        return 0;
-    }
-    function harvest() external override returns (uint256, uint256) {
-        return (0, 0);
-    }
-    function emergencyWithdraw() external override returns (uint256) {
-        return 0;
-    }
-}
-
-contract StrategyManagerAdvancedTest is Test {
+contract StrategyManagerCampaignTest is Test {
     ACLManager internal acl;
     StrategyRegistry internal strategyRegistry;
     CampaignRegistry internal campaignRegistry;
-    StrategyManager internal manager;
-    GiveVault4626 internal vault;
     PayoutRouter internal router;
-    MockAdapter internal adapter;
+    GiveVault4626 internal vault;
+    StrategyManager internal manager;
     MockERC20 internal token;
+    MockAdapter internal adapter;
 
     address internal admin;
     address internal protocolTreasury;
@@ -71,7 +37,7 @@ contract StrategyManagerAdvancedTest is Test {
         acl = _deployACL();
         strategyRegistry = _deployStrategyRegistry();
         campaignRegistry = _deployCampaignRegistry();
-        router = _deployPayoutRouter();
+        router = _deployRouter();
 
         token = new MockERC20();
         vault = new GiveVault4626(IERC20(address(token)), "GIVE", "gv", admin);
@@ -112,16 +78,15 @@ contract StrategyManagerAdvancedTest is Test {
         router.setAuthorizedCaller(address(vault), true);
     }
 
-    function testSetActiveAdapterRequiresMatchingStrategy() public {
-        // Adapter already registered in setUp, just approve and test
+    function testSetActiveAdapterEnforcesStrategy() public {
         vm.prank(admin);
         manager.setAdapterApproval(address(adapter), true);
 
         vm.prank(admin);
         manager.setActiveAdapter(address(adapter));
+        assertEq(address(vault.activeAdapter()), address(adapter));
 
-        // Try to set a wrong adapter that doesn't match the campaign's strategy
-        // Since it's not approved, it will fail with InvalidAdapter first
+        // Try to set a wrong adapter (not approved)
         address wrongAdapter = makeAddr("wrongAdapter");
         vm.prank(admin);
         vm.expectRevert(Errors.InvalidAdapter.selector);
@@ -129,8 +94,8 @@ contract StrategyManagerAdvancedTest is Test {
     }
 
     function _seedStrategyAndCampaign() internal {
-        strategyId = keccak256("strategy.manager.test");
-        campaignId = keccak256("campaign.manager.test");
+        strategyId = keccak256("strategy.manager.campaign");
+        campaignId = keccak256("campaign.manager.campaign");
 
         vm.prank(admin);
         strategyRegistry.registerStrategy(
@@ -197,7 +162,7 @@ contract StrategyManagerAdvancedTest is Test {
         return CampaignRegistry(address(proxy));
     }
 
-    function _deployPayoutRouter() internal returns (PayoutRouter) {
+    function _deployRouter() internal returns (PayoutRouter) {
         PayoutRouter impl = new PayoutRouter();
         ERC1967Proxy proxy = new ERC1967Proxy(
             address(impl),
