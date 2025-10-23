@@ -32,8 +32,16 @@ contract NGORegistryTest is BaseProtocolTest {
         vm.warp(block.timestamp + registry.TIMELOCK_DELAY() + 1 seconds);
         registry.executeCurrentNGOChange();
 
-        (string memory metadataCid, bytes32 kycHash,, uint256 createdAt, uint256 updatedAt, uint256 version,, bool isActive) =
-            registry.ngoInfo(ngo);
+        (
+            string memory metadataCid,
+            bytes32 kycHash,
+            ,
+            uint256 createdAt,
+            uint256 updatedAt,
+            uint256 version,
+            ,
+            bool isActive
+        ) = registry.ngoInfo(ngo);
         assertEq(metadataCid, "cid-updated");
         assertEq(kycHash, keccak256("kyc"));
         assertGt(createdAt, 0);

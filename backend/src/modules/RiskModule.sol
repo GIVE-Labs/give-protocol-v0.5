@@ -41,11 +41,7 @@ library RiskModule {
     event VaultRiskAssigned(bytes32 indexed vaultId, bytes32 indexed riskId);
 
     event RiskLimitBreached(
-        bytes32 indexed vaultId,
-        bytes32 indexed riskId,
-        uint8 limitType,
-        uint256 currentValue,
-        uint256 maxAllowed
+        bytes32 indexed vaultId, bytes32 indexed riskId, uint8 limitType, uint256 currentValue, uint256 maxAllowed
     );
 
     error InvalidRiskParameters(bytes32 riskId, uint8 reason);
@@ -75,7 +71,9 @@ library RiskModule {
         info.exists = true;
         info.active = true;
 
-        emit RiskConfigured(riskId, info.version, cfg.ltvBps, cfg.liquidationThresholdBps, cfg.maxDeposit, cfg.maxBorrow);
+        emit RiskConfigured(
+            riskId, info.version, cfg.ltvBps, cfg.liquidationThresholdBps, cfg.maxDeposit, cfg.maxBorrow
+        );
     }
 
     function assignVaultRisk(bytes32 vaultId, bytes32 riskId) internal {

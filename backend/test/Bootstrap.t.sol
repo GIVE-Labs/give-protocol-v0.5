@@ -72,8 +72,7 @@ contract BootstrapScriptTest is Test {
         assertFalse(vault.emergencyShutdownActive());
 
         // Adapter configuration
-        (address adapterAsset, address adapterVault,, bool adapterActive) =
-            core.getAdapterConfig(deployment.adapterId);
+        (address adapterAsset, address adapterVault,, bool adapterActive) = core.getAdapterConfig(deployment.adapterId);
         assertEq(uint256(uint160(adapterAsset)), uint256(uint160(address(vault.asset()))));
         assertEq(uint256(uint160(adapterVault)), uint256(uint160(deployment.vault)));
         assertTrue(adapterActive);

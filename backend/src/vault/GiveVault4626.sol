@@ -131,9 +131,7 @@ contract GiveVault4626 is ERC4626, VaultTokenBase {
     function totalAssets() public view override returns (uint256) {
         GiveTypes.VaultConfig storage cfg = _vaultConfig();
         uint256 cash = IERC20(asset()).balanceOf(address(this));
-        uint256 adapterAssets = cfg.activeAdapter != address(0)
-            ? IYieldAdapter(cfg.activeAdapter).totalAssets()
-            : 0;
+        uint256 adapterAssets = cfg.activeAdapter != address(0) ? IYieldAdapter(cfg.activeAdapter).totalAssets() : 0;
         return cash + adapterAssets;
     }
 

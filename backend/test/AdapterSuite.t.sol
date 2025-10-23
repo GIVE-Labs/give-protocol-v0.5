@@ -29,7 +29,8 @@ contract AdapterSuiteTest is Test {
         vault = makeAddr("vault");
 
         ACLManager implementation = new ACLManager();
-        ERC1967Proxy aclProxy = new ERC1967Proxy(address(implementation),
+        ERC1967Proxy aclProxy = new ERC1967Proxy(
+            address(implementation),
             abi.encodeWithSelector(ACLManager.initialize.selector, address(this), address(this))
         );
         acl = ACLManager(address(aclProxy));
@@ -105,7 +106,8 @@ contract AdapterSuiteTest is Test {
         bytes32 adapterId = keccak256("pt");
         _configureAdapter(adapterId, GiveTypes.AdapterKind.PerpetualYieldToken);
 
-        PTAdapter adapter = new PTAdapter(adapterId, address(asset), vault, uint64(block.timestamp), uint64(block.timestamp + 30 days));
+        PTAdapter adapter =
+            new PTAdapter(adapterId, address(asset), vault, uint64(block.timestamp), uint64(block.timestamp + 30 days));
         assertEq(adapter.vault(), vault);
         vm.prank(vault);
         adapter.rollover(uint64(block.timestamp + 1 days), uint64(block.timestamp + 31 days));
@@ -127,7 +129,7 @@ contract AdapterSuiteTest is Test {
             })
         );
 
-        (, address storedVault, , bool active) = core.getAdapterConfig(adapterId);
+        (, address storedVault,, bool active) = core.getAdapterConfig(adapterId);
         assertEq(storedVault, vault);
         assertTrue(active);
     }

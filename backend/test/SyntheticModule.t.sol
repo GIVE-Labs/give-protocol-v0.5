@@ -21,7 +21,8 @@ contract SyntheticModuleTest is Test {
         user = makeAddr("user");
 
         ACLManager implementation = new ACLManager();
-        ERC1967Proxy aclProxy = new ERC1967Proxy(address(implementation),
+        ERC1967Proxy aclProxy = new ERC1967Proxy(
+            address(implementation),
             abi.encodeWithSelector(ACLManager.initialize.selector, address(this), address(this))
         );
         acl = ACLManager(address(aclProxy));
@@ -39,11 +40,14 @@ contract SyntheticModuleTest is Test {
 
     function testConfigureAndMint() public {
         vm.startPrank(manager);
-        core.configureSynthetic(SYNTH_ID, SyntheticModule.SyntheticConfigInput({
-            id: SYNTH_ID,
-            proxy: address(new SyntheticProxy(SYNTH_ID)),
-            asset: address(0x1234)
-        }));
+        core.configureSynthetic(
+            SYNTH_ID,
+            SyntheticModule.SyntheticConfigInput({
+                id: SYNTH_ID,
+                proxy: address(new SyntheticProxy(SYNTH_ID)),
+                asset: address(0x1234)
+            })
+        );
         core.mintSynthetic(SYNTH_ID, user, 1_000);
         vm.stopPrank();
 
@@ -63,5 +67,4 @@ contract SyntheticModuleTest is Test {
         vm.expectRevert();
         core.mintSynthetic(SYNTH_ID, user, 100);
     }
-
 }

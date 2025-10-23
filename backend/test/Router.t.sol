@@ -57,7 +57,7 @@ contract RouterTest is Test {
     function testUpdateFeeConfig() public {
         vm.prank(admin);
         router.updateFeeConfig(feeRecipient, 250); // 2.5%
-        (address r, uint256 bps, ) = router.getFeeConfig();
+        (address r, uint256 bps,) = router.getFeeConfig();
         assertEq(r, feeRecipient);
         assertEq(bps, 250);
     }

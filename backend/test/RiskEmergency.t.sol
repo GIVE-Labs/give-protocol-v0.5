@@ -16,11 +16,7 @@ contract RiskEmergencyTest is BaseProtocolTest {
     CompoundingAdapter internal compAdapter;
 
     event RiskLimitBreached(
-        bytes32 indexed vaultId,
-        bytes32 indexed riskId,
-        uint8 limitType,
-        uint256 currentValue,
-        uint256 maxAllowed
+        bytes32 indexed vaultId, bytes32 indexed riskId, uint8 limitType, uint256 currentValue, uint256 maxAllowed
     );
 
     function setUp() public override {
@@ -128,9 +124,8 @@ contract RiskEmergencyTest is BaseProtocolTest {
         assertTrue(vault.paused());
         assertTrue(vault.emergencyShutdownActive());
 
-        EmergencyModule.EmergencyWithdrawParams memory params = EmergencyModule.EmergencyWithdrawParams({
-            clearAdapter: true
-        });
+        EmergencyModule.EmergencyWithdrawParams memory params =
+            EmergencyModule.EmergencyWithdrawParams({clearAdapter: true});
 
         vm.startPrank(emergencyCouncil);
         core.triggerEmergency(deployment.vaultId, EmergencyModule.EmergencyAction.Withdraw, abi.encode(params));

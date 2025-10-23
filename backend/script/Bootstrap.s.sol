@@ -172,10 +172,7 @@ contract Bootstrap is Script {
         return IERC20(address(mock));
     }
 
-    function _deployGovernance(BootstrapConfig memory cfg)
-        private
-        returns (ACLManager acl, GiveProtocolCore core)
-    {
+    function _deployGovernance(BootstrapConfig memory cfg) private returns (ACLManager acl, GiveProtocolCore core) {
         ACLManager aclImpl = new ACLManager();
         ERC1967Proxy aclProxy =
             new ERC1967Proxy(address(aclImpl), abi.encodeCall(ACLManager.initialize, (cfg.admin, cfg.upgrader)));
@@ -207,12 +204,10 @@ contract Bootstrap is Script {
         router = DonationRouter(payable(address(routerProxy)));
     }
 
-    function _deployVault(
-        BootstrapConfig memory cfg,
-        ACLManager acl,
-        DonationRouter router,
-        address assetAddr
-    ) private returns (GiveVault4626 vault) {
+    function _deployVault(BootstrapConfig memory cfg, ACLManager acl, DonationRouter router, address assetAddr)
+        private
+        returns (GiveVault4626 vault)
+    {
         vault = new GiveVault4626(IERC20(assetAddr), cfg.vaultName, cfg.vaultSymbol, cfg.admin);
 
         // Vault needs to know about the ACL manager
@@ -224,12 +219,10 @@ contract Bootstrap is Script {
         return vault;
     }
 
-    function _deployAdapter(
-        BootstrapConfig memory cfg,
-        ACLManager acl,
-        GiveVault4626 vault,
-        address asset
-    ) private returns (IYieldAdapter adapter) {
+    function _deployAdapter(BootstrapConfig memory cfg, ACLManager acl, GiveVault4626 vault, address asset)
+        private
+        returns (IYieldAdapter adapter)
+    {
         // Placeholder until production adapters are wired
         adapter = new MockYieldAdapter(asset, address(vault), cfg.admin);
         MockYieldAdapter(address(adapter)).setACLManager(address(acl));
@@ -375,7 +368,7 @@ contract Bootstrap is Script {
         bool isLocal = block.chainid == 31337;
 
         HelperConfig helper = new HelperConfig();
-        (, , , , address usdc,, uint256 helperKey) = helper.getActiveNetworkConfig();
+        (,,,, address usdc,, uint256 helperKey) = helper.getActiveNetworkConfig();
 
         uint256 deployerKey = vm.envOr("DEPLOYER_KEY", helperKey);
         address admin = vm.envOr("ADMIN_ADDRESS", vm.addr(deployerKey));
@@ -417,7 +410,7 @@ contract Bootstrap is Script {
 
     function _localConfig() private returns (BootstrapConfig memory cfg) {
         HelperConfig helper = new HelperConfig();
-        (, , , , , , uint256 helperKey) = helper.getActiveNetworkConfig();
+        (,,,,,, uint256 helperKey) = helper.getActiveNetworkConfig();
 
         cfg = BootstrapConfig({
             admin: vm.addr(helperKey),

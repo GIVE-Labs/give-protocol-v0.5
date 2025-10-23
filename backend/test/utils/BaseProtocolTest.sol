@@ -28,8 +28,7 @@ contract BaseProtocolTest is Test {
     address internal feeRecipient;
     address internal protocolTreasury;
 
-    address private constant SENTINEL_ADDR =
-        address(uint160(uint256(keccak256("give.bootstrap.sentinel"))));
+    address private constant SENTINEL_ADDR = address(uint160(uint256(keccak256("give.bootstrap.sentinel"))));
     bytes32 private constant SENTINEL_SLOT = keccak256("give.bootstrap.completed");
 
     function setUp() public virtual {

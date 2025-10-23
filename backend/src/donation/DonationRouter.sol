@@ -25,11 +25,7 @@ contract DonationRouter is Initializable, UUPSUpgradeable, ACLShim, ReentrancyGu
     uint256 public constant PROTOCOL_FEE_BPS = 250; // 2.5%
 
     event DonationDistributed(
-        address indexed asset,
-        address indexed ngo,
-        uint256 amount,
-        uint256 feeAmount,
-        uint256 distributionId
+        address indexed asset, address indexed ngo, uint256 amount, uint256 feeAmount, uint256 distributionId
     );
     event UserYieldDistributed(
         address indexed user,
@@ -43,7 +39,9 @@ contract DonationRouter is Initializable, UUPSUpgradeable, ACLShim, ReentrancyGu
     event UserSharesUpdated(address indexed user, address indexed asset, uint256 shares, uint256 totalShares);
     event FeeCollected(address indexed asset, address indexed recipient, uint256 amount);
     event ProtocolFeeCollected(address indexed asset, uint256 amount);
-    event FeeConfigUpdated(address indexed oldRecipient, address indexed newRecipient, uint256 oldFeeBps, uint256 newFeeBps);
+    event FeeConfigUpdated(
+        address indexed oldRecipient, address indexed newRecipient, uint256 oldFeeBps, uint256 newFeeBps
+    );
     event ProtocolTreasuryUpdated(address indexed oldTreasury, address indexed newTreasury);
     event AuthorizedCallerUpdated(address indexed caller, bool authorized);
     event EmergencyWithdrawal(address indexed asset, address indexed recipient, uint256 amount);
@@ -62,7 +60,10 @@ contract DonationRouter is Initializable, UUPSUpgradeable, ACLShim, ReentrancyGu
         address protocolTreasury_,
         uint256 feeBps_
     ) external initializer {
-        if (acl == address(0) || registry_ == address(0) || feeRecipient_ == address(0) || protocolTreasury_ == address(0)) {
+        if (
+            acl == address(0) || registry_ == address(0) || feeRecipient_ == address(0)
+                || protocolTreasury_ == address(0)
+        ) {
             revert Errors.ZeroAddress();
         }
         if (feeBps_ > MAX_FEE_BPS) revert Errors.InvalidConfiguration();
@@ -123,11 +124,7 @@ contract DonationRouter is Initializable, UUPSUpgradeable, ACLShim, ReentrancyGu
         return copy;
     }
 
-    function getUserPreference(address user)
-        external
-        view
-        returns (GiveTypes.UserPreference memory preference)
-    {
+    function getUserPreference(address user) external view returns (GiveTypes.UserPreference memory preference) {
         preference = _state().userPreferences[user];
     }
 
@@ -299,12 +296,7 @@ contract DonationRouter is Initializable, UUPSUpgradeable, ACLShim, ReentrancyGu
             totals.protocol += protocolAmount;
 
             emit UserYieldDistributed(
-                user,
-                asset,
-                _state().userPreferences[user].selectedNGO,
-                ngoAmount,
-                treasuryAmount,
-                protocolAmount
+                user, asset, _state().userPreferences[user].selectedNGO, ngoAmount, treasuryAmount, protocolAmount
             );
         }
 
@@ -428,12 +420,7 @@ contract DonationRouter is Initializable, UUPSUpgradeable, ACLShim, ReentrancyGu
 
     // ===== Internal helpers =====
 
-    function _legacyDistribute(
-        address asset,
-        uint256 totalYield,
-        IERC20 token,
-        GiveTypes.DonationRouterState storage s
-    )
+    function _legacyDistribute(address asset, uint256 totalYield, IERC20 token, GiveTypes.DonationRouterState storage s)
         private
         returns (uint256)
     {
@@ -531,11 +518,7 @@ contract DonationRouter is Initializable, UUPSUpgradeable, ACLShim, ReentrancyGu
         }
     }
 
-    function _removeUserWithShares(
-        GiveTypes.DonationRouterState storage s,
-        address asset,
-        address user
-    ) private {
+    function _removeUserWithShares(GiveTypes.DonationRouterState storage s, address asset, address user) private {
         address[] storage users = s.usersWithShares[asset];
         for (uint256 i = 0; i < users.length; i++) {
             if (users[i] == user) {

@@ -89,7 +89,11 @@ contract GiveProtocolCore is Initializable, UUPSUpgradeable {
         SyntheticLogic.burn(syntheticId, account, amount);
     }
 
-    function getAdapterConfig(bytes32 adapterId) external view returns (address assetAddress, address vaultAddress, GiveTypes.AdapterKind kind, bool active) {
+    function getAdapterConfig(bytes32 adapterId)
+        external
+        view
+        returns (address assetAddress, address vaultAddress, GiveTypes.AdapterKind kind, bool active)
+    {
         GiveTypes.AdapterConfig storage cfg = StorageLib.adapter(adapterId);
         return (cfg.asset, cfg.vault, cfg.kind, cfg.active);
     }
