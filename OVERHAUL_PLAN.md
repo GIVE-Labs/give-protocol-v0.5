@@ -80,45 +80,49 @@ This plan replaces all previous overhaul documents. It is the single source of t
 - [ ] Integrate gas reports and coverage checks into CI (update Makefile as needed).
 
 ### Phase 11 – Campaign Architecture Pivot (Governance & Registries)
-- [ ] Introduce `RoleManager` (central ACL) replacing scattered AccessControl usage; migrate `GiveProtocolCore`, routers, vaults, and managers to pull permissions from it.
-- [ ] Implement `StrategyRegistry` with strategy CRUD, metadata (risk tier, adapter address, max TVL), lifecycle states (`Active`, `FadingOut`, `Deprecated`), and events.
-- [ ] Implement `CampaignRegistry` supporting campaign submission, approval/rejection, curator assignment, payout destinations, and stake escrow.
-- [ ] Wire `CampaignRegistry` to escrow/supporter stake logic and emit events for checkpoints (`CampaignSubmitted`, `CheckpointReached`, `StakeWithdrawn`).
-- [ ] Add Foundry tests covering registry permissions, stake escrow, and checkpoint vote recording.
+- [x] Storage & Types: extend `GiveTypes`/`GiveStorage` with canonical structs for strategies, campaigns, supporter stakes, and checkpoint windows; add `StorageLib` accessors and guards.
+- [x] Role Management: evolve the existing `ACLManager` into the canonical `RoleManager` (same proxy), add campaign/strategy/checkpoint role ids + helper getters, and migrate `ACLShim` consumers (vaults, router, registry, adapters) to use the expanded interface without altering upgrade auth.
+- [x] StrategyRegistry: build UUPS registry with CRUD, metadata (risk tier, adapter binding, max TVL), lifecycle states (`Active`, `FadingOut`, `Deprecated`), and event coverage.
+- [x] CampaignRegistry: implement UUPS registry handling submission/approval workflows, curator assignment, payout destinations, stake escrow bookkeeping, and lifecycle events.
+- [x] Bootstrap wiring: update `Bootstrap.s.sol` to deploy the role manager and new registries, assign roles, and persist deterministic identifiers.
+- [x] Tests: add Foundry suites for `RoleManager`, `StrategyRegistry`, and `CampaignRegistry` covering permissioning, state transitions, stake deposits/withdrawals, and failure cases.
 
 ### Phase 12 – Vault Factory & Campaign Vaults
-- [ ] Build `CampaignVaultFactory` that deploys minimal proxy `CampaignVault4626` instances per `(campaignId, strategyId, lockProfile)`.
-- [ ] Extend `CampaignVault4626` with immutable campaign metadata, lock-profile enforcement, and RoleManager powered access checks.
-- [ ] Integrate factory output with registries (auto-register vault + attach strategy) and emit `VaultCreated`.
-- [ ] Update bootstrap script & harness to deploy example campaign + strategy + vault.
-- [ ] Add tests proving factory deployments, lock-in enforcement, and strategy attachment workflows.
+- [x] Vault artifacts: implement `CampaignVaultFactory` (UUPS) for deterministic clone deployments with role gating and event emission.
+- [x] CampaignVault: derive from `GiveVault4626`/`VaultTokenBase` with immutable campaign metadata, lock-profile enforcement, and hooks for strategy/risk assignment.
+- [x] Storage/Registry integration: persist factory-created vault metadata in `StorageLib`; auto-register vaults with `CampaignRegistry`/`StrategyRegistry` to link campaign ↔ strategy ↔ vault.
+- [x] Core wiring: extend `GiveProtocolCore`/`VaultModule` to configure campaign vaults, assign donation modules, and sync risk limits on creation.
+- [x] Bootstrap + harness: update bootstrap script and Foundry harness utilities to spin up exemplar campaign + vault flows with helper getters.
+- [x] Tests: add Foundry coverage for factory deployments, metadata correctness, lock enforcement, and duplicate-registration protection.
 
 ### Phase 13 – Payout Router & Yield Allocation
-- [ ] Refactor DonationRouter into campaign-aware `PayoutRouter` consuming campaign IDs, storing per-vault supporter preferences, and tracking protocol fees by campaign.
-- [ ] Implement user yield allocation control: per vault preference (50%, 75%, 100%), beneficiary address, default 100% to campaign.
-- [ ] Modify harvest and distribution flows to respect allocations, emit new events (`YieldPreferenceUpdated`, `CampaignPayoutExecuted`).
-- [ ] Add integration tests using time warp & mocked adapters to validate multi-campaign payouts, preference splits, and fee accrual.
-- [ ] Document preference schema and update harness utilities to set allocations easily.
+- [ ] Router refactor: evolve `DonationRouter` into `PayoutRouter` with campaign-aware preferences (per vault/campaign splits, beneficiary overrides, protocol fee buckets).
+- [ ] Storage updates: reshape `GiveTypes.DonationRouterState` to store per-campaign preferences, accumulated payouts, and protocol fee tracking; add migration helpers for legacy state.
+- [ ] Vault hooks: update `GiveVault4626`/`CampaignVault` share reporting to the new router while maintaining compatibility for existing deposits.
+- [ ] Campaign integration: consume campaign metadata (beneficiaries, fee settings) from `CampaignRegistry` and emit `YieldPreferenceUpdated`, `CampaignPayoutExecuted`.
+- [ ] Tests: add integration specs with mocked adapters covering preference splits, multi-campaign payouts, protocol fee accrual, and access control.
+- [ ] Docs & SDK touchpoints: refresh harness utilities and developer docs to describe allocation schema and API changes.
 
 ### Phase 14 – Checkpoint Voting & Stake Withdrawal
-- [ ] Implement checkpoint mechanism inside `CampaignRegistry`: define milestones per campaign, allow supporters (stake depositors) to vote after each milestone window.
-- [ ] Add majority vote tracking and conditional stake withdrawal (supporters can exit if majority votes to end campaign).
-- [ ] Expose `submitCheckpoint`, `voteOnCheckpoint`, `finalizeCheckpoint`, and `requestStakeWithdrawal` functions with events (`CheckpointSubmitted`, `CheckpointApproved`, `StakeReleased`).
-- [ ] Integrate voting outcomes with `CampaignVault` (pause vault or allow withdrawals) and router (halt payouts) when campaign fails a checkpoint.
-- [ ] Cover scenarios in Foundry: successful checkpoints, failed majority, stake refunds, and vault pause/unpause.
+- [ ] Checkpoint design: extend `CampaignRegistry` with milestone schedules, quorum settings, and checkpoint state structs.
+- [ ] Voting mechanics: implement `submitCheckpoint`, `voteOnCheckpoint`, and `finalizeCheckpoint` enforcing role gating, event emission, and state transitions.
+- [ ] Stake escrow: track supporter stake positions, enable conditional withdrawals/refunds when checkpoints fail, and integrate with `CampaignVault` pause switches.
+- [ ] Router/Vault responses: ensure `PayoutRouter` halts payouts and `CampaignVault` unlocks withdrawals when checkpoints fail.
+- [ ] Tests: Foundry scenarios for successful checkpoints, failed votes, supporter exits, and pause propagation across router and vault.
 
 ### Phase 15 – Strategy Manager & Adapter Alignment
-- [ ] Update `StrategyManager` to source adapter metadata from `StrategyRegistry`, enforce allowed strategies per campaign, and honor RoleManager roles.
-- [ ] Harden adapters (Aave + mocks) with allowance hygiene, health checks, and event coverage as per earlier reviews.
-- [ ] Add keepers or simulated keeper tests to exercise rebalance, auto-checks, and emergency exits in campaign context.
-- [ ] Expand coverage for multi-adapter scenarios, verifying vault harvest impacts campaign payouts.
+- [ ] StrategyManager module: extend the core/module layer to manage strategy assignments, enforce adapter eligibility, and surface metadata to campaigns.
+- [ ] Adapter hardening: align existing adapters with new strategy metadata (allowance hygiene, health checks, emergency exits) and event coverage.
+- [ ] Keeper flows: add simulated keeper tests for rebalances, health monitoring, and emergency exits across multiple campaigns/strategies.
+- [ ] Core/API updates: expose strategy queries/setters via `GiveProtocolCore` and ensure registries/factory respect new constraints.
+- [ ] Tests: cross-module integration verifying deposits → adapter yield → campaign payouts under multiple strategies.
 
 ### Phase 16 – Documentation, Observability & Cleanup
-- [ ] Update `/docs/` with the campaign-based architecture (Mermaid diagrams, role matrix, registry interactions, checkpoint flow).
-- [ ] Document stake escrow, checkpoint voting, preference management, and vault factory runbooks.
-- [ ] Specify event schemas for indexers (campaign submission, checkpoint events, vault creations, payouts).
-- [ ] Remove obsolete NGO-specific contracts/docs/scripts, update migration notes for campaign-first design, and ensure changelog reflects the pivot.
-- [ ] Run full suite + lint/format + coverage report; target ≥80% line coverage on new campaign modules.
+- [ ] Architecture docs: refresh `/docs/` diagrams, mermaid flows, and role matrices for the campaign-centric layout, registries, and role manager.
+- [ ] Runbooks: document stake escrow lifecycle, checkpoint voting, allocation management, vault factory operations, and emergency procedures.
+- [ ] Event schemas: define canonical events for indexers (campaign lifecycle, checkpoints, payouts, strategy assignments) and update observability tooling.
+- [ ] Cleanup: remove NGO-specific artifacts, scripts, and docs; update migration notes and changelog for the campaign-first design.
+- [ ] Quality gates: execute full Foundry suite with gas + coverage reporting, enforce ≥80% coverage on new modules, and wire into CI.
 
 ---
 

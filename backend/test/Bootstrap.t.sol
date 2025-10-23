@@ -12,6 +12,9 @@ import "../src/modules/VaultModule.sol";
 import "../src/modules/AdapterModule.sol";
 import "../src/modules/RiskModule.sol";
 import "../src/types/GiveTypes.sol";
+import "../src/registry/StrategyRegistry.sol";
+import "../src/registry/CampaignRegistry.sol";
+import "../src/vault/CampaignVault4626.sol";
 
 contract BootstrapScriptTest is Test {
     Bootstrap internal bootstrap;
@@ -40,6 +43,13 @@ contract BootstrapScriptTest is Test {
         assertEq(first.adapter, second.adapter, "adapter address mismatch");
         assertEq(first.registry, second.registry, "registry address mismatch");
         assertEq(first.router, second.router, "router address mismatch");
+        assertEq(first.strategyRegistry, second.strategyRegistry, "strategy registry mismatch");
+        assertEq(first.campaignRegistry, second.campaignRegistry, "campaign registry mismatch");
+        assertEq(first.vaultFactory, second.vaultFactory, "vault factory mismatch");
+        assertEq(first.campaignVault, second.campaignVault, "campaign vault mismatch");
+        assertEq(first.strategyId, second.strategyId, "strategy id mismatch");
+        assertEq(first.campaignId, second.campaignId, "campaign id mismatch");
+        assertEq(first.campaignVaultId, second.campaignVaultId, "campaign vault id mismatch");
     }
 
     function testBootstrapIdempotencyGuard() public {
@@ -55,6 +65,9 @@ contract BootstrapScriptTest is Test {
         ACLManager acl = ACLManager(deployment.acl);
         GiveVault4626 vault = GiveVault4626(payable(deployment.vault));
         DonationRouter router = DonationRouter(payable(deployment.router));
+        StrategyRegistry strategyRegistry = StrategyRegistry(deployment.strategyRegistry);
+        CampaignRegistry campaignRegistry = CampaignRegistry(deployment.campaignRegistry);
+        CampaignVault4626 campaignVault = CampaignVault4626(payable(deployment.campaignVault));
 
         // Governance wiring
         assertEq(uint256(uint160(address(core.aclManager()))), uint256(uint160(deployment.acl)));
@@ -79,6 +92,7 @@ contract BootstrapScriptTest is Test {
 
         // Donation router wiring
         assertTrue(router.authorizedCallers(deployment.vault));
+        assertTrue(router.authorizedCallers(deployment.campaignVault));
 
         // Risk configuration propagated
         GiveTypes.RiskConfig memory riskCfg = core.getRiskConfig(deployment.riskId);
@@ -88,5 +102,28 @@ contract BootstrapScriptTest is Test {
         assertEq(vault.cashBufferBps(), config.cashBufferBps);
         assertEq(vault.slippageBps(), config.slippageBps);
         assertEq(vault.maxLossBps(), config.maxLossBps);
+
+        // Strategy registry seeded
+        GiveTypes.StrategyConfig memory strategyCfg = strategyRegistry.getStrategy(deployment.strategyId);
+        assertEq(strategyCfg.adapter, deployment.adapter);
+        assertEq(strategyCfg.maxTvl, config.riskMaxDeposit);
+        address[] memory strategyVaults = strategyRegistry.getStrategyVaults(deployment.strategyId);
+        assertEq(strategyVaults.length, 1);
+        assertEq(strategyVaults[0], deployment.campaignVault);
+
+        // Campaign registry seeded
+        GiveTypes.CampaignConfig memory campaignCfg = campaignRegistry.getCampaign(deployment.campaignId);
+        assertEq(campaignCfg.strategyId, deployment.strategyId);
+        assertEq(campaignCfg.payoutRecipient, config.protocolTreasury);
+        assertEq(campaignCfg.vault, deployment.campaignVault);
+        assertEq(campaignCfg.lockProfile, keccak256("lock.default"));
+
+        (bytes32 campaignId, bytes32 strategyId, bytes32 lockProfile, address factory) =
+            campaignVault.getCampaignMetadata();
+        assertEq(campaignId, deployment.campaignId);
+        assertEq(strategyId, deployment.strategyId);
+        assertEq(lockProfile, keccak256("lock.default"));
+        assertEq(factory, deployment.vaultFactory);
+        assertEq(campaignVault.campaignInitialized(), true);
     }
 }

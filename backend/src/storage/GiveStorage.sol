@@ -20,6 +20,12 @@ library GiveStorage {
         mapping(bytes32 => GiveTypes.SyntheticAsset) synthetics;
         GiveTypes.DonationRouterState donationRouter;
         GiveTypes.NGORegistryState ngoRegistry;
+        mapping(bytes32 => GiveTypes.StrategyConfig) strategies;
+        mapping(bytes32 => GiveTypes.CampaignConfig) campaigns;
+        mapping(bytes32 => GiveTypes.CampaignStakeState) campaignStakes;
+        mapping(bytes32 => GiveTypes.CampaignCheckpointState) campaignCheckpoints;
+        mapping(bytes32 => GiveTypes.CampaignVaultMeta) campaignVaults;
+        mapping(bytes32 => address[]) strategyVaults;
         mapping(bytes32 => bytes32) bytes32Registry;
         mapping(bytes32 => uint256) uintRegistry;
         mapping(bytes32 => address) addressRegistry;

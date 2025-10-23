@@ -175,4 +175,107 @@ library GiveTypes {
         address pendingCurrentNGO;
         uint256 currentNGOChangeETA;
     }
+
+    enum StrategyStatus {
+        Unknown,
+        Active,
+        FadingOut,
+        Deprecated
+    }
+
+    struct StrategyConfig {
+        bytes32 id;
+        address adapter;
+        address creator;
+        bytes32 metadataHash;
+        bytes32 riskTier;
+        uint256 maxTvl;
+        uint64 createdAt;
+        uint64 updatedAt;
+        StrategyStatus status;
+        bool exists;
+    }
+
+    enum CampaignStatus {
+        Unknown,
+        Submitted,
+        Approved,
+        Active,
+        Paused,
+        Completed,
+        Cancelled
+    }
+
+    struct CampaignConfig {
+        bytes32 id;
+        address proposer;
+        address curator;
+        address payoutRecipient;
+        address vault;
+        bytes32 strategyId;
+        bytes32 metadataHash;
+        uint256 targetStake;
+        uint256 minStake;
+        uint256 totalStaked;
+        uint256 lockedStake;
+        uint64 fundraisingStart;
+        uint64 fundraisingEnd;
+        uint64 createdAt;
+        uint64 updatedAt;
+        CampaignStatus status;
+        bytes32 lockProfile;
+        bool exists;
+    }
+
+    struct StakePosition {
+        uint256 amount;
+        uint256 pendingWithdrawal;
+        uint64 enteredAt;
+        uint64 lastUpdated;
+        bool exists;
+        bool requestedExit;
+    }
+
+    struct CampaignStakeState {
+        uint256 totalActive;
+        uint256 totalPendingExit;
+        address[] supporters;
+        mapping(address => StakePosition) supporterPositions;
+    }
+
+    enum CheckpointStatus {
+        Unknown,
+        Scheduled,
+        Voting,
+        Approved,
+        Rejected,
+        Finalized
+    }
+
+    struct CampaignCheckpoint {
+        uint256 index;
+        uint64 windowStart;
+        uint64 windowEnd;
+        uint64 executionDeadline;
+        uint16 quorumBps;
+        CheckpointStatus status;
+        uint256 votesFor;
+        uint256 votesAgainst;
+        uint256 totalEligibleStake;
+        mapping(address => bool) hasVoted;
+    }
+
+    struct CampaignCheckpointState {
+        uint256 nextIndex;
+        mapping(uint256 => CampaignCheckpoint) checkpoints;
+    }
+
+    struct CampaignVaultMeta {
+        bytes32 id;
+        bytes32 campaignId;
+        bytes32 strategyId;
+        bytes32 lockProfile;
+        address factory;
+        bool exists;
+    }
 }

@@ -11,6 +11,9 @@ library StorageLib {
     error InvalidVault(bytes32 vaultId);
     error InvalidAdapter(bytes32 adapterId);
     error InvalidRisk(bytes32 riskId);
+    error InvalidStrategy(bytes32 strategyId);
+    error InvalidCampaign(bytes32 campaignId);
+    error InvalidCampaignVault(bytes32 vaultId);
 
     // === Core Accessors ===
 
@@ -70,6 +73,50 @@ library StorageLib {
         synthetic = s.synthetics[syntheticId];
     }
 
+    function strategy(bytes32 strategyId) internal view returns (GiveTypes.StrategyConfig storage cfg) {
+        GiveStorage.Store storage s = GiveStorage.store();
+        cfg = s.strategies[strategyId];
+    }
+
+    function ensureStrategy(bytes32 strategyId) internal view returns (GiveTypes.StrategyConfig storage cfg) {
+        cfg = strategy(strategyId);
+        if (!cfg.exists) revert InvalidStrategy(strategyId);
+    }
+
+    function campaign(bytes32 campaignId) internal view returns (GiveTypes.CampaignConfig storage cfg) {
+        GiveStorage.Store storage s = GiveStorage.store();
+        cfg = s.campaigns[campaignId];
+    }
+
+    function ensureCampaign(bytes32 campaignId) internal view returns (GiveTypes.CampaignConfig storage cfg) {
+        cfg = campaign(campaignId);
+        if (!cfg.exists) revert InvalidCampaign(campaignId);
+    }
+
+    function campaignStake(bytes32 campaignId) internal view returns (GiveTypes.CampaignStakeState storage stakeState) {
+        GiveStorage.Store storage s = GiveStorage.store();
+        stakeState = s.campaignStakes[campaignId];
+    }
+
+    function campaignCheckpoints(bytes32 campaignId)
+        internal
+        view
+        returns (GiveTypes.CampaignCheckpointState storage checkpointState)
+    {
+        GiveStorage.Store storage s = GiveStorage.store();
+        checkpointState = s.campaignCheckpoints[campaignId];
+    }
+
+    function campaignVaultMeta(bytes32 vaultId) internal view returns (GiveTypes.CampaignVaultMeta storage meta) {
+        GiveStorage.Store storage s = GiveStorage.store();
+        meta = s.campaignVaults[vaultId];
+    }
+
+    function ensureCampaignVault(bytes32 vaultId) internal view returns (GiveTypes.CampaignVaultMeta storage meta) {
+        meta = campaignVaultMeta(vaultId);
+        if (!meta.exists) revert InvalidCampaignVault(vaultId);
+    }
+
     function role(bytes32 roleId) internal view returns (GiveTypes.RoleAssignments storage assignment) {
         GiveStorage.Store storage s = GiveStorage.store();
         assignment = s.roles[roleId];
@@ -103,6 +150,11 @@ library StorageLib {
 
     function setAddress(bytes32 key, address value) internal {
         GiveStorage.store().addressRegistry[key] = value;
+    }
+
+    function strategyVaults(bytes32 strategyId) internal view returns (address[] storage list) {
+        GiveStorage.Store storage s = GiveStorage.store();
+        return s.strategyVaults[strategyId];
     }
 
     function getAddress(bytes32 key) internal view returns (address value) {

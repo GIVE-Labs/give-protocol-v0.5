@@ -1,0 +1,442 @@
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.20;
+
+import "@openzeppelin/contracts/proxy/utils/Initializable.sol";
+import "@openzeppelin/contracts/proxy/utils/UUPSUpgradeable.sol";
+
+import "../interfaces/IACLManager.sol";
+import "../storage/StorageLib.sol";
+import "../types/GiveTypes.sol";
+
+interface IStrategyRegistry {
+    function getStrategy(bytes32 strategyId) external view returns (GiveTypes.StrategyConfig memory);
+}
+
+/// @title CampaignRegistry
+/// @notice Tracks campaign lifecycle, curator assignments, payout configuration, and supporter stake bookkeeping.
+contract CampaignRegistry is Initializable, UUPSUpgradeable {
+    IACLManager public aclManager;
+    address public strategyRegistry;
+    bytes32 public constant ROLE_UPGRADER = keccak256("ROLE_UPGRADER");
+
+    struct CampaignInput {
+        bytes32 id;
+        address payoutRecipient;
+        bytes32 strategyId;
+        bytes32 metadataHash;
+        uint256 targetStake;
+        uint256 minStake;
+        uint64 fundraisingStart;
+        uint64 fundraisingEnd;
+    }
+
+    struct CheckpointInput {
+        uint64 windowStart;
+        uint64 windowEnd;
+        uint64 executionDeadline;
+        uint16 quorumBps;
+    }
+
+    event CampaignSubmitted(bytes32 indexed id, address indexed proposer, bytes32 metadataHash);
+    event CampaignApproved(bytes32 indexed id, address indexed curator);
+    event CampaignStatusChanged(
+        bytes32 indexed id, GiveTypes.CampaignStatus previousStatus, GiveTypes.CampaignStatus newStatus
+    );
+    event PayoutRecipientUpdated(bytes32 indexed id, address indexed previousRecipient, address indexed newRecipient);
+    event StakeDeposited(bytes32 indexed id, address indexed supporter, uint256 amount, uint256 totalStaked);
+    event StakeExitRequested(bytes32 indexed id, address indexed supporter, uint256 amountRequested);
+    event StakeExitFinalized(
+        bytes32 indexed id, address indexed supporter, uint256 amountWithdrawn, uint256 remainingStake
+    );
+    event LockedStakeUpdated(bytes32 indexed id, uint256 previousAmount, uint256 newAmount);
+    event CampaignVaultRegistered(bytes32 indexed campaignId, address indexed vault, bytes32 lockProfile);
+    event CheckpointScheduled(bytes32 indexed campaignId, uint256 index, uint64 start, uint64 end, uint16 quorumBps);
+    event CheckpointStatusUpdated(
+        bytes32 indexed campaignId,
+        uint256 index,
+        GiveTypes.CheckpointStatus previousStatus,
+        GiveTypes.CheckpointStatus newStatus
+    );
+
+    error ZeroAddress();
+    error Unauthorized(bytes32 roleId, address account);
+    error CampaignAlreadyExists(bytes32 id);
+    error CampaignNotFound(bytes32 id);
+    error InvalidCampaignConfig(bytes32 id);
+    error InvalidCampaignStatus(bytes32 id, GiveTypes.CampaignStatus status);
+    error InvalidStakeAmount();
+    error StakePositionMissing(address supporter);
+    error CheckpointNotFound(bytes32 id, uint256 index);
+    error InvalidCheckpointWindow();
+    error InvalidCheckpointStatus(GiveTypes.CheckpointStatus status);
+    error StrategyRegistryNotConfigured();
+
+    bytes32[] private _campaignIds;
+
+    modifier onlyRole(bytes32 roleId) {
+        if (!aclManager.hasRole(roleId, msg.sender)) {
+            revert Unauthorized(roleId, msg.sender);
+        }
+        _;
+    }
+
+    function initialize(address acl, address strategyRegistry_) external initializer {
+        if (acl == address(0) || strategyRegistry_ == address(0)) revert ZeroAddress();
+        aclManager = IACLManager(acl);
+        strategyRegistry = strategyRegistry_;
+    }
+
+    // === Campaign Lifecycle ===
+
+    function submitCampaign(CampaignInput calldata input) external onlyRole(aclManager.campaignCreatorRole()) {
+        _validateCampaignInput(input);
+
+        _fetchStrategy(input.strategyId, input.id);
+
+        GiveTypes.CampaignConfig storage cfg = StorageLib.campaign(input.id);
+        if (cfg.exists) revert CampaignAlreadyExists(input.id);
+
+        cfg.id = input.id;
+        cfg.proposer = msg.sender;
+        cfg.payoutRecipient = input.payoutRecipient;
+        cfg.strategyId = input.strategyId;
+        cfg.metadataHash = input.metadataHash;
+        cfg.targetStake = input.targetStake;
+        cfg.minStake = input.minStake;
+        cfg.fundraisingStart = input.fundraisingStart;
+        cfg.fundraisingEnd = input.fundraisingEnd;
+        cfg.createdAt = uint64(block.timestamp);
+        cfg.updatedAt = uint64(block.timestamp);
+        cfg.status = GiveTypes.CampaignStatus.Submitted;
+        cfg.exists = true;
+
+        _campaignIds.push(input.id);
+
+        emit CampaignSubmitted(input.id, msg.sender, input.metadataHash);
+    }
+
+    function approveCampaign(bytes32 campaignId, address curator)
+        external
+        onlyRole(aclManager.campaignAdminRole())
+    {
+        if (curator == address(0)) revert ZeroAddress();
+
+        GiveTypes.CampaignConfig storage cfg = _requireCampaign(campaignId);
+        if (cfg.status != GiveTypes.CampaignStatus.Submitted) {
+            revert InvalidCampaignStatus(campaignId, cfg.status);
+        }
+
+        cfg.curator = curator;
+        cfg.status = GiveTypes.CampaignStatus.Approved;
+        cfg.updatedAt = uint64(block.timestamp);
+
+        emit CampaignApproved(campaignId, curator);
+        emit CampaignStatusChanged(campaignId, GiveTypes.CampaignStatus.Submitted, GiveTypes.CampaignStatus.Approved);
+    }
+
+    function setCampaignStatus(bytes32 campaignId, GiveTypes.CampaignStatus newStatus)
+        external
+        onlyRole(aclManager.campaignAdminRole())
+    {
+        if (newStatus == GiveTypes.CampaignStatus.Unknown) {
+            revert InvalidCampaignStatus(campaignId, newStatus);
+        }
+
+        GiveTypes.CampaignConfig storage cfg = _requireCampaign(campaignId);
+        GiveTypes.CampaignStatus previous = cfg.status;
+        if (previous == newStatus) return;
+
+        cfg.status = newStatus;
+        cfg.updatedAt = uint64(block.timestamp);
+
+        emit CampaignStatusChanged(campaignId, previous, newStatus);
+    }
+
+    function setPayoutRecipient(bytes32 campaignId, address recipient)
+        external
+        onlyRole(aclManager.campaignAdminRole())
+    {
+        if (recipient == address(0)) revert ZeroAddress();
+
+        GiveTypes.CampaignConfig storage cfg = _requireCampaign(campaignId);
+        address previous = cfg.payoutRecipient;
+        cfg.payoutRecipient = recipient;
+        cfg.updatedAt = uint64(block.timestamp);
+
+        emit PayoutRecipientUpdated(campaignId, previous, recipient);
+    }
+
+    function setCampaignVault(bytes32 campaignId, address vault, bytes32 lockProfile)
+        external
+        onlyRole(aclManager.campaignAdminRole())
+    {
+        if (vault == address(0)) revert ZeroAddress();
+
+        GiveTypes.CampaignConfig storage cfg = _requireCampaign(campaignId);
+        cfg.vault = vault;
+        cfg.lockProfile = lockProfile;
+        cfg.updatedAt = uint64(block.timestamp);
+
+        emit CampaignVaultRegistered(campaignId, vault, lockProfile);
+    }
+
+    function setStrategyRegistry(address newRegistry) external onlyRole(aclManager.campaignAdminRole()) {
+        if (newRegistry == address(0)) revert ZeroAddress();
+        strategyRegistry = newRegistry;
+    }
+
+    function updateLockedStake(bytes32 campaignId, uint256 lockedAmount)
+        external
+        onlyRole(aclManager.campaignAdminRole())
+    {
+        GiveTypes.CampaignConfig storage cfg = _requireCampaign(campaignId);
+        uint256 previous = cfg.lockedStake;
+        cfg.lockedStake = lockedAmount;
+        cfg.updatedAt = uint64(block.timestamp);
+
+        emit LockedStakeUpdated(campaignId, previous, lockedAmount);
+    }
+
+    // === Stake Escrow ===
+
+    function recordStakeDeposit(bytes32 campaignId, address supporter, uint256 amount)
+        external
+        onlyRole(aclManager.campaignCuratorRole())
+    {
+        if (supporter == address(0)) revert ZeroAddress();
+        if (amount == 0) revert InvalidStakeAmount();
+
+        GiveTypes.CampaignConfig storage cfg = _requireCampaign(campaignId);
+        if (
+            cfg.status == GiveTypes.CampaignStatus.Cancelled || cfg.status == GiveTypes.CampaignStatus.Completed
+                || cfg.status == GiveTypes.CampaignStatus.Unknown
+        ) {
+            revert InvalidCampaignStatus(campaignId, cfg.status);
+        }
+
+        GiveTypes.CampaignStakeState storage stakeState = StorageLib.campaignStake(campaignId);
+        GiveTypes.StakePosition storage position = stakeState.supporterPositions[supporter];
+
+        if (!position.exists) {
+            stakeState.supporters.push(supporter);
+            position.exists = true;
+            position.enteredAt = uint64(block.timestamp);
+        }
+
+        position.amount += amount;
+        position.lastUpdated = uint64(block.timestamp);
+        position.requestedExit = false;
+
+        stakeState.totalActive += amount;
+        cfg.totalStaked += amount;
+        cfg.updatedAt = uint64(block.timestamp);
+
+        emit StakeDeposited(campaignId, supporter, amount, cfg.totalStaked);
+    }
+
+    function requestStakeExit(bytes32 campaignId, address supporter, uint256 amount)
+        external
+        onlyRole(aclManager.campaignCuratorRole())
+    {
+        if (supporter == address(0)) revert ZeroAddress();
+        if (amount == 0) revert InvalidStakeAmount();
+
+        GiveTypes.CampaignConfig storage cfg = _requireCampaign(campaignId);
+        if (cfg.status == GiveTypes.CampaignStatus.Cancelled || cfg.status == GiveTypes.CampaignStatus.Completed) {
+            revert InvalidCampaignStatus(campaignId, cfg.status);
+        }
+
+        GiveTypes.CampaignStakeState storage stakeState = StorageLib.campaignStake(campaignId);
+        GiveTypes.StakePosition storage position = stakeState.supporterPositions[supporter];
+        if (!position.exists || position.amount < amount) revert StakePositionMissing(supporter);
+
+        position.amount -= amount;
+        position.pendingWithdrawal += amount;
+        position.lastUpdated = uint64(block.timestamp);
+        position.requestedExit = true;
+
+        stakeState.totalActive -= amount;
+        stakeState.totalPendingExit += amount;
+
+        emit StakeExitRequested(campaignId, supporter, amount);
+    }
+
+    function finalizeStakeExit(bytes32 campaignId, address supporter, uint256 amount)
+        external
+        onlyRole(aclManager.campaignAdminRole())
+    {
+        if (supporter == address(0)) revert ZeroAddress();
+        if (amount == 0) revert InvalidStakeAmount();
+
+        GiveTypes.CampaignConfig storage cfg = _requireCampaign(campaignId);
+        GiveTypes.CampaignStakeState storage stakeState = StorageLib.campaignStake(campaignId);
+        GiveTypes.StakePosition storage position = stakeState.supporterPositions[supporter];
+        if (!position.exists || position.pendingWithdrawal < amount) revert StakePositionMissing(supporter);
+
+        position.pendingWithdrawal -= amount;
+        position.lastUpdated = uint64(block.timestamp);
+        if (position.pendingWithdrawal == 0) {
+            position.requestedExit = false;
+        }
+
+        if (position.amount == 0 && position.pendingWithdrawal == 0) {
+            position.exists = false;
+        }
+
+        if (stakeState.totalPendingExit < amount) {
+            stakeState.totalPendingExit = 0;
+        } else {
+            stakeState.totalPendingExit -= amount;
+        }
+
+        if (cfg.totalStaked < amount) {
+            cfg.totalStaked = 0;
+        } else {
+            cfg.totalStaked -= amount;
+        }
+
+        cfg.updatedAt = uint64(block.timestamp);
+
+        emit StakeExitFinalized(campaignId, supporter, amount, position.amount);
+    }
+
+    // === Checkpoints ===
+
+    function scheduleCheckpoint(bytes32 campaignId, CheckpointInput calldata input)
+        external
+        onlyRole(aclManager.campaignAdminRole())
+        returns (uint256 index)
+    {
+        if (input.windowStart == 0 || input.windowEnd <= input.windowStart || input.executionDeadline < input.windowEnd) {
+            revert InvalidCheckpointWindow();
+        }
+        if (input.quorumBps == 0 || input.quorumBps > 10_000) {
+            revert InvalidCheckpointWindow();
+        }
+
+        GiveTypes.CampaignConfig storage cfg = _requireCampaign(campaignId);
+        GiveTypes.CampaignCheckpointState storage cpState = StorageLib.campaignCheckpoints(campaignId);
+
+        index = cpState.nextIndex;
+        cpState.nextIndex += 1;
+
+        GiveTypes.CampaignCheckpoint storage checkpoint = cpState.checkpoints[index];
+        checkpoint.index = index;
+        checkpoint.windowStart = input.windowStart;
+        checkpoint.windowEnd = input.windowEnd;
+        checkpoint.executionDeadline = input.executionDeadline;
+        checkpoint.quorumBps = input.quorumBps;
+        checkpoint.status = GiveTypes.CheckpointStatus.Scheduled;
+        checkpoint.totalEligibleStake = cfg.totalStaked;
+
+        emit CheckpointScheduled(campaignId, index, input.windowStart, input.windowEnd, input.quorumBps);
+    }
+
+    function updateCheckpointStatus(
+        bytes32 campaignId,
+        uint256 index,
+        GiveTypes.CheckpointStatus newStatus
+    ) external onlyRole(aclManager.checkpointCouncilRole()) {
+        if (newStatus == GiveTypes.CheckpointStatus.Unknown) revert InvalidCheckpointStatus(newStatus);
+
+        GiveTypes.CampaignCheckpointState storage cpState = StorageLib.campaignCheckpoints(campaignId);
+        GiveTypes.CampaignCheckpoint storage checkpoint = cpState.checkpoints[index];
+        if (checkpoint.windowStart == 0) revert CheckpointNotFound(campaignId, index);
+
+        GiveTypes.CheckpointStatus previous = checkpoint.status;
+        if (previous == newStatus) return;
+
+        checkpoint.status = newStatus;
+
+        emit CheckpointStatusUpdated(campaignId, index, previous, newStatus);
+    }
+
+    // === Views ===
+
+    function getCampaign(bytes32 campaignId) external view returns (GiveTypes.CampaignConfig memory) {
+        GiveTypes.CampaignConfig storage cfg = StorageLib.campaign(campaignId);
+        if (!cfg.exists) revert CampaignNotFound(campaignId);
+        return cfg;
+    }
+
+    function listCampaignIds() external view returns (bytes32[] memory) {
+        return _campaignIds;
+    }
+
+    function getStakePosition(bytes32 campaignId, address supporter)
+        external
+        view
+        returns (GiveTypes.StakePosition memory)
+    {
+        GiveTypes.CampaignStakeState storage stakeState = StorageLib.campaignStake(campaignId);
+        return stakeState.supporterPositions[supporter];
+    }
+
+    function getCheckpoint(bytes32 campaignId, uint256 index)
+        external
+        view
+        returns (
+            uint64 windowStart,
+            uint64 windowEnd,
+            uint64 executionDeadline,
+            uint16 quorumBps,
+            GiveTypes.CheckpointStatus status,
+            uint256 totalEligibleStake
+        )
+    {
+        GiveTypes.CampaignCheckpointState storage cpState = StorageLib.campaignCheckpoints(campaignId);
+        GiveTypes.CampaignCheckpoint storage checkpoint = cpState.checkpoints[index];
+        if (checkpoint.windowStart == 0) revert CheckpointNotFound(campaignId, index);
+
+        return (
+            checkpoint.windowStart,
+            checkpoint.windowEnd,
+            checkpoint.executionDeadline,
+            checkpoint.quorumBps,
+            checkpoint.status,
+            checkpoint.totalEligibleStake
+        );
+    }
+
+    /// @inheritdoc UUPSUpgradeable
+    function _authorizeUpgrade(address) internal view override {
+        if (!aclManager.hasRole(ROLE_UPGRADER, msg.sender)) {
+            revert Unauthorized(ROLE_UPGRADER, msg.sender);
+        }
+    }
+
+    function _validateCampaignInput(CampaignInput calldata input) private pure {
+        if (
+            input.id == bytes32(0) || input.payoutRecipient == address(0) || input.strategyId == bytes32(0)
+                || input.targetStake == 0 || input.minStake > input.targetStake
+        ) {
+            revert InvalidCampaignConfig(input.id);
+        }
+        if (input.fundraisingEnd != 0 && input.fundraisingEnd <= input.fundraisingStart) {
+            revert InvalidCampaignConfig(input.id);
+        }
+    }
+
+    function _requireCampaign(bytes32 campaignId) private view returns (GiveTypes.CampaignConfig storage cfg) {
+        cfg = StorageLib.campaign(campaignId);
+        if (!cfg.exists) revert CampaignNotFound(campaignId);
+    }
+
+    function _fetchStrategy(bytes32 strategyId, bytes32 campaignId)
+        private
+        view
+        returns (GiveTypes.StrategyConfig memory strategyCfg)
+    {
+        address registry = strategyRegistry;
+        if (registry == address(0)) revert StrategyRegistryNotConfigured();
+
+        try IStrategyRegistry(registry).getStrategy(strategyId) returns (GiveTypes.StrategyConfig memory cfg) {
+            if (!cfg.exists || cfg.status == GiveTypes.StrategyStatus.Deprecated) {
+                revert InvalidCampaignConfig(campaignId);
+            }
+            strategyCfg = cfg;
+        } catch {
+            revert InvalidCampaignConfig(campaignId);
+        }
+    }
+}

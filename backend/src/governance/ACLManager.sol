@@ -19,6 +19,12 @@ contract ACLManager is Initializable, UUPSUpgradeable, IACLManager {
 
     bytes32 public constant ROLE_SUPER_ADMIN = keccak256("ROLE_SUPER_ADMIN");
     bytes32 public constant ROLE_UPGRADER = keccak256("ROLE_UPGRADER");
+    bytes32 public constant ROLE_PROTOCOL_ADMIN = keccak256("ROLE_PROTOCOL_ADMIN");
+    bytes32 public constant ROLE_STRATEGY_ADMIN = keccak256("ROLE_STRATEGY_ADMIN");
+    bytes32 public constant ROLE_CAMPAIGN_ADMIN = keccak256("ROLE_CAMPAIGN_ADMIN");
+    bytes32 public constant ROLE_CAMPAIGN_CREATOR = keccak256("ROLE_CAMPAIGN_CREATOR");
+    bytes32 public constant ROLE_CAMPAIGN_CURATOR = keccak256("ROLE_CAMPAIGN_CURATOR");
+    bytes32 public constant ROLE_CHECKPOINT_COUNCIL = keccak256("ROLE_CHECKPOINT_COUNCIL");
 
     mapping(bytes32 => RoleData) private _roles;
 
@@ -56,6 +62,8 @@ contract ACLManager is Initializable, UUPSUpgradeable, IACLManager {
 
         _createRole(ROLE_UPGRADER, initialSuperAdmin, false);
         _grantRole(ROLE_UPGRADER, upgrader);
+
+        _createCanonicalRoles(initialSuperAdmin);
     }
 
     /// @notice Creates a new role managed by the ACL.
@@ -134,6 +142,55 @@ contract ACLManager is Initializable, UUPSUpgradeable, IACLManager {
         return role.members;
     }
 
+    /// @notice Returns true if the role exists.
+    function roleExists(bytes32 roleId) external view returns (bool) {
+        return _roles[roleId].exists;
+    }
+
+    /// @notice Returns the canonical role identifiers used across the protocol.
+    function canonicalRoles() external pure returns (bytes32[] memory roles) {
+        roles = new bytes32[](8);
+        roles[0] = ROLE_SUPER_ADMIN;
+        roles[1] = ROLE_UPGRADER;
+        roles[2] = ROLE_PROTOCOL_ADMIN;
+        roles[3] = ROLE_STRATEGY_ADMIN;
+        roles[4] = ROLE_CAMPAIGN_ADMIN;
+        roles[5] = ROLE_CAMPAIGN_CREATOR;
+        roles[6] = ROLE_CAMPAIGN_CURATOR;
+        roles[7] = ROLE_CHECKPOINT_COUNCIL;
+    }
+
+    /// @notice Returns true when `roleId` is part of the canonical role set.
+    function isCanonicalRole(bytes32 roleId) public pure returns (bool) {
+        return roleId == ROLE_SUPER_ADMIN || roleId == ROLE_UPGRADER || roleId == ROLE_PROTOCOL_ADMIN
+            || roleId == ROLE_STRATEGY_ADMIN || roleId == ROLE_CAMPAIGN_ADMIN || roleId == ROLE_CAMPAIGN_CREATOR
+            || roleId == ROLE_CAMPAIGN_CURATOR || roleId == ROLE_CHECKPOINT_COUNCIL;
+    }
+
+    function protocolAdminRole() external pure returns (bytes32) {
+        return ROLE_PROTOCOL_ADMIN;
+    }
+
+    function strategyAdminRole() external pure returns (bytes32) {
+        return ROLE_STRATEGY_ADMIN;
+    }
+
+    function campaignAdminRole() external pure returns (bytes32) {
+        return ROLE_CAMPAIGN_ADMIN;
+    }
+
+    function campaignCreatorRole() external pure returns (bytes32) {
+        return ROLE_CAMPAIGN_CREATOR;
+    }
+
+    function campaignCuratorRole() external pure returns (bytes32) {
+        return ROLE_CAMPAIGN_CURATOR;
+    }
+
+    function checkpointCouncilRole() external pure returns (bytes32) {
+        return ROLE_CHECKPOINT_COUNCIL;
+    }
+
     /// @dev Internal: creates role storage and emits event.
     function _createRole(bytes32 roleId, address admin, bool checkExists) internal {
         RoleData storage role = _roles[roleId];
@@ -190,5 +247,25 @@ contract ACLManager is Initializable, UUPSUpgradeable, IACLManager {
         if (!hasRole(ROLE_UPGRADER, msg.sender)) {
             revert UnauthorizedRole(ROLE_UPGRADER, msg.sender);
         }
+    }
+
+    function _createCanonicalRoles(address initialSuperAdmin) private {
+        _createRole(ROLE_PROTOCOL_ADMIN, initialSuperAdmin, false);
+        _grantRole(ROLE_PROTOCOL_ADMIN, initialSuperAdmin);
+
+        _createRole(ROLE_STRATEGY_ADMIN, initialSuperAdmin, false);
+        _grantRole(ROLE_STRATEGY_ADMIN, initialSuperAdmin);
+
+        _createRole(ROLE_CAMPAIGN_ADMIN, initialSuperAdmin, false);
+        _grantRole(ROLE_CAMPAIGN_ADMIN, initialSuperAdmin);
+
+        _createRole(ROLE_CAMPAIGN_CREATOR, initialSuperAdmin, false);
+        _grantRole(ROLE_CAMPAIGN_CREATOR, initialSuperAdmin);
+
+        _createRole(ROLE_CAMPAIGN_CURATOR, initialSuperAdmin, false);
+        _grantRole(ROLE_CAMPAIGN_CURATOR, initialSuperAdmin);
+
+        _createRole(ROLE_CHECKPOINT_COUNCIL, initialSuperAdmin, false);
+        _grantRole(ROLE_CHECKPOINT_COUNCIL, initialSuperAdmin);
     }
 }

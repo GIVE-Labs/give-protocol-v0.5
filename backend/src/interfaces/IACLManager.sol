@@ -25,4 +25,22 @@ interface IACLManager {
     function acceptRoleAdmin(bytes32 roleId) external;
 
     function getRoleMembers(bytes32 roleId) external view returns (address[] memory);
+
+    function roleExists(bytes32 roleId) external view returns (bool);
+
+    function canonicalRoles() external pure returns (bytes32[] memory);
+
+    function isCanonicalRole(bytes32 roleId) external pure returns (bool);
+
+    function protocolAdminRole() external pure returns (bytes32);
+
+    function strategyAdminRole() external pure returns (bytes32);
+
+    function campaignAdminRole() external pure returns (bytes32);
+
+    function campaignCreatorRole() external pure returns (bytes32);
+
+    function campaignCuratorRole() external pure returns (bytes32);
+
+    function checkpointCouncilRole() external pure returns (bytes32);
 }
