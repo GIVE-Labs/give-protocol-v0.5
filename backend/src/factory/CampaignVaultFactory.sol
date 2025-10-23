@@ -10,6 +10,7 @@ import "../registry/CampaignRegistry.sol";
 import "../registry/StrategyRegistry.sol";
 import "../vault/CampaignVault4626.sol";
 import "../types/GiveTypes.sol";
+import "../payout/PayoutRouter.sol";
 
 /// @title CampaignVaultFactory
 /// @notice Deploys campaign-specific vaults and wires them into strategy/campaign registries.
@@ -17,6 +18,7 @@ contract CampaignVaultFactory is Initializable, UUPSUpgradeable {
     IACLManager public aclManager;
     CampaignRegistry public campaignRegistry;
     StrategyRegistry public strategyRegistry;
+    PayoutRouter public payoutRouter;
 
     bytes32 public constant ROLE_UPGRADER = keccak256("ROLE_UPGRADER");
 
@@ -53,14 +55,21 @@ contract CampaignVaultFactory is Initializable, UUPSUpgradeable {
         _;
     }
 
-    function initialize(address acl, address campaignRegistry_, address strategyRegistry_) external initializer {
-        if (acl == address(0) || campaignRegistry_ == address(0) || strategyRegistry_ == address(0)) {
+    function initialize(address acl, address campaignRegistry_, address strategyRegistry_, address payoutRouter_)
+        external
+        initializer
+    {
+        if (
+            acl == address(0) || campaignRegistry_ == address(0) || strategyRegistry_ == address(0)
+                || payoutRouter_ == address(0)
+        ) {
             revert ZeroAddress();
         }
 
         aclManager = IACLManager(acl);
         campaignRegistry = CampaignRegistry(campaignRegistry_);
         strategyRegistry = StrategyRegistry(strategyRegistry_);
+        payoutRouter = PayoutRouter(payoutRouter_);
     }
 
     function deployCampaignVault(DeployParams calldata params)
@@ -88,6 +97,9 @@ contract CampaignVaultFactory is Initializable, UUPSUpgradeable {
 
         campaignRegistry.setCampaignVault(params.campaignId, vault, params.lockProfile);
         strategyRegistry.registerStrategyVault(params.strategyId, vault);
+
+        payoutRouter.registerCampaignVault(vault, params.campaignId);
+        payoutRouter.setAuthorizedCaller(vault, true);
 
         _deployments[key] = vault;
         bytes32 vaultId = newVault.vaultId();

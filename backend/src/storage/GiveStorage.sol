@@ -18,8 +18,8 @@ library GiveStorage {
         mapping(bytes32 => GiveTypes.PositionState) positions;
         mapping(bytes32 => GiveTypes.RoleAssignments) roles;
         mapping(bytes32 => GiveTypes.SyntheticAsset) synthetics;
-        GiveTypes.DonationRouterState donationRouter;
         GiveTypes.NGORegistryState ngoRegistry;
+        GiveTypes.PayoutRouterState payoutRouter;
         mapping(bytes32 => GiveTypes.StrategyConfig) strategies;
         mapping(bytes32 => GiveTypes.CampaignConfig) campaigns;
         mapping(bytes32 => GiveTypes.CampaignStakeState) campaignStakes;

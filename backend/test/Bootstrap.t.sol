@@ -7,7 +7,7 @@ import "../script/Bootstrap.s.sol";
 import "../src/governance/ACLManager.sol";
 import "../src/core/GiveProtocolCore.sol";
 import "../src/vault/GiveVault4626.sol";
-import "../src/donation/DonationRouter.sol";
+import "../src/payout/PayoutRouter.sol";
 import "../src/modules/VaultModule.sol";
 import "../src/modules/AdapterModule.sol";
 import "../src/modules/RiskModule.sol";
@@ -41,7 +41,6 @@ contract BootstrapScriptTest is Test {
         assertEq(first.acl, second.acl, "acl address mismatch");
         assertEq(first.vault, second.vault, "vault address mismatch");
         assertEq(first.adapter, second.adapter, "adapter address mismatch");
-        assertEq(first.registry, second.registry, "registry address mismatch");
         assertEq(first.router, second.router, "router address mismatch");
         assertEq(first.strategyRegistry, second.strategyRegistry, "strategy registry mismatch");
         assertEq(first.campaignRegistry, second.campaignRegistry, "campaign registry mismatch");
@@ -64,7 +63,7 @@ contract BootstrapScriptTest is Test {
         GiveProtocolCore core = GiveProtocolCore(deployment.core);
         ACLManager acl = ACLManager(deployment.acl);
         GiveVault4626 vault = GiveVault4626(payable(deployment.vault));
-        DonationRouter router = DonationRouter(payable(deployment.router));
+        PayoutRouter router = PayoutRouter(payable(deployment.router));
         StrategyRegistry strategyRegistry = StrategyRegistry(deployment.strategyRegistry);
         CampaignRegistry campaignRegistry = CampaignRegistry(deployment.campaignRegistry);
         CampaignVault4626 campaignVault = CampaignVault4626(payable(deployment.campaignVault));

@@ -9,8 +9,7 @@ import "@openzeppelin/contracts/mocks/token/ERC20Mock.sol";
 
 import "../src/governance/ACLManager.sol";
 import "../src/core/GiveProtocolCore.sol";
-import "../src/donation/DonationRouter.sol";
-import "../src/donation/NGORegistry.sol";
+import "../src/payout/PayoutRouter.sol";
 import "../src/vault/GiveVault4626.sol";
 import "../src/vault/CampaignVault4626.sol";
 import "../src/adapters/MockYieldAdapter.sol";
@@ -67,7 +66,6 @@ contract Bootstrap is Script {
         address asset;
         address acl;
         address core;
-        address registry;
         address router;
         address vault;
         address adapter;
@@ -77,7 +75,6 @@ contract Bootstrap is Script {
         address campaignVault;
         bytes32 vaultId;
         bytes32 adapterId;
-        bytes32 donationId;
         bytes32 riskId;
         bytes32 strategyId;
         bytes32 campaignId;
@@ -132,9 +129,16 @@ contract Bootstrap is Script {
 
         _markBootstrapper(cfg);
 
-        (NGORegistry registry, DonationRouter router) = _deployDonation(cfg, acl);
-        deployment.registry = address(registry);
+        (StrategyRegistry strategyRegistry, CampaignRegistry campaignRegistry) = _deployCampaignInfra(cfg, acl);
+        deployment.strategyRegistry = address(strategyRegistry);
+        deployment.campaignRegistry = address(campaignRegistry);
+
+        PayoutRouter router = _deployPayoutRouter(cfg, acl, campaignRegistry);
         deployment.router = address(router);
+
+        CampaignVaultFactory factory =
+            _deployCampaignVaultFactory(cfg, acl, campaignRegistry, strategyRegistry, router);
+        deployment.vaultFactory = address(factory);
 
         GiveVault4626 vault = _deployVault(cfg, acl, router, cfg.asset);
         deployment.vault = address(vault);
@@ -144,15 +148,8 @@ contract Bootstrap is Script {
         deployment.adapter = address(adapter);
         deployment.adapterId = keccak256(abi.encodePacked("adapter", deployment.adapter));
 
-        (StrategyRegistry strategyRegistry, CampaignRegistry campaignRegistry, CampaignVaultFactory factory) =
-            _deployCampaignInfra(cfg, acl);
-        deployment.strategyRegistry = address(strategyRegistry);
-        deployment.campaignRegistry = address(campaignRegistry);
-        deployment.vaultFactory = address(factory);
+        _wireRoles(cfg, acl, core, router, vault, strategyRegistry, campaignRegistry, factory);
 
-        _wireRoles(cfg, acl, core, registry, router, vault, strategyRegistry, campaignRegistry, factory);
-
-        deployment.donationId = keccak256(abi.encodePacked("donation.router"));
         deployment.riskId = keccak256(abi.encodePacked("risk.primary"));
 
         deployment =
@@ -202,27 +199,7 @@ contract Bootstrap is Script {
         core = GiveProtocolCore(address(coreProxy));
     }
 
-    function _deployDonation(BootstrapConfig memory cfg, ACLManager acl)
-        private
-        returns (NGORegistry registry, DonationRouter router)
-    {
-        NGORegistry registryImpl = new NGORegistry();
-        ERC1967Proxy registryProxy =
-            new ERC1967Proxy(address(registryImpl), abi.encodeCall(NGORegistry.initialize, (address(acl))));
-        registry = NGORegistry(address(registryProxy));
-
-        DonationRouter routerImpl = new DonationRouter();
-        ERC1967Proxy routerProxy = new ERC1967Proxy(
-            address(routerImpl),
-            abi.encodeCall(
-                DonationRouter.initialize,
-                (address(acl), address(registry), cfg.feeRecipient, cfg.protocolTreasury, cfg.donationFeeBps)
-            )
-        );
-        router = DonationRouter(payable(address(routerProxy)));
-    }
-
-    function _deployVault(BootstrapConfig memory cfg, ACLManager acl, DonationRouter router, address assetAddr)
+    function _deployVault(BootstrapConfig memory cfg, ACLManager acl, PayoutRouter router, address assetAddr)
         private
         returns (GiveVault4626 vault)
     {
@@ -249,7 +226,7 @@ contract Bootstrap is Script {
 
     function _deployCampaignInfra(BootstrapConfig memory, ACLManager acl)
         private
-        returns (StrategyRegistry strategyRegistry, CampaignRegistry campaignRegistry, CampaignVaultFactory factory)
+        returns (StrategyRegistry strategyRegistry, CampaignRegistry campaignRegistry)
     {
         StrategyRegistry strategyImpl = new StrategyRegistry();
         ERC1967Proxy strategyProxy =
@@ -261,12 +238,36 @@ contract Bootstrap is Script {
             address(campaignImpl), abi.encodeCall(CampaignRegistry.initialize, (address(acl), address(strategyRegistry)))
         );
         campaignRegistry = CampaignRegistry(address(campaignProxy));
+    }
 
+    function _deployPayoutRouter(BootstrapConfig memory cfg, ACLManager acl, CampaignRegistry campaignRegistry)
+        private
+        returns (PayoutRouter router)
+    {
+        PayoutRouter routerImpl = new PayoutRouter();
+        ERC1967Proxy routerProxy = new ERC1967Proxy(
+            address(routerImpl),
+            abi.encodeCall(
+                PayoutRouter.initialize,
+                (address(acl), address(campaignRegistry), cfg.feeRecipient, cfg.protocolTreasury, cfg.donationFeeBps)
+            )
+        );
+        router = PayoutRouter(payable(address(routerProxy)));
+    }
+
+    function _deployCampaignVaultFactory(
+        BootstrapConfig memory,
+        ACLManager acl,
+        CampaignRegistry campaignRegistry,
+        StrategyRegistry strategyRegistry,
+        PayoutRouter router
+    ) private returns (CampaignVaultFactory factory) {
         CampaignVaultFactory factoryImpl = new CampaignVaultFactory();
         ERC1967Proxy factoryProxy = new ERC1967Proxy(
             address(factoryImpl),
             abi.encodeCall(
-                CampaignVaultFactory.initialize, (address(acl), address(campaignRegistry), address(strategyRegistry))
+                CampaignVaultFactory.initialize,
+                (address(acl), address(campaignRegistry), address(strategyRegistry), address(router))
             )
         );
         factory = CampaignVaultFactory(address(factoryProxy));
@@ -276,8 +277,7 @@ contract Bootstrap is Script {
         BootstrapConfig memory cfg,
         ACLManager acl,
         GiveProtocolCore core,
-        NGORegistry registry,
-        DonationRouter router,
+        PayoutRouter router,
         GiveVault4626 vault,
         StrategyRegistry /*strategyRegistry*/,
         CampaignRegistry /*campaignRegistry*/,
@@ -291,8 +291,6 @@ contract Bootstrap is Script {
         acl.createRole(RiskModule.MANAGER_ROLE, admin);
         acl.createRole(SyntheticModule.MANAGER_ROLE, admin);
         acl.createRole(EmergencyModule.MANAGER_ROLE, admin);
-        acl.createRole(registry.NGO_MANAGER_ROLE(), admin);
-        acl.createRole(registry.DONATION_RECORDER_ROLE(), admin);
 
         bytes32 emergencyRole = keccak256("EMERGENCY_ROLE");
         acl.createRole(emergencyRole, admin);
@@ -304,8 +302,6 @@ contract Bootstrap is Script {
         acl.grantRole(RiskModule.MANAGER_ROLE, admin);
         acl.grantRole(RiskModule.MANAGER_ROLE, address(core));
         acl.grantRole(emergencyRole, cfg.emergencyCouncil);
-        acl.grantRole(registry.NGO_MANAGER_ROLE(), admin);
-        acl.grantRole(registry.DONATION_RECORDER_ROLE(), address(router));
 
         acl.grantRole(acl.campaignAdminRole(), admin);
         acl.grantRole(acl.campaignCreatorRole(), admin);
@@ -316,13 +312,12 @@ contract Bootstrap is Script {
         acl.grantRole(acl.campaignAdminRole(), address(factory));
         acl.grantRole(acl.strategyAdminRole(), address(factory));
 
-        // Donation router role wiring
+        // Router role wiring
         acl.createRole(router.VAULT_MANAGER_ROLE(), admin);
         acl.grantRole(router.VAULT_MANAGER_ROLE(), admin);
+        acl.grantRole(router.VAULT_MANAGER_ROLE(), address(factory));
         acl.createRole(router.FEE_MANAGER_ROLE(), admin);
         acl.grantRole(router.FEE_MANAGER_ROLE(), admin);
-
-        router.setAuthorizedCaller(address(vault), true);
 
         // Vault access for core + council
         vault.grantRole(vault.VAULT_MANAGER_ROLE(), address(core));
@@ -335,14 +330,13 @@ contract Bootstrap is Script {
         GiveProtocolCore core,
         GiveVault4626 vault,
         IYieldAdapter adapter,
-        DonationRouter router,
+        PayoutRouter router,
         StrategyRegistry strategyRegistry,
         CampaignRegistry campaignRegistry,
         CampaignVaultFactory factory,
         Deployment memory deployment
     ) private returns (Deployment memory) {
         bytes32 adapterId = deployment.adapterId;
-        bytes32 donationId = deployment.donationId;
         bytes32 riskId = deployment.riskId;
 
         core.configureVault(
@@ -353,7 +347,7 @@ contract Bootstrap is Script {
                 implementation: address(vault),
                 asset: address(vault.asset()),
                 adapterId: adapterId,
-                donationModuleId: donationId,
+                donationModuleId: bytes32(0),
                 riskId: riskId,
                 cashBufferBps: cfg.cashBufferBps,
                 slippageBps: cfg.slippageBps,
@@ -371,17 +365,6 @@ contract Bootstrap is Script {
                 vault: address(vault),
                 kind: GiveTypes.AdapterKind.CompoundingValue,
                 metadataHash: bytes32(0)
-            })
-        );
-
-        core.configureDonation(
-            donationId,
-            DonationModule.DonationConfigInput({
-                id: donationId,
-                routerProxy: address(router),
-                registryProxy: address(deployment.registry),
-                feeRecipient: cfg.feeRecipient,
-                feeBps: cfg.donationFeeBps
             })
         );
 
@@ -404,10 +387,6 @@ contract Bootstrap is Script {
 
         vault.setActiveAdapter(adapter);
 
-        StorageLib.setAddress(keccak256("registry.ngo"), deployment.registry);
-        StorageLib.setAddress(keccak256("registry.strategy"), address(strategyRegistry));
-        StorageLib.setAddress(keccak256("registry.campaign"), address(campaignRegistry));
-
         (bytes32 strategyId, bytes32 campaignId) =
             _seedCampaignInfrastructure(cfg, strategyRegistry, campaignRegistry, adapter);
 
@@ -418,6 +397,9 @@ contract Bootstrap is Script {
         StorageLib.setBytes32(keccak256("campaign.default.id"), campaignId);
 
         deployment = _deploySampleCampaignVault(cfg, factory, campaignRegistry, router, deployment);
+
+        router.registerCampaignVault(address(vault), campaignId);
+        router.setAuthorizedCaller(address(vault), true);
 
         return deployment;
     }
@@ -465,8 +447,8 @@ contract Bootstrap is Script {
     function _deploySampleCampaignVault(
         BootstrapConfig memory cfg,
         CampaignVaultFactory factory,
-        CampaignRegistry /*campaignRegistry*/,
-        DonationRouter router,
+        CampaignRegistry campaignRegistry,
+        PayoutRouter router,
         Deployment memory deployment
     ) private returns (Deployment memory) {
         bytes32 lockProfile = keccak256("lock.default");
@@ -487,7 +469,9 @@ contract Bootstrap is Script {
 
         CampaignVault4626(payable(campaignVault)).setACLManager(deployment.acl);
         CampaignVault4626(payable(campaignVault)).setDonationRouter(address(router));
+        router.registerCampaignVault(campaignVault, deployment.campaignId);
         router.setAuthorizedCaller(campaignVault, true);
+        campaignRegistry.setCampaignVault(deployment.campaignId, campaignVault, lockProfile);
 
         StorageLib.setAddress(keccak256("campaign.vault.default"), campaignVault);
         StorageLib.setBytes32(keccak256("campaign.lock.default"), lockProfile);
@@ -501,8 +485,7 @@ contract Bootstrap is Script {
         console.log("Admin:", deployment.admin);
         console.log("ACL Manager:", deployment.acl);
         console.log("GiveProtocolCore:", deployment.core);
-        console.log("NGO Registry:", deployment.registry);
-        console.log("Donation Router:", deployment.router);
+        console.log("Payout Router:", deployment.router);
         console.log("Strategy Registry:", deployment.strategyRegistry);
         console.log("Campaign Registry:", deployment.campaignRegistry);
         console.log("Campaign Vault Factory:", deployment.vaultFactory);
@@ -512,7 +495,6 @@ contract Bootstrap is Script {
         console.log("Asset:", deployment.asset);
         console.log("Vault ID:", vm.toString(deployment.vaultId));
         console.log("Adapter ID:", vm.toString(deployment.adapterId));
-        console.log("Donation ID:", vm.toString(deployment.donationId));
         console.log("Risk ID:", vm.toString(deployment.riskId));
         console.log("Strategy ID:", vm.toString(deployment.strategyId));
         console.log("Campaign ID:", vm.toString(deployment.campaignId));

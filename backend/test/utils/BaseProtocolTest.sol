@@ -8,7 +8,9 @@ import "../../script/Bootstrap.s.sol";
 import "../../src/governance/ACLManager.sol";
 import "../../src/core/GiveProtocolCore.sol";
 import "../../src/vault/GiveVault4626.sol";
-import "../../src/donation/DonationRouter.sol";
+import "../../src/payout/PayoutRouter.sol";
+import "../../src/registry/StrategyRegistry.sol";
+import "../../src/registry/CampaignRegistry.sol";
 import "../../src/interfaces/IYieldAdapter.sol";
 
 /// @notice Shared Foundry harness that deploys the GIVE Protocol stack once per test.
@@ -19,7 +21,9 @@ contract BaseProtocolTest is Test {
     ACLManager internal acl;
     GiveProtocolCore internal core;
     GiveVault4626 internal vault;
-    DonationRouter internal router;
+    PayoutRouter internal router;
+    StrategyRegistry internal strategyRegistry;
+    CampaignRegistry internal campaignRegistry;
     IYieldAdapter internal adapter;
     ERC20Mock internal asset;
 
@@ -60,9 +64,14 @@ contract BaseProtocolTest is Test {
         acl = ACLManager(deployment.acl);
         core = GiveProtocolCore(deployment.core);
         vault = GiveVault4626(payable(deployment.vault));
-        router = DonationRouter(payable(deployment.router));
+        router = PayoutRouter(payable(deployment.router));
+        strategyRegistry = StrategyRegistry(deployment.strategyRegistry);
+        campaignRegistry = CampaignRegistry(deployment.campaignRegistry);
         adapter = IYieldAdapter(deployment.adapter);
         asset = ERC20Mock(deployment.asset);
+
+        _grantRole(router.VAULT_MANAGER_ROLE(), admin);
+        _grantRole(router.FEE_MANAGER_ROLE(), admin);
     }
 
     function _expectUnauthorized(bytes32 role, address caller) internal pure returns (bytes memory) {

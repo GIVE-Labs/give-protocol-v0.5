@@ -10,6 +10,7 @@ import "../src/registry/StrategyRegistry.sol";
 import "../src/registry/CampaignRegistry.sol";
 import "../src/factory/CampaignVaultFactory.sol";
 import "../src/vault/CampaignVault4626.sol";
+import "../src/payout/PayoutRouter.sol";
 import "../src/types/GiveTypes.sol";
 
 contract CampaignVaultFactoryTest is Test {
@@ -17,6 +18,7 @@ contract CampaignVaultFactoryTest is Test {
     StrategyRegistry internal strategyRegistry;
     CampaignRegistry internal campaignRegistry;
     CampaignVaultFactory internal factory;
+    PayoutRouter internal router;
     ERC20Mock internal asset;
 
     address internal admin;
@@ -46,11 +48,21 @@ contract CampaignVaultFactoryTest is Test {
         );
         campaignRegistry = CampaignRegistry(address(campaignProxy));
 
+        PayoutRouter routerImpl = new PayoutRouter();
+        ERC1967Proxy routerProxy = new ERC1967Proxy(
+            address(routerImpl),
+            abi.encodeCall(
+                PayoutRouter.initialize, (address(acl), address(campaignRegistry), admin, admin, 250)
+            )
+        );
+        router = PayoutRouter(payable(address(routerProxy)));
+
         CampaignVaultFactory factoryImpl = new CampaignVaultFactory();
         ERC1967Proxy factoryProxy = new ERC1967Proxy(
             address(factoryImpl),
             abi.encodeCall(
-                CampaignVaultFactory.initialize, (address(acl), address(campaignRegistry), address(strategyRegistry))
+                CampaignVaultFactory.initialize,
+                (address(acl), address(campaignRegistry), address(strategyRegistry), address(router))
             )
         );
         factory = CampaignVaultFactory(address(factoryProxy));
@@ -62,6 +74,11 @@ contract CampaignVaultFactoryTest is Test {
         acl.grantRole(acl.campaignCuratorRole(), admin);
         acl.grantRole(acl.strategyAdminRole(), address(factory));
         acl.grantRole(acl.campaignAdminRole(), address(factory));
+        acl.createRole(router.VAULT_MANAGER_ROLE(), admin);
+        acl.createRole(router.FEE_MANAGER_ROLE(), admin);
+        acl.grantRole(router.VAULT_MANAGER_ROLE(), admin);
+        acl.grantRole(router.FEE_MANAGER_ROLE(), admin);
+        acl.grantRole(router.VAULT_MANAGER_ROLE(), address(factory));
         vm.stopPrank();
 
         asset = new ERC20Mock();

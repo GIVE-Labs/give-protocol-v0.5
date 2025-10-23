@@ -4,7 +4,7 @@ pragma solidity ^0.8.20;
 import "@openzeppelin/contracts/token/ERC20/extensions/ERC4626.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "../interfaces/IYieldAdapter.sol";
-import "../donation/DonationRouter.sol";
+import "../payout/PayoutRouter.sol";
 import "../utils/Errors.sol";
 import "../interfaces/IWETH.sol";
 import "../types/GiveTypes.sol";
@@ -31,7 +31,7 @@ contract GiveVault4626 is ERC4626, VaultTokenBase {
     event CashBufferUpdated(uint256 oldBps, uint256 newBps);
     event SlippageUpdated(uint256 oldBps, uint256 newBps);
     event MaxLossUpdated(uint256 oldBps, uint256 newBps);
-    event DonationRouterUpdated(address indexed oldRouter, address indexed newRouter);
+    event PayoutRouterUpdated(address indexed oldRouter, address indexed newRouter);
     event Harvest(uint256 profit, uint256 loss, uint256 donated);
     event InvestPaused(bool paused);
     event HarvestPaused(bool paused);
@@ -173,7 +173,7 @@ contract GiveVault4626 is ERC4626, VaultTokenBase {
 
         address router = _vaultConfig().donationRouter;
         if (router != address(0)) {
-            DonationRouter(payable(router)).updateUserShares(receiver, asset(), balanceOf(receiver));
+            PayoutRouter(payable(router)).updateUserShares(receiver, address(this), balanceOf(receiver));
         }
 
         _investExcessCash();
@@ -189,7 +189,7 @@ contract GiveVault4626 is ERC4626, VaultTokenBase {
 
         address router = _vaultConfig().donationRouter;
         if (router != address(0)) {
-            DonationRouter(payable(router)).updateUserShares(owner, asset(), balanceOf(owner));
+            PayoutRouter(payable(router)).updateUserShares(owner, address(this), balanceOf(owner));
         }
     }
 
@@ -235,7 +235,7 @@ contract GiveVault4626 is ERC4626, VaultTokenBase {
         address oldRouter = cfg.donationRouter;
         cfg.donationRouter = router;
 
-        emit DonationRouterUpdated(oldRouter, router);
+        emit PayoutRouterUpdated(oldRouter, router);
     }
 
     function setCashBufferBps(uint256 _bps) external onlyRole(VAULT_MANAGER_ROLE) {
@@ -324,7 +324,7 @@ contract GiveVault4626 is ERC4626, VaultTokenBase {
         uint256 donated = 0;
         if (profit > 0) {
             IERC20(asset()).safeTransfer(cfg.donationRouter, profit);
-            donated = DonationRouter(payable(cfg.donationRouter)).distributeToAllUsers(asset(), profit);
+            donated = PayoutRouter(payable(cfg.donationRouter)).distributeToAllUsers(asset(), profit);
         }
 
         emit Harvest(profit, loss, donated);
@@ -441,7 +441,7 @@ contract GiveVault4626 is ERC4626, VaultTokenBase {
 
         address router = cfg.donationRouter;
         if (router != address(0)) {
-            DonationRouter(payable(router)).updateUserShares(receiver, asset(), balanceOf(receiver));
+            PayoutRouter(payable(router)).updateUserShares(receiver, address(this), balanceOf(receiver));
         }
 
         _investExcessCash();

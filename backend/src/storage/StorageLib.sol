@@ -58,14 +58,14 @@ library StorageLib {
         state = s.positions[positionId];
     }
 
-    function donationRouter() internal view returns (GiveTypes.DonationRouterState storage state) {
-        GiveStorage.Store storage s = GiveStorage.store();
-        state = s.donationRouter;
-    }
-
     function ngoRegistry() internal view returns (GiveTypes.NGORegistryState storage state) {
         GiveStorage.Store storage s = GiveStorage.store();
         state = s.ngoRegistry;
+    }
+
+    function payoutRouter() internal view returns (GiveTypes.PayoutRouterState storage state) {
+        GiveStorage.Store storage s = GiveStorage.store();
+        state = s.payoutRouter;
     }
 
     function syntheticState(bytes32 syntheticId) internal view returns (GiveTypes.SyntheticAsset storage synthetic) {

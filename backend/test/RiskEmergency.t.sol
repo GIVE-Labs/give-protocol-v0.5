@@ -167,7 +167,7 @@ contract RiskEmergencyTest is BaseProtocolTest {
                 implementation: address(vault),
                 asset: address(asset),
                 adapterId: TEST_ADAPTER_ID,
-                donationModuleId: deployment.donationId,
+                donationModuleId: bytes32(0),
                 riskId: TEST_RISK_ID,
                 cashBufferBps: 100,
                 slippageBps: 50,

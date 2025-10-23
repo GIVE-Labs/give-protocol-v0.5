@@ -137,6 +137,13 @@ library GiveTypes {
         uint256 lastUpdated;
     }
 
+    struct CampaignPreference {
+        bytes32 campaignId;
+        address beneficiary;
+        uint8 allocationPercentage;
+        uint256 lastUpdated;
+    }
+
     struct DonationRouterState {
         address registry;
         address feeRecipient;
@@ -153,6 +160,24 @@ library GiveTypes {
         mapping(address => uint256) totalFeeCollected;
         mapping(address => uint256) totalProtocolFees;
         mapping(address => bool) authorizedCallers;
+        uint8[3] validAllocations;
+    }
+
+    struct PayoutRouterState {
+        address campaignRegistry;
+        address feeRecipient;
+        address protocolTreasury;
+        uint256 feeBps;
+        uint256 totalDistributions;
+        mapping(address => bool) authorizedCallers;
+        mapping(address => mapping(address => uint256)) userVaultShares;
+        mapping(address => uint256) totalVaultShares;
+        mapping(address => address[]) vaultShareholders;
+        mapping(address => mapping(address => bool)) hasVaultShare;
+        mapping(address => mapping(address => CampaignPreference)) userPreferences;
+        mapping(bytes32 => uint256) campaignProtocolFees;
+        mapping(bytes32 => uint256) campaignTotalPayouts;
+        mapping(address => bytes32) vaultCampaigns;
         uint8[3] validAllocations;
     }
 
