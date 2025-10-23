@@ -102,15 +102,15 @@ contract CampaignRegistryTest is Test {
         vm.prank(superAdmin);
         campaignRegistry.recordStakeDeposit(campaignId, supporter, 500 ether);
 
-        GiveTypes.StakePosition memory position = campaignRegistry.getStakePosition(campaignId, supporter);
-        assertEq(position.amount, 500 ether);
+        GiveTypes.SupporterStake memory position = campaignRegistry.getStakePosition(campaignId, supporter);
+        assertEq(position.shares, 500 ether);
         assertFalse(position.requestedExit);
 
         vm.prank(superAdmin);
         campaignRegistry.requestStakeExit(campaignId, supporter, 200 ether);
 
         position = campaignRegistry.getStakePosition(campaignId, supporter);
-        assertEq(position.amount, 300 ether);
+        assertEq(position.shares, 300 ether);
         assertEq(position.pendingWithdrawal, 200 ether);
         assertTrue(position.requestedExit);
 
@@ -118,7 +118,7 @@ contract CampaignRegistryTest is Test {
         campaignRegistry.finalizeStakeExit(campaignId, supporter, 200 ether);
 
         position = campaignRegistry.getStakePosition(campaignId, supporter);
-        assertEq(position.amount, 300 ether);
+        assertEq(position.shares, 300 ether);
         assertEq(position.pendingWithdrawal, 0);
         assertFalse(position.requestedExit);
     }
@@ -157,6 +157,82 @@ contract CampaignRegistryTest is Test {
         assertEq(quorumBps, input.quorumBps);
         assertEq(uint256(status), uint256(GiveTypes.CheckpointStatus.Voting));
         assertEq(totalEligibleStake, 0);
+    }
+
+    function testCheckpointVotingSuccess() public {
+        _submitCampaign();
+        vm.prank(superAdmin);
+        campaignRegistry.setCampaignStatus(campaignId, GiveTypes.CampaignStatus.Active);
+
+        address supporter = makeAddr("supporter");
+        vm.prank(superAdmin);
+        campaignRegistry.recordStakeDeposit(campaignId, supporter, 1_000 ether);
+
+        CampaignRegistry.CheckpointInput memory input = CampaignRegistry.CheckpointInput({
+            windowStart: uint64(block.timestamp),
+            windowEnd: uint64(block.timestamp + 1 days),
+            executionDeadline: uint64(block.timestamp + 2 days),
+            quorumBps: 5_000
+        });
+
+        vm.prank(superAdmin);
+        uint256 checkpointId = campaignRegistry.scheduleCheckpoint(campaignId, input);
+
+        vm.prank(superAdmin);
+        campaignRegistry.updateCheckpointStatus(campaignId, checkpointId, GiveTypes.CheckpointStatus.Voting);
+
+        vm.prank(supporter);
+        campaignRegistry.voteOnCheckpoint(campaignId, checkpointId, true);
+
+        vm.warp(block.timestamp + 2 days + 1);
+        vm.prank(superAdmin);
+        campaignRegistry.finalizeCheckpoint(campaignId, checkpointId);
+
+        (
+            ,,,,
+            GiveTypes.CheckpointStatus status,
+            uint256 totalEligibleStake
+        ) = campaignRegistry.getCheckpoint(campaignId, checkpointId);
+
+        assertEq(uint256(status), uint256(GiveTypes.CheckpointStatus.Succeeded));
+        assertEq(totalEligibleStake, 1_000 ether);
+
+        GiveTypes.CampaignConfig memory cfg = campaignRegistry.getCampaign(campaignId);
+        assertFalse(cfg.payoutsHalted);
+    }
+
+    function testCheckpointVotingFailureHaltsPayouts() public {
+        _submitCampaign();
+        vm.prank(superAdmin);
+        campaignRegistry.setCampaignStatus(campaignId, GiveTypes.CampaignStatus.Active);
+
+        address supporter = makeAddr("supporter");
+        vm.prank(superAdmin);
+        campaignRegistry.recordStakeDeposit(campaignId, supporter, 1_000 ether);
+
+        CampaignRegistry.CheckpointInput memory input = CampaignRegistry.CheckpointInput({
+            windowStart: uint64(block.timestamp),
+            windowEnd: uint64(block.timestamp + 1 days),
+            executionDeadline: uint64(block.timestamp + 2 days),
+            quorumBps: 5_000
+        });
+
+        vm.prank(superAdmin);
+        uint256 checkpointId = campaignRegistry.scheduleCheckpoint(campaignId, input);
+
+        vm.prank(superAdmin);
+        campaignRegistry.updateCheckpointStatus(campaignId, checkpointId, GiveTypes.CheckpointStatus.Voting);
+
+        vm.prank(supporter);
+        campaignRegistry.voteOnCheckpoint(campaignId, checkpointId, false);
+
+        vm.warp(block.timestamp + 2 days + 1);
+        vm.prank(superAdmin);
+        campaignRegistry.finalizeCheckpoint(campaignId, checkpointId);
+
+        GiveTypes.CampaignConfig memory cfg = campaignRegistry.getCampaign(campaignId);
+        assertTrue(cfg.payoutsHalted);
+        assertEq(uint256(cfg.status), uint256(GiveTypes.CampaignStatus.Paused));
     }
 
     function testSetCampaignVaultRecordsMetadata() public {

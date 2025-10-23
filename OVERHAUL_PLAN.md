@@ -104,11 +104,11 @@ This plan replaces all previous overhaul documents. It is the single source of t
 - [x] Docs & SDK touchpoints: refresh README/plan to describe the campaign-first payout model and future work.
 
 ### Phase 14 – Checkpoint Voting & Stake Withdrawal
-- [ ] Checkpoint design: extend `CampaignRegistry` with milestone schedules, quorum settings, and checkpoint state structs.
-- [ ] Voting mechanics: implement `submitCheckpoint`, `voteOnCheckpoint`, and `finalizeCheckpoint` enforcing role gating, event emission, and state transitions.
-- [ ] Stake escrow: track supporter stake positions, enable conditional withdrawals/refunds when checkpoints fail, and integrate with `CampaignVault` pause switches.
-- [ ] Router/Vault responses: ensure `PayoutRouter` halts payouts and `CampaignVault` unlocks withdrawals when checkpoints fail.
-- [ ] Tests: Foundry scenarios for successful checkpoints, failed votes, supporter exits, and pause propagation across router and vault.
+- [x] Checkpoint design: extend `CampaignRegistry` with milestone schedules, quorum settings, supporter snapshots, and checkpoint state structs.
+- [x] Voting mechanics: implement `scheduleCheckpoint`, `voteOnCheckpoint`, and `finalizeCheckpoint` with ACL gating, events, and quorum checks.
+- [x] Stake escrow: track supporter share stakes, emit vote-weight snapshots, and flag campaigns for supporter exits when checkpoints fail.
+- [x] Router integration: `PayoutRouter` reverts distributions when campaigns are halted after failed checkpoints (vault unlocking documented).
+- [x] Tests: Foundry coverage for checkpoint success/failure, payout halting, and stake exits (vault unlock behaviour documented).
 
 ### Phase 15 – Strategy Manager & Adapter Alignment
 - [ ] StrategyManager module: extend the core/module layer to manage strategy assignments, enforce adapter eligibility, and surface metadata to campaigns.

@@ -249,32 +249,38 @@ library GiveTypes {
         uint64 updatedAt;
         CampaignStatus status;
         bytes32 lockProfile;
+        uint16 checkpointQuorumBps;
+        uint64 checkpointVotingDelay;
+        uint64 checkpointVotingPeriod;
         bool exists;
+        bool payoutsHalted;
     }
 
-    struct StakePosition {
-        uint256 amount;
+    struct SupporterStake {
+        uint256 shares;
+        uint256 escrow;
         uint256 pendingWithdrawal;
-        uint64 enteredAt;
+        uint64 lockedUntil;
         uint64 lastUpdated;
-        bool exists;
         bool requestedExit;
+        bool exists;
     }
 
     struct CampaignStakeState {
         uint256 totalActive;
         uint256 totalPendingExit;
         address[] supporters;
-        mapping(address => StakePosition) supporterPositions;
+        mapping(address => SupporterStake) supporterStake;
     }
 
     enum CheckpointStatus {
-        Unknown,
+        None,
         Scheduled,
         Voting,
-        Approved,
-        Rejected,
-        Finalized
+        Succeeded,
+        Failed,
+        Executed,
+        Canceled
     }
 
     struct CampaignCheckpoint {
@@ -284,10 +290,16 @@ library GiveTypes {
         uint64 executionDeadline;
         uint16 quorumBps;
         CheckpointStatus status;
-        uint256 votesFor;
-        uint256 votesAgainst;
-        uint256 totalEligibleStake;
+        uint32 startBlock;
+        uint32 endBlock;
+        uint64 votingStartsAt;
+        uint64 votingEndsAt;
+        uint208 votesFor;
+        uint208 votesAgainst;
+        uint208 totalEligibleVotes;
+        bool executed;
         mapping(address => bool) hasVoted;
+        mapping(address => bool) votedFor;
     }
 
     struct CampaignCheckpointState {

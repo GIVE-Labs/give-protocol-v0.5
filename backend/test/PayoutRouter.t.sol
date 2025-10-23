@@ -56,6 +56,8 @@ contract PayoutRouterTest is Test {
         acl.grantRole(acl.campaignAdminRole(), admin);
         acl.grantRole(acl.campaignCreatorRole(), admin);
         acl.grantRole(acl.strategyAdminRole(), admin);
+        acl.grantRole(acl.campaignCuratorRole(), admin);
+        acl.grantRole(acl.checkpointCouncilRole(), admin);
         vm.stopPrank();
 
         _seedStrategyAndCampaign();
@@ -96,6 +98,44 @@ contract PayoutRouterTest is Test {
     function testUnauthorizedCallerCannotDistribute() public {
         vm.expectRevert(abi.encodeWithSelector(Errors.UnauthorizedCaller.selector, address(this)));
         router.distributeToAllUsers(address(token), 100 ether);
+    }
+
+    function testDistributeHaltsWhenCampaignFailed() public {
+        address supporter = makeAddr("supporter");
+
+        vm.prank(admin);
+        campaignRegistry.setCampaignStatus(campaignId, GiveTypes.CampaignStatus.Active);
+
+        vm.prank(campaignVault);
+        router.updateUserShares(supporter, campaignVault, 1_000);
+
+        vm.prank(admin);
+        campaignRegistry.recordStakeDeposit(campaignId, supporter, 1_000 ether);
+
+        CampaignRegistry.CheckpointInput memory input = CampaignRegistry.CheckpointInput({
+            windowStart: uint64(block.timestamp),
+            windowEnd: uint64(block.timestamp + 1 days),
+            executionDeadline: uint64(block.timestamp + 2 days),
+            quorumBps: 5_000
+        });
+
+        vm.prank(admin);
+        uint256 checkpointId = campaignRegistry.scheduleCheckpoint(campaignId, input);
+
+        vm.prank(admin);
+        campaignRegistry.updateCheckpointStatus(campaignId, checkpointId, GiveTypes.CheckpointStatus.Voting);
+
+        vm.prank(supporter);
+        campaignRegistry.voteOnCheckpoint(campaignId, checkpointId, false);
+
+        vm.warp(block.timestamp + 2 days + 1);
+        vm.prank(admin);
+        campaignRegistry.finalizeCheckpoint(campaignId, checkpointId);
+
+        token.mint(address(router), 500 ether);
+        vm.prank(campaignVault);
+        vm.expectRevert(abi.encodeWithSelector(Errors.OperationNotAllowed.selector));
+        router.distributeToAllUsers(address(token), 500 ether);
     }
 
     function _seedStrategyAndCampaign() internal {

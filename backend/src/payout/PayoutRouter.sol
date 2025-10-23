@@ -264,6 +264,7 @@ contract PayoutRouter is Initializable, UUPSUpgradeable, ACLShim, ReentrancyGuar
         GiveTypes.PayoutRouterState storage s = _state();
         bytes32 campaignId = _requireCampaignForVault(s, msg.sender);
         GiveTypes.CampaignConfig memory campaign = CampaignRegistry(s.campaignRegistry).getCampaign(campaignId);
+        if (campaign.payoutsHalted) revert Errors.OperationNotAllowed();
 
         uint256 totalShares = s.totalVaultShares[msg.sender];
         if (totalShares == 0) revert Errors.InvalidConfiguration();

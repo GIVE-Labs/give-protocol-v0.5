@@ -57,6 +57,8 @@ contract CampaignRegistry is Initializable, UUPSUpgradeable {
         GiveTypes.CheckpointStatus previousStatus,
         GiveTypes.CheckpointStatus newStatus
     );
+    event CheckpointVoteCast(bytes32 indexed campaignId, uint256 index, address indexed supporter, bool support, uint208 weight);
+    event PayoutsHalted(bytes32 indexed campaignId, bool halted);
 
     error ZeroAddress();
     error Unauthorized(bytes32 roleId, address account);
@@ -65,11 +67,13 @@ contract CampaignRegistry is Initializable, UUPSUpgradeable {
     error InvalidCampaignConfig(bytes32 id);
     error InvalidCampaignStatus(bytes32 id, GiveTypes.CampaignStatus status);
     error InvalidStakeAmount();
-    error StakePositionMissing(address supporter);
+    error SupporterStakeMissing(address supporter);
     error CheckpointNotFound(bytes32 id, uint256 index);
     error InvalidCheckpointWindow();
     error InvalidCheckpointStatus(GiveTypes.CheckpointStatus status);
     error StrategyRegistryNotConfigured();
+    error AlreadyVoted(address supporter);
+    error NoVotingPower(address supporter);
 
     bytes32[] private _campaignIds;
 
@@ -215,17 +219,17 @@ contract CampaignRegistry is Initializable, UUPSUpgradeable {
         }
 
         GiveTypes.CampaignStakeState storage stakeState = StorageLib.campaignStake(campaignId);
-        GiveTypes.StakePosition storage position = stakeState.supporterPositions[supporter];
+        GiveTypes.SupporterStake storage stake = stakeState.supporterStake[supporter];
 
-        if (!position.exists) {
+        if (!stake.exists) {
             stakeState.supporters.push(supporter);
-            position.exists = true;
-            position.enteredAt = uint64(block.timestamp);
+            stake.exists = true;
+            stake.lastUpdated = uint64(block.timestamp);
         }
 
-        position.amount += amount;
-        position.lastUpdated = uint64(block.timestamp);
-        position.requestedExit = false;
+        stake.shares += amount;
+        stake.lastUpdated = uint64(block.timestamp);
+        stake.requestedExit = false;
 
         stakeState.totalActive += amount;
         cfg.totalStaked += amount;
@@ -247,13 +251,13 @@ contract CampaignRegistry is Initializable, UUPSUpgradeable {
         }
 
         GiveTypes.CampaignStakeState storage stakeState = StorageLib.campaignStake(campaignId);
-        GiveTypes.StakePosition storage position = stakeState.supporterPositions[supporter];
-        if (!position.exists || position.amount < amount) revert StakePositionMissing(supporter);
+        GiveTypes.SupporterStake storage stake = stakeState.supporterStake[supporter];
+        if (!stake.exists || stake.shares < amount) revert SupporterStakeMissing(supporter);
 
-        position.amount -= amount;
-        position.pendingWithdrawal += amount;
-        position.lastUpdated = uint64(block.timestamp);
-        position.requestedExit = true;
+        stake.shares -= amount;
+        stake.pendingWithdrawal += amount;
+        stake.lastUpdated = uint64(block.timestamp);
+        stake.requestedExit = true;
 
         stakeState.totalActive -= amount;
         stakeState.totalPendingExit += amount;
@@ -270,17 +274,17 @@ contract CampaignRegistry is Initializable, UUPSUpgradeable {
 
         GiveTypes.CampaignConfig storage cfg = _requireCampaign(campaignId);
         GiveTypes.CampaignStakeState storage stakeState = StorageLib.campaignStake(campaignId);
-        GiveTypes.StakePosition storage position = stakeState.supporterPositions[supporter];
-        if (!position.exists || position.pendingWithdrawal < amount) revert StakePositionMissing(supporter);
+        GiveTypes.SupporterStake storage stake = stakeState.supporterStake[supporter];
+        if (!stake.exists || stake.pendingWithdrawal < amount) revert SupporterStakeMissing(supporter);
 
-        position.pendingWithdrawal -= amount;
-        position.lastUpdated = uint64(block.timestamp);
-        if (position.pendingWithdrawal == 0) {
-            position.requestedExit = false;
+        stake.pendingWithdrawal -= amount;
+        stake.lastUpdated = uint64(block.timestamp);
+        if (stake.pendingWithdrawal == 0) {
+            stake.requestedExit = false;
         }
 
-        if (position.amount == 0 && position.pendingWithdrawal == 0) {
-            position.exists = false;
+        if (stake.shares == 0 && stake.pendingWithdrawal == 0) {
+            stake.exists = false;
         }
 
         if (stakeState.totalPendingExit < amount) {
@@ -297,7 +301,7 @@ contract CampaignRegistry is Initializable, UUPSUpgradeable {
 
         cfg.updatedAt = uint64(block.timestamp);
 
-        emit StakeExitFinalized(campaignId, supporter, amount, position.amount);
+        emit StakeExitFinalized(campaignId, supporter, amount, stake.shares);
     }
 
     // === Checkpoints ===
@@ -327,7 +331,10 @@ contract CampaignRegistry is Initializable, UUPSUpgradeable {
         checkpoint.executionDeadline = input.executionDeadline;
         checkpoint.quorumBps = input.quorumBps;
         checkpoint.status = GiveTypes.CheckpointStatus.Scheduled;
-        checkpoint.totalEligibleStake = cfg.totalStaked;
+        checkpoint.totalEligibleVotes = uint208(cfg.totalStaked);
+        checkpoint.startBlock = uint32(block.number);
+        checkpoint.votingStartsAt = input.windowStart;
+        checkpoint.votingEndsAt = input.windowEnd;
 
         emit CheckpointScheduled(campaignId, index, input.windowStart, input.windowEnd, input.quorumBps);
     }
@@ -337,7 +344,7 @@ contract CampaignRegistry is Initializable, UUPSUpgradeable {
         uint256 index,
         GiveTypes.CheckpointStatus newStatus
     ) external onlyRole(aclManager.checkpointCouncilRole()) {
-        if (newStatus == GiveTypes.CheckpointStatus.Unknown) revert InvalidCheckpointStatus(newStatus);
+        if (newStatus == GiveTypes.CheckpointStatus.None) revert InvalidCheckpointStatus(newStatus);
 
         GiveTypes.CampaignCheckpointState storage cpState = StorageLib.campaignCheckpoints(campaignId);
         GiveTypes.CampaignCheckpoint storage checkpoint = cpState.checkpoints[index];
@@ -348,7 +355,84 @@ contract CampaignRegistry is Initializable, UUPSUpgradeable {
 
         checkpoint.status = newStatus;
 
+        if (newStatus == GiveTypes.CheckpointStatus.Voting) {
+            checkpoint.startBlock = uint32(block.number);
+        }
+
+        if (newStatus == GiveTypes.CheckpointStatus.Succeeded || newStatus == GiveTypes.CheckpointStatus.Failed) {
+            checkpoint.endBlock = uint32(block.number);
+        }
+
         emit CheckpointStatusUpdated(campaignId, index, previous, newStatus);
+        if (newStatus == GiveTypes.CheckpointStatus.Failed) {
+            GiveTypes.CampaignConfig storage cfg = _requireCampaign(campaignId);
+            cfg.payoutsHalted = true;
+            emit PayoutsHalted(campaignId, true);
+        }
+    }
+
+    function voteOnCheckpoint(bytes32 campaignId, uint256 index, bool support) external {
+        GiveTypes.CampaignCheckpointState storage cpState = StorageLib.campaignCheckpoints(campaignId);
+        GiveTypes.CampaignCheckpoint storage checkpoint = cpState.checkpoints[index];
+        if (checkpoint.status != GiveTypes.CheckpointStatus.Voting) revert InvalidCheckpointStatus(checkpoint.status);
+        if (block.timestamp < checkpoint.votingStartsAt || block.timestamp > checkpoint.votingEndsAt) {
+            revert InvalidCheckpointWindow();
+        }
+        if (checkpoint.hasVoted[msg.sender]) revert AlreadyVoted(msg.sender);
+
+        GiveTypes.CampaignStakeState storage stakeState = StorageLib.campaignStake(campaignId);
+        GiveTypes.SupporterStake storage stake = stakeState.supporterStake[msg.sender];
+        if (!stake.exists || stake.shares == 0) revert NoVotingPower(msg.sender);
+
+        uint208 weight = uint208(stake.shares);
+        checkpoint.hasVoted[msg.sender] = true;
+        checkpoint.votedFor[msg.sender] = support;
+
+        if (support) {
+            checkpoint.votesFor += weight;
+        } else {
+            checkpoint.votesAgainst += weight;
+        }
+
+        emit CheckpointVoteCast(campaignId, index, msg.sender, support, weight);
+    }
+
+    function finalizeCheckpoint(bytes32 campaignId, uint256 index) external onlyRole(aclManager.campaignAdminRole()) {
+        GiveTypes.CampaignCheckpointState storage cpState = StorageLib.campaignCheckpoints(campaignId);
+        GiveTypes.CampaignCheckpoint storage checkpoint = cpState.checkpoints[index];
+        if (checkpoint.status != GiveTypes.CheckpointStatus.Voting) revert InvalidCheckpointStatus(checkpoint.status);
+        if (block.timestamp <= checkpoint.votingEndsAt) revert InvalidCheckpointWindow();
+
+        uint208 totalVotesCast = checkpoint.votesFor + checkpoint.votesAgainst;
+        if (checkpoint.totalEligibleVotes == 0) {
+            GiveTypes.CampaignStakeState storage stakeState = StorageLib.campaignStake(campaignId);
+            checkpoint.totalEligibleVotes = uint208(stakeState.totalActive);
+        }
+
+        bool quorumMet = checkpoint.totalEligibleVotes == 0
+            ? true
+            : totalVotesCast >= (uint208(checkpoint.quorumBps) * checkpoint.totalEligibleVotes) / 10_000;
+
+        GiveTypes.CheckpointStatus result = quorumMet && checkpoint.votesFor > checkpoint.votesAgainst
+            ? GiveTypes.CheckpointStatus.Succeeded
+            : GiveTypes.CheckpointStatus.Failed;
+
+        checkpoint.status = result;
+        checkpoint.endBlock = uint32(block.number);
+
+        emit CheckpointStatusUpdated(campaignId, index, GiveTypes.CheckpointStatus.Voting, result);
+
+        GiveTypes.CampaignConfig storage cfg = _requireCampaign(campaignId);
+        if (result == GiveTypes.CheckpointStatus.Failed) {
+            cfg.payoutsHalted = true;
+            cfg.status = GiveTypes.CampaignStatus.Paused;
+            emit PayoutsHalted(campaignId, true);
+        } else {
+            if (cfg.payoutsHalted) {
+                cfg.payoutsHalted = false;
+                emit PayoutsHalted(campaignId, false);
+            }
+        }
     }
 
     // === Views ===
@@ -366,10 +450,10 @@ contract CampaignRegistry is Initializable, UUPSUpgradeable {
     function getStakePosition(bytes32 campaignId, address supporter)
         external
         view
-        returns (GiveTypes.StakePosition memory)
+        returns (GiveTypes.SupporterStake memory)
     {
         GiveTypes.CampaignStakeState storage stakeState = StorageLib.campaignStake(campaignId);
-        return stakeState.supporterPositions[supporter];
+        return stakeState.supporterStake[supporter];
     }
 
     function getCheckpoint(bytes32 campaignId, uint256 index)
@@ -394,7 +478,7 @@ contract CampaignRegistry is Initializable, UUPSUpgradeable {
             checkpoint.executionDeadline,
             checkpoint.quorumBps,
             checkpoint.status,
-            checkpoint.totalEligibleStake
+            uint256(checkpoint.totalEligibleVotes)
         );
     }
 

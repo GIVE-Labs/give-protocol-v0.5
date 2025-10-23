@@ -13,7 +13,7 @@ The GIVE Protocol redirects on-chain yield to social impact campaigns without to
 - **Yield Surface:** `GiveVault4626` manages cash buffers, harvest cadence, and payout hooks. Specialised adapters (compounding, claimable, growth index, PT rollover) conform to `IYieldAdapter` and are registered through `AdapterModule`.
 - **Payout Pipeline:** `PayoutRouter` tracks campaign vault share balances, supporter preferences (beneficiaries + campaign splits), and routes harvested yield between campaign recipients, supporter beneficiaries, and protocol fees. `CampaignRegistry`/`StrategyRegistry` provide metadata + role gating.
 - **Synthetic Layer:** `SyntheticLogic` maintains balances for synthetic representations (e.g., donated yield claims) via storage-only proxies.
-- **Planned Extensions:** `RiskModule` and `EmergencyModule` (Phase 8) enforce risk parameters and emergency exits; `Bootstrap.s.sol` (Phase 9) will deterministically deploy and wire the full system.
+- **Checkpoint Future:** Phase 14 will add campaign checkpoint voting and stake exit flows (see docs/phase14_checkpoint_plan.md).
 
 ---
 
