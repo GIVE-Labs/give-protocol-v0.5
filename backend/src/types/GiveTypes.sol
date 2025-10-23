@@ -21,6 +21,8 @@ library GiveTypes {
         uint64 version;
         uint64 lastBootstrapAt;
         bool initialized;
+        // Storage gap: Reserve slots for future upgrades (50 slots = ~1600 bytes)
+        uint256[50] __gap;
     }
 
     /// @dev Describes vault-level parameters that modules operate against.
@@ -48,6 +50,8 @@ library GiveTypes {
         bool investPaused;
         bool harvestPaused;
         bool active;
+        // Storage gap: Reserve slots for future upgrades (50 slots = ~1600 bytes)
+        uint256[50] __gap;
     }
 
     /// @dev Captures metadata about supported assets.
@@ -58,6 +62,8 @@ library GiveTypes {
         bytes32 riskTier;
         address oracle;
         bool enabled;
+        // Storage gap: Reserve slots for future upgrades (50 slots = ~1600 bytes)
+        uint256[50] __gap;
     }
 
     /// @dev Stores adapter wiring and behaviour flags.
@@ -71,6 +77,8 @@ library GiveTypes {
         bytes32 vaultId;
         bytes32 metadataHash;
         bool active;
+        // Storage gap: Reserve slots for future upgrades (50 slots = ~1600 bytes)
+        uint256[50] __gap;
     }
 
     struct SyntheticAsset {
@@ -80,6 +88,8 @@ library GiveTypes {
         uint256 totalSupply;
         bool active;
         mapping(address => uint256) balances;
+        // NOTE: Structs with mappings cannot have storage gaps due to Solidity restrictions.
+        // Future fields must be appended carefully, maintaining backward compatibility.
     }
 
     /// @dev Versioned risk parameters applied per vault or asset grouping.
@@ -98,6 +108,8 @@ library GiveTypes {
         uint256 maxBorrow;
         bool exists;
         bool active;
+        // Storage gap: Reserve slots for future upgrades (50 slots = ~1600 bytes)
+        uint256[50] __gap;
     }
 
     /// @dev Tracks user position state for enumerability and analytics.
@@ -109,6 +121,8 @@ library GiveTypes {
         uint256 shares;
         uint256 normalizedDebtIndex;
         uint256 lastAccrued; // timestamp
+        // Storage gap: Reserve slots for future upgrades (50 slots = ~1600 bytes)
+        uint256[50] __gap;
     }
 
     /// @dev Standard callback payload when adapters/modules need cross-communication.
@@ -129,12 +143,16 @@ library GiveTypes {
         address[] memberList;
         mapping(address => bool) isMember;
         mapping(address => uint256) memberIndex; // index + 1 for swap-and-pop
+        // NOTE: Structs with mappings cannot have storage gaps due to Solidity restrictions.
+        // Future fields must be appended carefully, maintaining backward compatibility.
     }
 
     struct UserPreference {
         address selectedNGO;
         uint8 allocationPercentage;
         uint256 lastUpdated;
+        // Storage gap: Reserve slots for future upgrades (50 slots = ~1600 bytes)
+        uint256[50] __gap;
     }
 
     struct CampaignPreference {
@@ -142,6 +160,8 @@ library GiveTypes {
         address beneficiary;
         uint8 allocationPercentage;
         uint256 lastUpdated;
+        // Storage gap: Reserve slots for future upgrades (50 slots = ~1600 bytes)
+        uint256[50] __gap;
     }
 
     struct DonationRouterState {
@@ -161,6 +181,8 @@ library GiveTypes {
         mapping(address => uint256) totalProtocolFees;
         mapping(address => bool) authorizedCallers;
         uint8[3] validAllocations;
+        // NOTE: Structs with mappings cannot have storage gaps due to Solidity restrictions.
+        // Future fields must be appended carefully, maintaining backward compatibility.
     }
 
     struct PayoutRouterState {
@@ -179,6 +201,8 @@ library GiveTypes {
         mapping(bytes32 => uint256) campaignTotalPayouts;
         mapping(address => bytes32) vaultCampaigns;
         uint8[3] validAllocations;
+        // NOTE: Structs with mappings cannot have storage gaps due to Solidity restrictions.
+        // Future fields must be appended carefully, maintaining backward compatibility.
     }
 
     struct NGOInfo {
@@ -190,6 +214,8 @@ library GiveTypes {
         uint256 version;
         uint256 totalReceived;
         bool isActive;
+        // Storage gap: Reserve slots for future upgrades (50 slots = ~1600 bytes)
+        uint256[50] __gap;
     }
 
     struct NGORegistryState {
@@ -199,6 +225,8 @@ library GiveTypes {
         address currentNGO;
         address pendingCurrentNGO;
         uint256 currentNGOChangeETA;
+        // NOTE: Structs with mappings cannot have storage gaps due to Solidity restrictions.
+        // Future fields must be appended carefully, maintaining backward compatibility.
     }
 
     enum StrategyStatus {
@@ -219,6 +247,8 @@ library GiveTypes {
         uint64 updatedAt;
         StrategyStatus status;
         bool exists;
+        // Storage gap: Reserve slots for future upgrades (50 slots = ~1600 bytes)
+        uint256[50] __gap;
     }
 
     enum CampaignStatus {
@@ -254,6 +284,8 @@ library GiveTypes {
         uint64 checkpointVotingPeriod;
         bool exists;
         bool payoutsHalted;
+        // Storage gap: Reserve slots for future upgrades (50 slots = ~1600 bytes)
+        uint256[50] __gap;
     }
 
     struct SupporterStake {
@@ -264,6 +296,8 @@ library GiveTypes {
         uint64 lastUpdated;
         bool requestedExit;
         bool exists;
+        // Storage gap: Reserve slots for future upgrades (50 slots = ~1600 bytes)
+        uint256[50] __gap;
     }
 
     struct CampaignStakeState {
@@ -271,6 +305,8 @@ library GiveTypes {
         uint256 totalPendingExit;
         address[] supporters;
         mapping(address => SupporterStake) supporterStake;
+        // NOTE: Structs with mappings cannot have storage gaps due to Solidity restrictions.
+        // Future fields must be appended carefully, maintaining backward compatibility.
     }
 
     enum CheckpointStatus {
@@ -300,11 +336,15 @@ library GiveTypes {
         bool executed;
         mapping(address => bool) hasVoted;
         mapping(address => bool) votedFor;
+        // NOTE: Structs with mappings cannot have storage gaps due to Solidity restrictions.
+        // Future fields must be appended carefully, maintaining backward compatibility.
     }
 
     struct CampaignCheckpointState {
         uint256 nextIndex;
         mapping(uint256 => CampaignCheckpoint) checkpoints;
+        // NOTE: Structs with mappings cannot have storage gaps due to Solidity restrictions.
+        // Future fields must be appended carefully, maintaining backward compatibility.
     }
 
     struct CampaignVaultMeta {
@@ -314,5 +354,7 @@ library GiveTypes {
         bytes32 lockProfile;
         address factory;
         bool exists;
+        // Storage gap: Reserve slots for future upgrades (50 slots = ~1600 bytes)
+        uint256[50] __gap;
     }
 }
