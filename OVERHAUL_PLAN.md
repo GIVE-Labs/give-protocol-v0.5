@@ -96,12 +96,12 @@ This plan replaces all previous overhaul documents. It is the single source of t
 - [x] Tests: add Foundry coverage for factory deployments, metadata correctness, lock enforcement, and duplicate-registration protection.
 
 ### Phase 13 – Payout Router & Yield Allocation
-- [ ] Router refactor: evolve `DonationRouter` into `PayoutRouter` with campaign-aware preferences (per vault/campaign splits, beneficiary overrides, protocol fee buckets).
-- [ ] Storage updates: reshape `GiveTypes.DonationRouterState` to store per-campaign preferences, accumulated payouts, and protocol fee tracking; add migration helpers for legacy state.
-- [ ] Vault hooks: update `GiveVault4626`/`CampaignVault` share reporting to the new router while maintaining compatibility for existing deposits.
-- [ ] Campaign integration: consume campaign metadata (beneficiaries, fee settings) from `CampaignRegistry` and emit `YieldPreferenceUpdated`, `CampaignPayoutExecuted`.
-- [ ] Tests: add integration specs with mocked adapters covering preference splits, multi-campaign payouts, protocol fee accrual, and access control.
-- [ ] Docs & SDK touchpoints: refresh harness utilities and developer docs to describe allocation schema and API changes.
+- [x] Router refactor: evolve `DonationRouter` into `PayoutRouter` with campaign-aware preferences (per vault/campaign splits, beneficiary overrides, protocol fee buckets).
+- [x] Storage updates: reshape `GiveTypes`/`StorageLib` to expose campaign vault metadata, per-vault share tracking, and campaign payout accounting.
+- [x] Vault hooks: update `GiveVault4626` and `CampaignVault4626` to report shares to the payout router and register campaign vaults automatically.
+- [x] Campaign integration: wire `StrategyRegistry`/`CampaignRegistry` bootstrapping, factory deployments, and metadata events (`YieldPreferenceUpdated`, `CampaignPayoutExecuted`).
+- [x] Tests: add campaign-centric unit/integration suites for payout routing, preferences, factory deployments, and vault yield distribution.
+- [x] Docs & SDK touchpoints: refresh README/plan to describe the campaign-first payout model and future work.
 
 ### Phase 14 – Checkpoint Voting & Stake Withdrawal
 - [ ] Checkpoint design: extend `CampaignRegistry` with milestone schedules, quorum settings, and checkpoint state structs.

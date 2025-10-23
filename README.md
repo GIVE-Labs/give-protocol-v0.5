@@ -10,8 +10,8 @@ The GIVE Protocol redirects on-chain yield to social impact campaigns without to
 - **Governance:** Timelock → Multisig → `ACLManager`. The ACL issues functional roles (vault manager, adapter manager, risk manager, etc.) plus a single Upgrader role controlling every UUPS proxy.
 - **Core Orchestrator:** `GiveProtocolCore` is a minimal proxy that delegates lifecycle actions to module libraries (`VaultModule`, `AdapterModule`, `DonationModule`, `SyntheticModule`, `RiskModule`, `EmergencyModule`). Modules operate on one shared storage struct.
 - **Shared State:** `GiveTypes`, `GiveStorage`, and `StorageLib` define canonical structs and enforce a dedicated storage slot so all contracts read from the same state.
-- **Yield Surface:** `GiveVault4626` manages cash buffers, harvest cadence, and donation hooks. Specialised adapters (compounding, claimable, growth index, PT rollover) conform to `IYieldAdapter` and are registered through `AdapterModule`.
-- **Donation Pipeline:** `DonationRouter` records user NGO preferences, splits yield between NGOs, treasury, and protocol fees, and emits a complete audit trail. `NGORegistry` maintains approved recipients with timelocked updates.
+- **Yield Surface:** `GiveVault4626` manages cash buffers, harvest cadence, and payout hooks. Specialised adapters (compounding, claimable, growth index, PT rollover) conform to `IYieldAdapter` and are registered through `AdapterModule`.
+- **Payout Pipeline:** `PayoutRouter` tracks campaign vault share balances, supporter preferences (beneficiaries + campaign splits), and routes harvested yield between campaign recipients, supporter beneficiaries, and protocol fees. `CampaignRegistry`/`StrategyRegistry` provide metadata + role gating.
 - **Synthetic Layer:** `SyntheticLogic` maintains balances for synthetic representations (e.g., donated yield claims) via storage-only proxies.
 - **Planned Extensions:** `RiskModule` and `EmergencyModule` (Phase 8) enforce risk parameters and emergency exits; `Bootstrap.s.sol` (Phase 9) will deterministically deploy and wire the full system.
 
@@ -81,6 +81,6 @@ Use these only when auditing regressions against historical behaviour.
 1. Read `OVERHAUL_PLAN.md` through Phase 12.
 2. Explore `backend/src/types` and `backend/src/storage` to understand the shared memory model.
 3. Deploy `GiveProtocolCore` and `ACLManager` in a local Foundry test to experiment with role gating.
-4. Coordinate with the team before modifying governance, storage slots, or donation math.
+4. Coordinate with the team before modifying governance, storage slots, or payout math.
 
 The goal of this rebuild is a transparent, upgrade-safe protocol that donors, NGOs, and auditors can trust. Keep the codebase and documentation razor sharp.
