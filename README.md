@@ -1,8 +1,20 @@
 # GIVE Protocol – No Loss Giving, Modular v0.5
 
-The GIVE Protocol redirects on-chain yield to social impact campaigns without touching a donor’s principal. Depositors receive ERC-4626 vault shares, their assets flow through yield adapters, and harvested profits are streamed to vetted NGOs. The v0.5 overhaul keeps this no-loss promise while reorganising the stack around UUPS proxies, shared storage, and ACL-managed governance.
+The GIVE Protocol redirects on-chain yield to social impact campaigns without touching a donor's principal. Depositors receive ERC-4626 vault shares, their assets flow through yield adapters, and harvested profits are streamed to vetted NGOs. The v0.5 overhaul keeps this no-loss promise while reorganising the stack around UUPS proxies, shared storage, and ACL-managed governance.
 
-`OVERHAUL_PLAN.md` is the single source of truth for migration progress. Update its checklist before or alongside any code change.
+**📋 Important Documents:**
+- `OVERHAUL_PLAN.md` - Phase-by-phase development checklist (authoritative roadmap)
+- `SECURITY_REMEDIATION_ROADMAP.md` - **Security audit fixes and implementation guide** (4 real issues, 3-4 weeks to mainnet)
+
+---
+
+## ⚠️ Security Status
+
+**Current Status:** 🟡 Phase 15 Complete, Security Remediation In Progress  
+**Mainnet Ready:** ❌ NOT YET (2 critical + 2 high priority issues to fix)  
+**Timeline:** ✅ 3-4 weeks after implementing fixes
+
+See `SECURITY_REMEDIATION_ROADMAP.md` for detailed issue breakdown, implementation guide, and timeline.
 
 ---
 
@@ -13,21 +25,23 @@ The GIVE Protocol redirects on-chain yield to social impact campaigns without to
 - **Yield Surface:** `GiveVault4626` manages cash buffers, harvest cadence, and payout hooks. Specialised adapters (compounding, claimable, growth index, PT rollover) conform to `IYieldAdapter` and are registered through `AdapterModule`.
 - **Payout Pipeline:** `PayoutRouter` tracks campaign vault share balances, supporter preferences (beneficiaries + campaign splits), and routes harvested yield between campaign recipients, supporter beneficiaries, and protocol fees. `CampaignRegistry`/`StrategyRegistry` provide metadata + role gating.
 - **Synthetic Layer:** `SyntheticLogic` maintains balances for synthetic representations (e.g., donated yield claims) via storage-only proxies.
-- **Checkpoint Future:** Phase 14 will add campaign checkpoint voting and stake exit flows (see docs/phase14_checkpoint_plan.md).
+- **Checkpoint Voting:** Phase 14+ includes campaign checkpoint voting with stake-based governance for milestone validation.
 
 ---
 
 ## Repository Layout
 ```
-backend/              Foundry workspace for Solidity contracts and tests
-  src/                Modular architecture (types, storage, modules, adapters, vault, governance)
-  test/               Foundry test suites (ACL, adapters, vault flows, donation router, synthetic assets)
-frontend/             Legacy UI (kept for reference during migration)
-docs/                 To be rewritten in Phase 11
-OVERHAUL_PLAN.md      Phase-by-phase checklist (authoritative roadmap)
+backend/                          Foundry workspace for Solidity contracts and tests
+  src/                            Modular architecture (types, storage, modules, adapters, vault, governance)
+  test/                           Foundry test suites (ACL, adapters, vault flows, donation router, synthetic assets)
+frontend/                         Legacy UI (kept for reference during migration)
+OVERHAUL_PLAN.md                  Phase-by-phase development checklist
+SECURITY_REMEDIATION_ROADMAP.md   Security audit fixes and implementation guide
 ```
 
 Legacy contracts that still live in `backend/src` will be removed once their replacements graduate through the plan.
+
+**Note:** The `docs/` directory has been cleaned up. Phase-specific documentation has been integrated into code comments and the main planning documents.
 
 ---
 
