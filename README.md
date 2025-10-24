@@ -1,42 +1,70 @@
-# GIVE Protocol – No Loss Giving, Modular v0.5
+# GIVE Protocol v0.5 – No-Loss Giving on Base
 
-The GIVE Protocol redirects on-chain yield to social impact campaigns without touching a donor's principal. Depositors receive ERC-4626 vault shares, their assets flow through yield adapters, and harvested profits are streamed to vetted NGOs. The v0.5 overhaul keeps this no-loss promise while reorganising the stack around UUPS proxies, shared storage, and ACL-managed governance.
+> **Principal Protection Guaranteed**: Donors deposit assets → Earn yield → 100% of profits fund social impact campaigns → Withdraw principal anytime
 
-**📋 Important Documents:**
-- `OVERHAUL_PLAN.md` - Phase-by-phase development checklist (authoritative roadmap) - **Phases 0-16 COMPLETE ✅**
-- `audits/CODE_REVIEW_COMPLETE.md` - **Comprehensive security audit results**
-- `audits/SECURITY_REMEDIATION_ROADMAP.md` - Security fix timeline and implementation
-- `FRONTEND_INTEGRATION.md` - **Frontend developer guide** (Wagmi v2 + Viem + RainbowKit)
-- `docs/ARCHITECTURE.md` - **System architecture with diagrams**
-- `docs/EMERGENCY_PROCEDURES.md` - **Incident response runbook**
-- `docs/EVENT_SCHEMAS.md` - **Event definitions for indexers**
+**Status:** ✅ **DEPLOYED TO BASE SEPOLIA** (October 24, 2025)  
+**Tests:** ✅ **116/116 passing** | **Verified:** ✅ **9/9 contracts on Basescan**  
+**Network:** Base Sepolia (Chain ID: 84532) | [View Deployment →](./DEPLOYMENT.md)
 
 ---
 
-## ✅ v0.5 Status
+## � Quick Start
 
-**Development Status:** ✅ **Phase 0-16 COMPLETE** (All core features + documentation)  
-**Security Status:** ✅ **Security Audit PASSED** (all critical/high issues fixed)  
-**Testnet Readiness:** 🟡 **READY FOR DEPLOYMENT** (monitoring + operations setup pending)  
-**Test Coverage:** ✅ **116/116 tests passing (100%)**
+### For Users
+1. Get Base Sepolia ETH: https://www.coinbase.com/faucets/base-ethereum-sepolia-faucet
+2. Wrap to WETH: `0x4200000000000000000000000000000000000006`
+3. Deposit to vault: `0x28ac6D6505E2875FFF9E13d1B788A8d4740a7278`
+4. **Your principal stays safe** - only yield goes to campaigns!
 
-### Completed Milestones:
-- ✅ **Core Architecture** - UUPS proxies, shared storage, module libraries (Phases 0-3)
-- ✅ **Vault System** - ERC4626 vaults with auto-investment + emergency controls (Phase 4)
-- ✅ **Campaign System** - Registry, factory, checkpoint voting (Phases 11-14)
-- ✅ **Payout System** - Campaign-aware yield distribution (Phase 13)
-- ✅ **Strategy Manager** - Adapter validation and configuration (Phase 15)
-- ✅ **Security Audit** - All critical/high issues fixed, attack simulations passing
-- ✅ **Documentation** - Architecture diagrams, emergency procedures, event schemas (Phase 16)
+### For Developers
+```bash
+# Backend (Foundry)
+cd backend
+forge build && forge test
 
-### Security Achievements:
-- ✅ **Storage Gap Protection** - All 13 structs with 50-slot gaps
-- ✅ **Flash Loan Voting Protection** - Snapshot-based with 7-day minimum stake
-- ✅ **Emergency Withdrawal System** - 24hr grace + auto-divestment
-- ✅ **Fee Timelock** - 7-day delay with 2.5% max increase per change
-- ✅ **Attack Resistance** - Flash loans, front-running, griefing, reentrancy tests passing
+# Frontend (Next.js)
+cd apps/web
+pnpm install && pnpm dev
+```
 
-See `audits/` folder for complete security documentation and `docs/` for system architecture.
+**Contract Addresses:** All deployed addresses in `DEPLOYMENT.md` or `apps/web/src/config/addresses.ts`
+
+---
+
+## 📊 Deployed Contracts (Base Sepolia)
+
+| Contract | Address | Purpose |
+|----------|---------|---------|
+| **ACLManager** | `0xC6454Ec62f53823692f426F1fb4Daa57c184A36A` | Role-based access control |
+| **GiveProtocolCore** | `0xB73B90207D6Fe0e44A090002bf4e2e9aA37564D9` | Protocol orchestrator |
+| **CampaignRegistry** | `0x51929ec1C089463fBeF6148B86F34117D9CCF816` | Campaign lifecycle |
+| **PayoutRouter** | `0xe1BD0BA2e0891c95Bd02eA248f8115E7c7DC37c5` | Yield distribution |
+| **GIVE WETH Vault** | `0x28ac6D6505E2875FFF9E13d1B788A8d4740a7278` | Main deposit vault |
+
+**Full list:** See `DEPLOYMENT.md` for all addresses, gas costs, and verification links
+
+---
+
+## ✅ What's Complete (Phase 0-17)
+
+- ✅ **Core Architecture** - UUPS proxies, shared storage, ACL governance
+- ✅ **Vault System** - ERC-4626 vaults with 99% auto-investment, 1% cash buffer
+- ✅ **Yield Adapters** - Aave, Compound integration + MockYieldAdapter
+- ✅ **Campaign System** - Registry, factory (EIP-1167 clones), checkpoint voting
+- ✅ **Payout System** - Campaign-aware yield distribution via PayoutRouter
+- ✅ **Strategy Manager** - Adapter validation and risk management
+- ✅ **Security Audit** - Flash loan protection, emergency controls, fee timelocks
+- ✅ **Testnet Deployment** - Base Sepolia with 41.5M gas (0.0000415 ETH)
+- ✅ **Contract Verification** - All 9 implementations verified on Basescan
+- ✅ **Functional Testing** - Deposit/withdraw/harvest flows tested successfully
+
+### Key Metrics
+- **Factory Size:** 5KB (was 26KB - 80% reduction via EIP-1167)
+- **Gas Costs:** Deposit ~320k | Withdraw ~138k | Harvest ~490k
+- **Test Coverage:** 116/116 passing (ACL, vaults, campaigns, payouts)
+- **Documentation:** Architecture, operations guide, emergency procedures
+
+See `DEPLOYMENT.md` for complete deployment details and `docs/` for technical documentation.
 
 ---
 
@@ -124,72 +152,104 @@ flowchart TB
 
 ---
 
-## Repository Layout
+## 📁 Repository Structure
+
 ```
-backend/                          Foundry workspace for Solidity contracts and tests
-  src/                            Modular architecture (types, storage, modules, adapters, vault, governance)
-  test/                           Foundry test suites (ACL, adapters, vault flows, donation router, synthetic assets)
-frontend/                         Legacy UI (kept for reference during migration)
-OVERHAUL_PLAN.md                  Phase-by-phase development checklist
-SECURITY_REMEDIATION_ROADMAP.md   Security audit fixes and implementation guide
+backend/          Foundry contracts + tests (116 passing)
+  src/            Modular v0.5 architecture
+    core/         GiveProtocolCore orchestrator
+    governance/   ACLManager role-based access
+    vault/        ERC-4626 vaults + auto-investment
+    adapters/     Yield generation (Aave, Mock)
+    registry/     Campaign & strategy registries
+    payout/       PayoutRouter for yield distribution
+  test/           Integration & unit tests
+  script/         Bootstrap.s.sol (single deployment script)
+
+apps/web/         Next.js 14 frontend (RainbowKit + Wagmi)
+docs/             Technical documentation
+  TESTNET_OPERATIONS_GUIDE.md    User guide (100+ sections)
+  ARCHITECTURE.md                System design
+  EMERGENCY_PROCEDURES.md        Incident response
+
+DEPLOYMENT.md     Complete deployment details + addresses
+README.md         This file (quick start + overview)
 ```
 
-Legacy contracts that still live in `backend/src` will be removed once their replacements graduate through the plan.
-
-**Note:** The `docs/` directory has been cleaned up. Phase-specific documentation has been integrated into code comments and the main planning documents.
-
 ---
 
-## Development Workflow
-1. **Align with the Plan**
-   - Confirm the next unchecked item in `OVERHAUL_PLAN.md`.
-   - Document deviations directly in the plan before implementing them.
-2. **Build & Test**
-   ```bash
-   cd backend
-   forge build
-   forge test
-   ```
-   Tests are being ported phase-by-phase; expect incomplete coverage until later phases.
-3. **Validate Roles & Access**
-   - Route all state through `StorageLib`.
-   - Gate mutations with ACL-managed roles; avoid bespoke ownership checks.
-4. **Document as You Go**
-   - Prefer concise in-code comments for non-obvious logic.
-   - Update this README and the plan whenever architecture-level assumptions shift.
+## 🛠️ Development
 
----
-
-## Contribution Principles
-- **Preserve Principal:** Never draft changes that move depositor principal. Yield distributions must originate from adapter profit.
-- **Proxy Safety:** Every upgradeable contract must implement `_authorizeUpgrade` tied to the ACL Upgrader role.
-- **Deterministic Deployments:** Scripts and tests should keep deployment order and addresses reproducible.
-- **Modularity First:** New features belong in modules, adapters, or libraries rather than monolithic contracts.
-
----
-
-## Legacy Surface (Reference Only)
-The original MVP commands exist purely for comparison and are not maintained:
+### Local Testing
 ```bash
-# Contracts (legacy surface)
 cd backend
-forge build
-forge test
-
-# Frontend prototype
-cd frontend
-pnpm install
-pnpm dev
+forge build           # Compile contracts
+forge test -vv        # Run 116 tests
+forge snapshot        # Gas benchmarks
 ```
 
-Use these only when auditing regressions against historical behaviour.
+### Testnet Interaction
+```bash
+# Example: Deposit 0.1 WETH to vault
+source .env
+cast send $WETH "approve(address,uint256)" $VAULT 100000000000000000 \
+  --rpc-url $BASE_SEPOLIA_RPC_URL --private-key $PRIVATE_KEY
+
+cast send $VAULT "deposit(uint256,address)" 100000000000000000 $YOUR_ADDRESS \
+  --rpc-url $BASE_SEPOLIA_RPC_URL --private-key $PRIVATE_KEY
+```
+
+**Full operations guide:** `docs/TESTNET_OPERATIONS_GUIDE.md`
+
+### Frontend Development
+```bash
+cd apps/web
+pnpm install
+pnpm dev              # http://localhost:3000
+```
+
+Contract addresses configured in `apps/web/src/config/addresses.ts`
 
 ---
 
-## Getting Started Checklist
-1. Read `OVERHAUL_PLAN.md` through Phase 12.
-2. Explore `backend/src/types` and `backend/src/storage` to understand the shared memory model.
-3. Deploy `GiveProtocolCore` and `ACLManager` in a local Foundry test to experiment with role gating.
-4. Coordinate with the team before modifying governance, storage slots, or payout math.
+## 📚 Documentation
 
-The goal of this rebuild is a transparent, upgrade-safe protocol that donors, NGOs, and auditors can trust. Keep the codebase and documentation razor sharp.
+- **`DEPLOYMENT.md`** - Deployment summary, all addresses, gas costs, operations guide
+- **`docs/ARCHITECTURE.md`** - System design, data flows, security model
+- **`docs/TESTNET_OPERATIONS_GUIDE.md`** - Step-by-step user guide
+- **`docs/EMERGENCY_PROCEDURES.md`** - Incident response procedures
+- **`.github/copilot-instructions.md`** - AI agent context for development
+
+---
+
+## 🔐 Security Principles
+
+1. **Principal Protection** - User deposits always withdrawable (yield-only campaigns)
+2. **UUPS Upgrades** - Only `ROLE_UPGRADER` can upgrade via ACL
+3. **Role-Based Access** - No `Ownable`, all permissions via ACLManager
+4. **Shared Storage** - All state via `StorageLib` for consistency
+5. **Emergency Controls** - Pause, emergency withdraw, grace periods
+6. **EIP-1167 Clones** - Campaign vaults as minimal proxies (gas efficient)
+
+**Audit Status:** All critical/high issues resolved | Flash loan protection | Fee timelocks
+
+---
+
+## 🌐 Links
+
+- **Testnet:** https://sepolia.basescan.org
+- **Base Sepolia Faucet:** https://www.coinbase.com/faucets/base-ethereum-sepolia-faucet
+- **Deployment Details:** [DEPLOYMENT.md](./DEPLOYMENT.md)
+- **Operations Guide:** [docs/TESTNET_OPERATIONS_GUIDE.md](./docs/TESTNET_OPERATIONS_GUIDE.md)
+
+---
+
+## 📞 Support
+
+- **Issues:** Open GitHub issue with transaction hash
+- **Documentation:** Check `docs/` for technical details
+- **Operations:** See testnet operations guide for troubleshooting
+
+---
+
+*Last Updated: October 24, 2025 | Version: 0.5.0 | Network: Base Sepolia*
