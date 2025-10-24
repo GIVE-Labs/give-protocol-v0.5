@@ -33,6 +33,12 @@ contract PayoutRouter is
     uint256 public constant MAX_FEE_BPS = 1_000; // 10%
     uint256 public constant PROTOCOL_FEE_BPS = 250; // 2.5%
 
+    /// @notice Minimum delay before fee change takes effect (7 days)
+    uint256 public constant FEE_CHANGE_DELAY = 7 days;
+
+    /// @notice Maximum fee increase per change (250 = 2.5%)
+    uint256 public constant MAX_FEE_INCREASE_PER_CHANGE = 250;
+
     event YieldPreferenceUpdated(
         address indexed user,
         address indexed vault,
@@ -79,6 +85,18 @@ contract PayoutRouter is
         address indexed recipient,
         uint256 amount
     );
+    event FeeChangeProposed(
+        uint256 indexed nonce,
+        address indexed recipient,
+        uint256 feeBps,
+        uint256 effectiveTimestamp
+    );
+    event FeeChangeExecuted(
+        uint256 indexed nonce,
+        uint256 newFeeBps,
+        address newRecipient
+    );
+    event FeeChangeCancelled(uint256 indexed nonce);
 
     error Unauthorized(bytes32 roleId, address account);
     error VaultNotRegistered(address vault);
@@ -208,7 +226,11 @@ contract PayoutRouter is
         emit AuthorizedCallerUpdated(caller, authorized);
     }
 
-    function updateFeeConfig(
+    /// @notice Propose a fee configuration change (subject to timelock)
+    /// @dev Fee decreases are instant, increases have 7-day delay
+    /// @param newRecipient New fee recipient address
+    /// @param newFeeBps New fee in basis points
+    function proposeFeeChange(
         address newRecipient,
         uint256 newFeeBps
     ) external onlyRole(FEE_MANAGER_ROLE) {
@@ -216,13 +238,136 @@ contract PayoutRouter is
         if (newFeeBps > MAX_FEE_BPS) revert Errors.InvalidConfiguration();
 
         GiveTypes.PayoutRouterState storage s = _state();
-        address oldRecipient = s.feeRecipient;
-        uint256 oldBps = s.feeBps;
+        uint256 currentFee = s.feeBps;
 
+        // Fee decreases are instant (user-friendly)
+        if (newFeeBps <= currentFee) {
+            address oldRecipient = s.feeRecipient;
+            s.feeRecipient = newRecipient;
+            s.feeBps = newFeeBps;
+            emit FeeConfigUpdated(
+                oldRecipient,
+                newRecipient,
+                currentFee,
+                newFeeBps
+            );
+            return;
+        }
+
+        // Fee increases require timelock
+        uint256 feeIncrease = newFeeBps - currentFee;
+        if (feeIncrease > MAX_FEE_INCREASE_PER_CHANGE) {
+            revert Errors.FeeIncreaseTooLarge(
+                feeIncrease,
+                MAX_FEE_INCREASE_PER_CHANGE
+            );
+        }
+
+        // Create pending fee change
+        uint256 nonce = s.feeChangeNonce++;
+        uint256 effectiveAt = block.timestamp + FEE_CHANGE_DELAY;
+
+        GiveTypes.PendingFeeChange storage change = s.pendingFeeChanges[nonce];
+        change.newFeeBps = newFeeBps;
+        change.newRecipient = newRecipient;
+        change.effectiveTimestamp = effectiveAt;
+        change.exists = true;
+
+        emit FeeChangeProposed(nonce, newRecipient, newFeeBps, effectiveAt);
+    }
+
+    /// @notice Execute a pending fee change after timelock expires
+    /// @dev Can be called by anyone after delay passes
+    /// @param nonce The fee change nonce to execute
+    function executeFeeChange(uint256 nonce) external {
+        GiveTypes.PayoutRouterState storage s = _state();
+        GiveTypes.PendingFeeChange storage change = s.pendingFeeChanges[nonce];
+
+        if (!change.exists) {
+            revert Errors.FeeChangeNotFound(nonce);
+        }
+
+        if (block.timestamp < change.effectiveTimestamp) {
+            revert Errors.TimelockNotExpired(
+                block.timestamp,
+                change.effectiveTimestamp
+            );
+        }
+
+        address oldRecipient = s.feeRecipient;
+        uint256 oldFee = s.feeBps;
+
+        // Save new values before deleting pending change
+        uint256 newFeeBps = change.newFeeBps;
+        address newRecipient = change.newRecipient;
+
+        // Apply fee change
         s.feeRecipient = newRecipient;
         s.feeBps = newFeeBps;
 
-        emit FeeConfigUpdated(oldRecipient, newRecipient, oldBps, newFeeBps);
+        // Clean up
+        delete s.pendingFeeChanges[nonce];
+
+        emit FeeConfigUpdated(oldRecipient, newRecipient, oldFee, newFeeBps);
+        emit FeeChangeExecuted(nonce, newFeeBps, newRecipient);
+    }
+
+    /// @notice Cancel a pending fee change
+    /// @dev Only FEE_MANAGER can cancel
+    /// @param nonce The fee change nonce to cancel
+    function cancelFeeChange(
+        uint256 nonce
+    ) external onlyRole(FEE_MANAGER_ROLE) {
+        GiveTypes.PayoutRouterState storage s = _state();
+        GiveTypes.PendingFeeChange storage change = s.pendingFeeChanges[nonce];
+
+        if (!change.exists) {
+            revert Errors.FeeChangeNotFound(nonce);
+        }
+
+        delete s.pendingFeeChanges[nonce];
+        emit FeeChangeCancelled(nonce);
+    }
+
+    /// @notice Get details of a pending fee change
+    /// @param nonce The fee change nonce
+    /// @return newFeeBps Proposed new fee
+    /// @return newRecipient Proposed new recipient
+    /// @return effectiveTimestamp When change can be executed
+    /// @return exists Whether the change exists
+    function getPendingFeeChange(
+        uint256 nonce
+    )
+        external
+        view
+        returns (
+            uint256 newFeeBps,
+            address newRecipient,
+            uint256 effectiveTimestamp,
+            bool exists
+        )
+    {
+        GiveTypes.PendingFeeChange storage change = _state().pendingFeeChanges[
+            nonce
+        ];
+        return (
+            change.newFeeBps,
+            change.newRecipient,
+            change.effectiveTimestamp,
+            change.exists
+        );
+    }
+
+    /// @notice Check if a fee change is ready to execute
+    /// @param nonce The fee change nonce
+    /// @return ready True if timelock has expired
+    function isFeeChangeReady(
+        uint256 nonce
+    ) external view returns (bool ready) {
+        GiveTypes.PendingFeeChange storage change = _state().pendingFeeChanges[
+            nonce
+        ];
+        return change.exists && block.timestamp >= change.effectiveTimestamp;
     }
 
     function setProtocolTreasury(

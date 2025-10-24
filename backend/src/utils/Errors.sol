@@ -23,6 +23,10 @@ library Errors {
     error InvalidOwner();
     error InsufficientAllowance();
     error InsufficientBalance();
+    error NotInEmergency();
+    error GracePeriodActive();
+    error GracePeriodExpired();
+    error EnforcedPause();
 
     // === Adapter Errors ===
     error OnlyVault();
@@ -61,6 +65,8 @@ library Errors {
     error NoFundsToDistribute();
     error InvalidNGO();
     error DonationRouterPaused();
+    error FeeIncreaseTooLarge(uint256 increase, uint256 maxAllowed);
+    error FeeChangeNotFound(uint256 nonce);
 
     // === Strategy Manager Errors ===
     error InvalidSlippageBps();
@@ -79,12 +85,13 @@ library Errors {
     // === General Errors ===
     error ZeroAddress();
     error InvalidAmount();
+    error ZeroAmount();
     error TransferFailed();
     error ContractPaused();
     error ReentrancyDetected();
     error InvalidConfiguration();
     error OperationNotAllowed();
-    error TimelockNotExpired();
+    error TimelockNotExpired(uint256 currentTime, uint256 effectiveTime);
     error InvalidTimestamp();
     error ArrayLengthMismatch();
     error IndexOutOfBounds();

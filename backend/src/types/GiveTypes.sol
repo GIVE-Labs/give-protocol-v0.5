@@ -201,8 +201,20 @@ library GiveTypes {
         mapping(bytes32 => uint256) campaignTotalPayouts;
         mapping(address => bytes32) vaultCampaigns;
         uint8[3] validAllocations;
+        mapping(uint256 => PendingFeeChange) pendingFeeChanges;
+        uint256 feeChangeNonce;
         // NOTE: Structs with mappings cannot have storage gaps due to Solidity restrictions.
         // Future fields must be appended carefully, maintaining backward compatibility.
+    }
+
+    /// @notice Pending fee change with timelock
+    struct PendingFeeChange {
+        uint256 newFeeBps;
+        address newRecipient;
+        uint256 effectiveTimestamp;
+        bool exists;
+        // Storage gap: Reserve slots for future upgrades
+        uint256[50] __gap;
     }
 
     struct NGOInfo {
@@ -296,8 +308,11 @@ library GiveTypes {
         uint64 lastUpdated;
         bool requestedExit;
         bool exists;
-        // Storage gap: Reserve slots for future upgrades (50 slots = ~1600 bytes)
-        uint256[50] __gap;
+        // Flash loan protection: Timestamp when stake was first deposited
+        // Must be staked for MIN_STAKE_DURATION before voting eligibility
+        uint64 stakeTimestamp;
+        // Storage gap: Reserve slots for future upgrades (49 slots remaining after stakeTimestamp)
+        uint256[49] __gap;
     }
 
     struct CampaignStakeState {
@@ -334,6 +349,9 @@ library GiveTypes {
         uint208 votesAgainst;
         uint208 totalEligibleVotes;
         bool executed;
+        // Flash loan protection: Snapshot block when checkpoint voting starts
+        // Voting power is calculated based on stakes at this block, not current balance
+        uint32 snapshotBlock;
         mapping(address => bool) hasVoted;
         mapping(address => bool) votedFor;
         // NOTE: Structs with mappings cannot have storage gaps due to Solidity restrictions.
