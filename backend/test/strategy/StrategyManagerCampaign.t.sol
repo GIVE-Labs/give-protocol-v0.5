@@ -89,7 +89,7 @@ contract StrategyManagerCampaignTest is Test {
         // Try to set a wrong adapter (not approved)
         address wrongAdapter = makeAddr("wrongAdapter");
         vm.prank(admin);
-        vm.expectRevert(Errors.InvalidAdapter.selector);
+        vm.expectRevert(GiveErrors.InvalidAdapter.selector);
         manager.setActiveAdapter(wrongAdapter);
     }
 

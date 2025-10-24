@@ -3,6 +3,7 @@ pragma solidity ^0.8.20;
 
 import "@openzeppelin/contracts/proxy/utils/Initializable.sol";
 import "@openzeppelin/contracts/proxy/utils/UUPSUpgradeable.sol";
+import "@openzeppelin/contracts/proxy/Clones.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 import "../interfaces/IACLManager.sol";
@@ -13,12 +14,16 @@ import "../types/GiveTypes.sol";
 import "../payout/PayoutRouter.sol";
 
 /// @title CampaignVaultFactory
-/// @notice Deploys campaign-specific vaults and wires them into strategy/campaign registries.
+/// @notice Deploys campaign vaults via EIP-1167 minimal proxies for gas efficiency
+/// @dev Uses deterministic CREATE2 salts for predictable addresses
 contract CampaignVaultFactory is Initializable, UUPSUpgradeable {
+    using Clones for address;
+
     IACLManager public aclManager;
     CampaignRegistry public campaignRegistry;
     StrategyRegistry public strategyRegistry;
     PayoutRouter public payoutRouter;
+    address public vaultImplementation;
 
     bytes32 public constant ROLE_UPGRADER = keccak256("ROLE_UPGRADER");
 
@@ -35,10 +40,12 @@ contract CampaignVaultFactory is Initializable, UUPSUpgradeable {
     error ZeroAddress();
     error Unauthorized(bytes32 roleId, address account);
     error DeploymentExists(bytes32 key);
-    error CampaignStrategyMismatch(bytes32 campaignId, bytes32 expectedStrategy, bytes32 providedStrategy);
+    error CampaignStrategyMismatch(
+        bytes32 campaignId,
+        bytes32 expectedStrategy,
+        bytes32 providedStrategy
+    );
     error InvalidParameters();
-
-    mapping(bytes32 => address) private _deployments;
 
     event VaultCreated(
         bytes32 indexed campaignId,
@@ -47,21 +54,30 @@ contract CampaignVaultFactory is Initializable, UUPSUpgradeable {
         address indexed vault,
         bytes32 vaultId
     );
+    event ImplementationUpdated(
+        address indexed oldImpl,
+        address indexed newImpl
+    );
 
     modifier onlyRole(bytes32 roleId) {
-        if (!aclManager.hasRole(roleId, msg.sender)) {
+        if (!aclManager.hasRole(roleId, msg.sender))
             revert Unauthorized(roleId, msg.sender);
-        }
         _;
     }
 
-    function initialize(address acl, address campaignRegistry_, address strategyRegistry_, address payoutRouter_)
-        external
-        initializer
-    {
+    function initialize(
+        address acl,
+        address campaignRegistry_,
+        address strategyRegistry_,
+        address payoutRouter_,
+        address vaultImplementation_
+    ) external initializer {
         if (
-            acl == address(0) || campaignRegistry_ == address(0) || strategyRegistry_ == address(0)
-                || payoutRouter_ == address(0)
+            acl == address(0) ||
+            campaignRegistry_ == address(0) ||
+            strategyRegistry_ == address(0) ||
+            payoutRouter_ == address(0) ||
+            vaultImplementation_ == address(0)
         ) {
             revert ZeroAddress();
         }
@@ -70,49 +86,110 @@ contract CampaignVaultFactory is Initializable, UUPSUpgradeable {
         campaignRegistry = CampaignRegistry(campaignRegistry_);
         strategyRegistry = StrategyRegistry(strategyRegistry_);
         payoutRouter = PayoutRouter(payoutRouter_);
+        vaultImplementation = vaultImplementation_;
     }
 
-    function deployCampaignVault(DeployParams calldata params)
-        external
-        onlyRole(aclManager.campaignAdminRole())
-        returns (address vault)
-    {
-        if (params.asset == address(0) || params.admin == address(0) || bytes(params.name).length == 0) {
+    /// @notice Update vault implementation for future deployments
+    /// @dev Only affects new deployments, existing vaults unchanged
+    function setVaultImplementation(
+        address newImpl
+    ) external onlyRole(aclManager.campaignAdminRole()) {
+        if (newImpl == address(0)) revert ZeroAddress();
+        address oldImpl = vaultImplementation;
+        vaultImplementation = newImpl;
+        emit ImplementationUpdated(oldImpl, newImpl);
+    }
+
+    function deployCampaignVault(
+        DeployParams calldata params
+    ) external onlyRole(aclManager.campaignAdminRole()) returns (address) {
+        if (
+            params.asset == address(0) ||
+            params.admin == address(0) ||
+            bytes(params.name).length == 0
+        ) {
             revert InvalidParameters();
         }
 
-        bytes32 key = _deploymentKey(params.campaignId, params.strategyId, params.lockProfile);
-        if (_deployments[key] != address(0)) revert DeploymentExists(key);
-
-        GiveTypes.CampaignConfig memory campaignCfg = campaignRegistry.getCampaign(params.campaignId);
+        GiveTypes.CampaignConfig memory campaignCfg = campaignRegistry
+            .getCampaign(params.campaignId);
         if (campaignCfg.strategyId != params.strategyId) {
-            revert CampaignStrategyMismatch(params.campaignId, campaignCfg.strategyId, params.strategyId);
+            revert CampaignStrategyMismatch(
+                params.campaignId,
+                campaignCfg.strategyId,
+                params.strategyId
+            );
         }
 
-        CampaignVault4626 newVault =
-            new CampaignVault4626(IERC20(params.asset), params.name, params.symbol, params.admin);
-        vault = address(newVault);
+        // Compute deterministic salt from campaign params
+        bytes32 salt = keccak256(
+            abi.encodePacked(
+                params.campaignId,
+                params.strategyId,
+                params.lockProfile
+            )
+        );
 
-        newVault.initializeCampaign(params.campaignId, params.strategyId, params.lockProfile, address(this));
+        // Predict address and check if already deployed
+        address predicted = Clones.predictDeterministicAddress(
+            vaultImplementation,
+            salt,
+            address(this)
+        );
+        if (predicted.code.length > 0) {
+            revert DeploymentExists(salt);
+        }
 
-        campaignRegistry.setCampaignVault(params.campaignId, vault, params.lockProfile);
+        // Deploy EIP-1167 minimal proxy clone
+        address vault = Clones.cloneDeterministic(vaultImplementation, salt);
+        CampaignVault4626 vaultContract = CampaignVault4626(payable(vault));
+
+        // Initialize the clone (grants admin role to params.admin)
+        vaultContract.initializeCampaign(
+            params.campaignId,
+            params.strategyId,
+            params.lockProfile,
+            params.admin
+        );
+
+        // Wire into registries and router
+        campaignRegistry.setCampaignVault(
+            params.campaignId,
+            vault,
+            params.lockProfile
+        );
         strategyRegistry.registerStrategyVault(params.strategyId, vault);
-
         payoutRouter.registerCampaignVault(vault, params.campaignId);
         payoutRouter.setAuthorizedCaller(vault, true);
 
-        _deployments[key] = vault;
-        bytes32 vaultId = newVault.vaultId();
+        bytes32 vaultId = vaultContract.vaultId();
+        emit VaultCreated(
+            params.campaignId,
+            params.strategyId,
+            params.lockProfile,
+            vault,
+            vaultId
+        );
 
-        emit VaultCreated(params.campaignId, params.strategyId, params.lockProfile, vault, vaultId);
+        return vault;
     }
 
-    function getDeployment(bytes32 campaignId, bytes32 strategyId, bytes32 lockProfile)
-        external
-        view
-        returns (address)
-    {
-        return _deployments[_deploymentKey(campaignId, strategyId, lockProfile)];
+    /// @notice Predict vault address before deployment
+    /// @dev Useful for off-chain address computation
+    function predictVaultAddress(
+        bytes32 campaignId,
+        bytes32 strategyId,
+        bytes32 lockProfile
+    ) external view returns (address) {
+        bytes32 salt = keccak256(
+            abi.encodePacked(campaignId, strategyId, lockProfile)
+        );
+        return
+            Clones.predictDeterministicAddress(
+                vaultImplementation,
+                salt,
+                address(this)
+            );
     }
 
     /// @inheritdoc UUPSUpgradeable
@@ -120,13 +197,5 @@ contract CampaignVaultFactory is Initializable, UUPSUpgradeable {
         if (!aclManager.hasRole(ROLE_UPGRADER, msg.sender)) {
             revert Unauthorized(ROLE_UPGRADER, msg.sender);
         }
-    }
-
-    function _deploymentKey(bytes32 campaignId, bytes32 strategyId, bytes32 lockProfile)
-        private
-        pure
-        returns (bytes32)
-    {
-        return keccak256(abi.encodePacked(campaignId, strategyId, lockProfile));
     }
 }

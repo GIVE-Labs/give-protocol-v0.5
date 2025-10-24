@@ -5,7 +5,7 @@ import "@openzeppelin/contracts/token/ERC20/extensions/ERC4626.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "../interfaces/IYieldAdapter.sol";
 import "../payout/PayoutRouter.sol";
-import "../utils/Errors.sol";
+import "../utils/GiveErrors.sol";
 import "../interfaces/IWETH.sol";
 import "../types/GiveTypes.sol";
 import "./VaultTokenBase.sol";
@@ -72,7 +72,7 @@ contract GiveVault4626 is ERC4626, VaultTokenBase {
         ERC20(_name, _symbol)
         VaultTokenBase(keccak256(abi.encodePacked("vault", address(this))))
     {
-        if (_admin == address(0)) revert Errors.ZeroAddress();
+        if (_admin == address(0)) revert GiveErrors.ZeroAddress();
 
         _grantRole(DEFAULT_ADMIN_ROLE, _admin);
         _grantRole(VAULT_MANAGER_ROLE, _admin);
@@ -96,18 +96,18 @@ contract GiveVault4626 is ERC4626, VaultTokenBase {
         if (
             cfg.wrappedNative == address(0) || msg.sender != cfg.wrappedNative
         ) {
-            revert Errors.InvalidConfiguration();
+            revert GiveErrors.InvalidConfiguration();
         }
     }
 
     // === Modifiers ===
     modifier whenInvestNotPaused() {
-        if (_vaultConfig().investPaused) revert Errors.InvestPaused();
+        if (_vaultConfig().investPaused) revert GiveErrors.InvestPaused();
         _;
     }
 
     modifier whenHarvestNotPaused() {
-        if (_vaultConfig().harvestPaused) revert Errors.HarvestPaused();
+        if (_vaultConfig().harvestPaused) revert GiveErrors.HarvestPaused();
         _;
     }
 
@@ -178,12 +178,12 @@ contract GiveVault4626 is ERC4626, VaultTokenBase {
                     block.timestamp >=
                     cfg.emergencyActivatedAt + EMERGENCY_GRACE_PERIOD
                 ) {
-                    revert Errors.GracePeriodExpired();
+                    revert GiveErrors.GracePeriodExpired();
                 }
                 // Within grace period - allow
             } else {
                 // Normal pause (not emergency) - block
-                revert Errors.EnforcedPause();
+                revert GiveErrors.EnforcedPause();
             }
         }
         _;
@@ -288,8 +288,9 @@ contract GiveVault4626 is ERC4626, VaultTokenBase {
     function setWrappedNative(
         address _wrapped
     ) external onlyRole(VAULT_MANAGER_ROLE) {
-        if (_wrapped == address(0)) revert Errors.ZeroAddress();
-        if (_wrapped != address(asset())) revert Errors.InvalidConfiguration();
+        if (_wrapped == address(0)) revert GiveErrors.ZeroAddress();
+        if (_wrapped != address(asset()))
+            revert GiveErrors.InvalidConfiguration();
         _vaultConfig().wrappedNative = _wrapped;
         emit WrappedNativeSet(_wrapped);
     }
@@ -301,10 +302,10 @@ contract GiveVault4626 is ERC4626, VaultTokenBase {
         address adapterAddr = address(adapter);
         if (adapterAddr != address(0)) {
             if (adapter.asset() != IERC20(asset())) {
-                revert Errors.InvalidAsset();
+                revert GiveErrors.InvalidAsset();
             }
             if (adapter.vault() != address(this)) {
-                revert Errors.InvalidAdapter();
+                revert GiveErrors.InvalidAdapter();
             }
         }
 
@@ -328,7 +329,7 @@ contract GiveVault4626 is ERC4626, VaultTokenBase {
     function setDonationRouter(
         address router
     ) external onlyRole(VAULT_MANAGER_ROLE) {
-        if (router == address(0)) revert Errors.ZeroAddress();
+        if (router == address(0)) revert GiveErrors.ZeroAddress();
         GiveTypes.VaultConfig storage cfg = _vaultConfig();
         address oldRouter = cfg.donationRouter;
         cfg.donationRouter = router;
@@ -339,7 +340,7 @@ contract GiveVault4626 is ERC4626, VaultTokenBase {
     function setCashBufferBps(
         uint256 _bps
     ) external onlyRole(VAULT_MANAGER_ROLE) {
-        if (_bps > MAX_CASH_BUFFER_BPS) revert Errors.CashBufferTooHigh();
+        if (_bps > MAX_CASH_BUFFER_BPS) revert GiveErrors.CashBufferTooHigh();
         GiveTypes.VaultConfig storage cfg = _vaultConfig();
         uint256 old = cfg.cashBufferBps;
         cfg.cashBufferBps = uint16(_bps);
@@ -349,7 +350,7 @@ contract GiveVault4626 is ERC4626, VaultTokenBase {
     function setSlippageBps(
         uint256 _bps
     ) external onlyRole(VAULT_MANAGER_ROLE) {
-        if (_bps > MAX_SLIPPAGE_BPS) revert Errors.InvalidSlippageBps();
+        if (_bps > MAX_SLIPPAGE_BPS) revert GiveErrors.InvalidSlippageBps();
         GiveTypes.VaultConfig storage cfg = _vaultConfig();
         uint256 old = cfg.slippageBps;
         cfg.slippageBps = uint16(_bps);
@@ -357,7 +358,7 @@ contract GiveVault4626 is ERC4626, VaultTokenBase {
     }
 
     function setMaxLossBps(uint256 _bps) external onlyRole(VAULT_MANAGER_ROLE) {
-        if (_bps > MAX_LOSS_BPS) revert Errors.InvalidMaxLossBps();
+        if (_bps > MAX_LOSS_BPS) revert GiveErrors.InvalidMaxLossBps();
         GiveTypes.VaultConfig storage cfg = _vaultConfig();
         uint256 old = cfg.maxLossBps;
         cfg.maxLossBps = uint16(_bps);
@@ -434,9 +435,9 @@ contract GiveVault4626 is ERC4626, VaultTokenBase {
     {
         GiveTypes.VaultConfig storage cfg = _vaultConfig();
         address adapterAddr = cfg.activeAdapter;
-        if (adapterAddr == address(0)) revert Errors.AdapterNotSet();
+        if (adapterAddr == address(0)) revert GiveErrors.AdapterNotSet();
         if (cfg.donationRouter == address(0))
-            revert Errors.InvalidConfiguration();
+            revert GiveErrors.InvalidConfiguration();
 
         (profit, loss) = IYieldAdapter(adapterAddr).harvest();
 
@@ -461,7 +462,7 @@ contract GiveVault4626 is ERC4626, VaultTokenBase {
     {
         GiveTypes.VaultConfig storage cfg = _vaultConfig();
         address adapterAddr = cfg.activeAdapter;
-        if (adapterAddr == address(0)) revert Errors.AdapterNotSet();
+        if (adapterAddr == address(0)) revert GiveErrors.AdapterNotSet();
 
         withdrawn = IYieldAdapter(adapterAddr).emergencyWithdraw();
         emit EmergencyWithdraw(withdrawn);
@@ -478,20 +479,20 @@ contract GiveVault4626 is ERC4626, VaultTokenBase {
         address receiver,
         address owner
     ) external nonReentrant returns (uint256 assets) {
-        if (receiver == address(0)) revert Errors.ZeroAddress();
+        if (receiver == address(0)) revert GiveErrors.ZeroAddress();
 
         GiveTypes.VaultConfig storage cfg = _vaultConfig();
 
         // Only works during emergency
         if (!cfg.emergencyShutdown) {
-            revert Errors.NotInEmergency();
+            revert GiveErrors.NotInEmergency();
         }
 
         // Grace period must have passed
         if (
             block.timestamp < cfg.emergencyActivatedAt + EMERGENCY_GRACE_PERIOD
         ) {
-            revert Errors.GracePeriodActive();
+            revert GiveErrors.GracePeriodActive();
         }
 
         // Check authorization (msg.sender must be owner or have allowance)
@@ -500,7 +501,7 @@ contract GiveVault4626 is ERC4626, VaultTokenBase {
         /*
         if (msg.sender != owner) {
             uint256 allowed = allowance(owner, msg.sender);
-            if (allowed < shares) revert Errors.InsufficientAllowance();
+            if (allowed < shares) revert GiveErrors.InsufficientAllowance();
             if (allowed != type(uint256).max) {
                 _approve(owner, msg.sender, allowed - shares);
             }
@@ -509,7 +510,7 @@ contract GiveVault4626 is ERC4626, VaultTokenBase {
 
         // Calculate assets (use previewRedeem to respect current exchange rate)
         assets = previewRedeem(shares);
-        if (assets == 0) revert Errors.ZeroAmount();
+        if (assets == 0) revert GiveErrors.ZeroAmount();
 
         // Ensure enough cash available
         _ensureSufficientCash(assets);
@@ -561,7 +562,7 @@ contract GiveVault4626 is ERC4626, VaultTokenBase {
         if (currentCash >= needed) return;
 
         address adapterAddr = cfg.activeAdapter;
-        if (adapterAddr == address(0)) revert Errors.InsufficientCash();
+        if (adapterAddr == address(0)) revert GiveErrors.InsufficientCash();
 
         uint256 shortfall = needed - currentCash;
         uint256 returned = IYieldAdapter(adapterAddr).divest(shortfall);
@@ -570,7 +571,7 @@ contract GiveVault4626 is ERC4626, VaultTokenBase {
             uint256 loss = shortfall - returned;
             uint256 maxLoss = (shortfall * cfg.maxLossBps) / BASIS_POINTS;
             if (loss > maxLoss) {
-                revert Errors.ExcessiveLoss(loss, maxLoss);
+                revert GiveErrors.ExcessiveLoss(loss, maxLoss);
             }
         }
     }
@@ -638,15 +639,15 @@ contract GiveVault4626 is ERC4626, VaultTokenBase {
             cfg.wrappedNative == address(0) ||
             cfg.wrappedNative != address(asset())
         ) {
-            revert Errors.InvalidConfiguration();
+            revert GiveErrors.InvalidConfiguration();
         }
-        if (receiver == address(0)) revert Errors.InvalidReceiver();
-        if (msg.value == 0) revert Errors.InvalidAmount();
+        if (receiver == address(0)) revert GiveErrors.InvalidReceiver();
+        if (msg.value == 0) revert GiveErrors.InvalidAmount();
 
         RiskModule.enforceDepositLimit(vaultId(), totalAssets(), msg.value);
         shares = previewDeposit(msg.value);
         if (shares < minShares)
-            revert Errors.SlippageExceeded(minShares, shares);
+            revert GiveErrors.SlippageExceeded(minShares, shares);
 
         IWETH(cfg.wrappedNative).deposit{value: msg.value}();
         _mint(receiver, shares);
@@ -677,20 +678,20 @@ contract GiveVault4626 is ERC4626, VaultTokenBase {
             cfg.wrappedNative == address(0) ||
             cfg.wrappedNative != address(asset())
         ) {
-            revert Errors.InvalidConfiguration();
+            revert GiveErrors.InvalidConfiguration();
         }
-        if (receiver == address(0)) revert Errors.InvalidReceiver();
-        if (shares == 0) revert Errors.InvalidAmount();
+        if (receiver == address(0)) revert GiveErrors.InvalidReceiver();
+        if (shares == 0) revert GiveErrors.InvalidAmount();
 
         assets = previewRedeem(shares);
         if (assets < minAssets)
-            revert Errors.SlippageExceeded(minAssets, assets);
+            revert GiveErrors.SlippageExceeded(minAssets, assets);
 
         _withdraw(msg.sender, address(this), owner, assets, shares);
 
         IWETH(cfg.wrappedNative).withdraw(assets);
         (bool ok, ) = payable(receiver).call{value: assets}("");
-        if (!ok) revert Errors.TransferFailed();
+        if (!ok) revert GiveErrors.TransferFailed();
 
         return assets;
     }
@@ -706,20 +707,20 @@ contract GiveVault4626 is ERC4626, VaultTokenBase {
             cfg.wrappedNative == address(0) ||
             cfg.wrappedNative != address(asset())
         ) {
-            revert Errors.InvalidConfiguration();
+            revert GiveErrors.InvalidConfiguration();
         }
-        if (receiver == address(0)) revert Errors.InvalidReceiver();
-        if (assets == 0) revert Errors.InvalidAmount();
+        if (receiver == address(0)) revert GiveErrors.InvalidReceiver();
+        if (assets == 0) revert GiveErrors.InvalidAmount();
 
         shares = previewWithdraw(assets);
         if (shares > maxShares)
-            revert Errors.SlippageExceeded(shares, maxShares);
+            revert GiveErrors.SlippageExceeded(shares, maxShares);
 
         _withdraw(msg.sender, address(this), owner, assets, shares);
 
         IWETH(cfg.wrappedNative).withdraw(assets);
         (bool ok, ) = payable(receiver).call{value: assets}("");
-        if (!ok) revert Errors.TransferFailed();
+        if (!ok) revert GiveErrors.TransferFailed();
 
         return shares;
     }

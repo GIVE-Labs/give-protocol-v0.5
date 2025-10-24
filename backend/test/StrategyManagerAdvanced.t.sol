@@ -13,7 +13,7 @@ import "../src/payout/PayoutRouter.sol";
 import "../src/governance/ACLManager.sol";
 import "../src/interfaces/IYieldAdapter.sol";
 import "../src/types/GiveTypes.sol";
-import "../src/utils/Errors.sol";
+import "../src/utils/GiveErrors.sol";
 
 contract MockERC20 is ERC20 {
     constructor() ERC20("Mock Token", "MCK") {}
@@ -124,7 +124,7 @@ contract StrategyManagerAdvancedTest is Test {
         // Since it's not approved, it will fail with InvalidAdapter first
         address wrongAdapter = makeAddr("wrongAdapter");
         vm.prank(admin);
-        vm.expectRevert(Errors.InvalidAdapter.selector);
+        vm.expectRevert(GiveErrors.InvalidAdapter.selector);
         manager.setActiveAdapter(wrongAdapter);
     }
 

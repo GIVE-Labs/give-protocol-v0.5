@@ -5,7 +5,7 @@ pragma solidity ^0.8.20;
  * @title Errors
  * @dev Custom errors for the GIVE Protocol contracts
  */
-library Errors {
+library GiveErrors {
     // === Vault Errors ===
     error VaultPaused();
     error InvestPaused();

@@ -11,7 +11,7 @@ import "../src/registry/StrategyRegistry.sol";
 import "../src/registry/CampaignRegistry.sol";
 import "../src/governance/ACLManager.sol";
 import "../src/types/GiveTypes.sol";
-import "../src/utils/Errors.sol";
+import "../src/utils/GiveErrors.sol";
 
 contract MockERC20 is ERC20 {
     constructor() ERC20("Mock Token", "MCK") {}
@@ -112,7 +112,7 @@ contract PayoutRouterTest is Test {
     function testUnauthorizedCallerCannotDistribute() public {
         vm.expectRevert(
             abi.encodeWithSelector(
-                Errors.UnauthorizedCaller.selector,
+                GiveErrors.UnauthorizedCaller.selector,
                 address(this)
             )
         );
@@ -168,7 +168,7 @@ contract PayoutRouterTest is Test {
         token.mint(address(router), 500 ether);
         vm.prank(campaignVault);
         vm.expectRevert(
-            abi.encodeWithSelector(Errors.OperationNotAllowed.selector)
+            abi.encodeWithSelector(GiveErrors.OperationNotAllowed.selector)
         );
         router.distributeToAllUsers(address(token), 500 ether);
     }

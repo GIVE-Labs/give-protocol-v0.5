@@ -4,7 +4,7 @@ pragma solidity ^0.8.20;
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
 import "../base/AdapterBase.sol";
-import "../../utils/Errors.sol";
+import "../../utils/GiveErrors.sol";
 
 contract GrowthAdapter is AdapterBase {
     using SafeERC20 for IERC20;
@@ -19,7 +19,7 @@ contract GrowthAdapter is AdapterBase {
     }
 
     function invest(uint256 assets) external override onlyVault {
-        if (assets == 0) revert Errors.InvalidInvestAmount();
+        if (assets == 0) revert GiveErrors.InvalidInvestAmount();
         totalDeposits += assets;
         emit Invested(assets);
     }

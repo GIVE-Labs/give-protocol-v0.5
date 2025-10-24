@@ -7,7 +7,7 @@ import "@openzeppelin/contracts/utils/Pausable.sol";
 
 import "../storage/StorageLib.sol";
 import "../types/GiveTypes.sol";
-import "../utils/Errors.sol";
+import "../utils/GiveErrors.sol";
 import "../utils/ACLShim.sol";
 
 contract NGORegistry is Initializable, UUPSUpgradeable, ACLShim, Pausable {
@@ -25,7 +25,7 @@ contract NGORegistry is Initializable, UUPSUpgradeable, ACLShim, Pausable {
     event DonationRecorded(address indexed ngo, uint256 amount, uint256 newTotalReceived);
 
     function initialize(address acl) external initializer {
-        if (acl == address(0)) revert Errors.ZeroAddress();
+        if (acl == address(0)) revert GiveErrors.ZeroAddress();
         _setACLManager(acl);
     }
 
@@ -90,10 +90,10 @@ contract NGORegistry is Initializable, UUPSUpgradeable, ACLShim, Pausable {
         onlyRole(NGO_MANAGER_ROLE)
         whenNotPaused
     {
-        if (ngo == address(0)) revert Errors.InvalidNGOAddress();
-        if (_state().isApproved[ngo]) revert Errors.NGOAlreadyApproved();
-        if (bytes(metadataCid).length == 0) revert Errors.InvalidMetadataCid();
-        if (attestor == address(0)) revert Errors.InvalidAttestor();
+        if (ngo == address(0)) revert GiveErrors.InvalidNGOAddress();
+        if (_state().isApproved[ngo]) revert GiveErrors.NGOAlreadyApproved();
+        if (bytes(metadataCid).length == 0) revert GiveErrors.InvalidMetadataCid();
+        if (attestor == address(0)) revert GiveErrors.InvalidAttestor();
 
         GiveTypes.NGORegistryState storage s = _state();
         s.isApproved[ngo] = true;
@@ -120,7 +120,7 @@ contract NGORegistry is Initializable, UUPSUpgradeable, ACLShim, Pausable {
 
     function removeNGO(address ngo) external onlyRole(NGO_MANAGER_ROLE) {
         GiveTypes.NGORegistryState storage s = _state();
-        if (!s.isApproved[ngo]) revert Errors.NGONotApproved();
+        if (!s.isApproved[ngo]) revert GiveErrors.NGONotApproved();
 
         string memory metadataCid = s.ngoInfo[ngo].metadataCid;
         s.isApproved[ngo] = false;
@@ -142,8 +142,8 @@ contract NGORegistry is Initializable, UUPSUpgradeable, ACLShim, Pausable {
         onlyRole(NGO_MANAGER_ROLE)
     {
         GiveTypes.NGORegistryState storage s = _state();
-        if (!s.isApproved[ngo]) revert Errors.NGONotApproved();
-        if (bytes(newMetadataCid).length == 0) revert Errors.InvalidMetadataCid();
+        if (!s.isApproved[ngo]) revert GiveErrors.NGONotApproved();
+        if (bytes(newMetadataCid).length == 0) revert GiveErrors.InvalidMetadataCid();
 
         GiveTypes.NGOInfo storage info = s.ngoInfo[ngo];
         string memory oldMetadataCid = info.metadataCid;
@@ -159,7 +159,7 @@ contract NGORegistry is Initializable, UUPSUpgradeable, ACLShim, Pausable {
 
     function proposeCurrentNGO(address ngo) external onlyRole(NGO_MANAGER_ROLE) {
         GiveTypes.NGORegistryState storage s = _state();
-        if (ngo != address(0) && !s.isApproved[ngo]) revert Errors.NGONotApproved();
+        if (ngo != address(0) && !s.isApproved[ngo]) revert GiveErrors.NGONotApproved();
 
         s.pendingCurrentNGO = ngo;
         s.currentNGOChangeETA = block.timestamp + TIMELOCK_DELAY;
@@ -169,8 +169,8 @@ contract NGORegistry is Initializable, UUPSUpgradeable, ACLShim, Pausable {
 
     function executeCurrentNGOChange() external {
         GiveTypes.NGORegistryState storage s = _state();
-        if (s.currentNGOChangeETA == 0) revert Errors.NoTimelockPending();
-        if (block.timestamp < s.currentNGOChangeETA) revert Errors.TimelockNotReady();
+        if (s.currentNGOChangeETA == 0) revert GiveErrors.NoTimelockPending();
+        if (block.timestamp < s.currentNGOChangeETA) revert GiveErrors.TimelockNotReady();
 
         address oldNGO = s.currentNGO;
         s.currentNGO = s.pendingCurrentNGO;
@@ -182,7 +182,7 @@ contract NGORegistry is Initializable, UUPSUpgradeable, ACLShim, Pausable {
 
     function emergencySetCurrentNGO(address ngo) external onlyRole(DEFAULT_ADMIN_ROLE) {
         GiveTypes.NGORegistryState storage s = _state();
-        if (ngo != address(0) && !s.isApproved[ngo]) revert Errors.NGONotApproved();
+        if (ngo != address(0) && !s.isApproved[ngo]) revert GiveErrors.NGONotApproved();
 
         address oldNGO = s.currentNGO;
         s.currentNGO = ngo;
@@ -194,7 +194,7 @@ contract NGORegistry is Initializable, UUPSUpgradeable, ACLShim, Pausable {
 
     function recordDonation(address ngo, uint256 amount) external onlyRole(DONATION_RECORDER_ROLE) {
         GiveTypes.NGORegistryState storage s = _state();
-        if (!s.isApproved[ngo]) revert Errors.NGONotApproved();
+        if (!s.isApproved[ngo]) revert GiveErrors.NGONotApproved();
 
         GiveTypes.NGOInfo storage info = s.ngoInfo[ngo];
         info.totalReceived += amount;
@@ -228,7 +228,7 @@ contract NGORegistry is Initializable, UUPSUpgradeable, ACLShim, Pausable {
 
     function _authorizeUpgrade(address) internal view override {
         if (!aclManager.hasRole(ROLE_UPGRADER, msg.sender)) {
-            revert Errors.UnauthorizedCaller(msg.sender);
+            revert GiveErrors.UnauthorizedCaller(msg.sender);
         }
     }
 }

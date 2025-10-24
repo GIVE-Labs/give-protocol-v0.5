@@ -8,7 +8,7 @@ import "../interfaces/IYieldAdapter.sol";
 import "../registry/StrategyRegistry.sol";
 import "../registry/CampaignRegistry.sol";
 import "../types/GiveTypes.sol";
-import "../utils/Errors.sol";
+import "../utils/GiveErrors.sol";
 import "../utils/ACLShim.sol";
 
 /**
@@ -70,7 +70,7 @@ contract StrategyManager is ACLShim, ReentrancyGuard, Pausable {
         address _campaignRegistry
     ) {
         if (_vault == address(0) || _admin == address(0)) {
-            revert Errors.ZeroAddress();
+            revert GiveErrors.ZeroAddress();
         }
 
         vault = GiveVault4626(payable(_vault));
@@ -96,14 +96,14 @@ contract StrategyManager is ACLShim, ReentrancyGuard, Pausable {
         address adapter,
         bool approved
     ) external onlyRole(STRATEGY_MANAGER_ROLE) {
-        if (adapter == address(0)) revert Errors.ZeroAddress();
+        if (adapter == address(0)) revert GiveErrors.ZeroAddress();
 
         bool wasApproved = approvedAdapters[adapter];
         approvedAdapters[adapter] = approved;
 
         if (approved && !wasApproved) {
             if (adapterList.length >= MAX_ADAPTERS) {
-                revert Errors.ParameterOutOfRange();
+                revert GiveErrors.ParameterOutOfRange();
             }
             adapterList.push(adapter);
         } else if (!approved && wasApproved) {
@@ -121,7 +121,7 @@ contract StrategyManager is ACLShim, ReentrancyGuard, Pausable {
         address adapter
     ) external onlyRole(STRATEGY_MANAGER_ROLE) whenNotPaused {
         if (adapter != address(0)) {
-            if (!approvedAdapters[adapter]) revert Errors.InvalidAdapter();
+            if (!approvedAdapters[adapter]) revert GiveErrors.InvalidAdapter();
             _assertAdapterMatchesCampaign(adapter);
         }
         vault.setActiveAdapter(IYieldAdapter(adapter));
@@ -173,7 +173,7 @@ contract StrategyManager is ACLShim, ReentrancyGuard, Pausable {
             interval < MIN_REBALANCE_INTERVAL ||
             interval > MAX_REBALANCE_INTERVAL
         ) {
-            revert Errors.ParameterOutOfRange();
+            revert GiveErrors.ParameterOutOfRange();
         }
 
         uint256 oldInterval = rebalanceInterval;
@@ -223,7 +223,7 @@ contract StrategyManager is ACLShim, ReentrancyGuard, Pausable {
     function setEmergencyExitThreshold(
         uint256 threshold
     ) external onlyRole(STRATEGY_MANAGER_ROLE) {
-        if (threshold > 5000) revert Errors.ParameterOutOfRange(); // Max 50%
+        if (threshold > 5000) revert GiveErrors.ParameterOutOfRange(); // Max 50%
 
         uint256 oldThreshold = emergencyExitThreshold;
         emergencyExitThreshold = threshold;
@@ -339,7 +339,7 @@ contract StrategyManager is ACLShim, ReentrancyGuard, Pausable {
         );
 
         if (strategy.adapter != adapter) {
-            revert Errors.InvalidStrategy();
+            revert GiveErrors.InvalidStrategy();
         }
     }
 

@@ -10,7 +10,7 @@ import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
 import "../storage/StorageLib.sol";
 import "../types/GiveTypes.sol";
-import "../utils/Errors.sol";
+import "../utils/GiveErrors.sol";
 import "../utils/ACLShim.sol";
 import "../registry/CampaignRegistry.sol";
 
@@ -123,9 +123,9 @@ contract PayoutRouter is
             feeRecipient_ == address(0) ||
             protocolTreasury_ == address(0)
         ) {
-            revert Errors.ZeroAddress();
+            revert GiveErrors.ZeroAddress();
         }
-        if (feeBps_ > MAX_FEE_BPS) revert Errors.InvalidConfiguration();
+        if (feeBps_ > MAX_FEE_BPS) revert GiveErrors.InvalidConfiguration();
 
         _setACLManager(acl_);
 
@@ -221,7 +221,7 @@ contract PayoutRouter is
         address caller,
         bool authorized
     ) external onlyRole(VAULT_MANAGER_ROLE) {
-        if (caller == address(0)) revert Errors.ZeroAddress();
+        if (caller == address(0)) revert GiveErrors.ZeroAddress();
         _state().authorizedCallers[caller] = authorized;
         emit AuthorizedCallerUpdated(caller, authorized);
     }
@@ -234,8 +234,8 @@ contract PayoutRouter is
         address newRecipient,
         uint256 newFeeBps
     ) external onlyRole(FEE_MANAGER_ROLE) {
-        if (newRecipient == address(0)) revert Errors.ZeroAddress();
-        if (newFeeBps > MAX_FEE_BPS) revert Errors.InvalidConfiguration();
+        if (newRecipient == address(0)) revert GiveErrors.ZeroAddress();
+        if (newFeeBps > MAX_FEE_BPS) revert GiveErrors.InvalidConfiguration();
 
         GiveTypes.PayoutRouterState storage s = _state();
         uint256 currentFee = s.feeBps;
@@ -257,7 +257,7 @@ contract PayoutRouter is
         // Fee increases require timelock
         uint256 feeIncrease = newFeeBps - currentFee;
         if (feeIncrease > MAX_FEE_INCREASE_PER_CHANGE) {
-            revert Errors.FeeIncreaseTooLarge(
+            revert GiveErrors.FeeIncreaseTooLarge(
                 feeIncrease,
                 MAX_FEE_INCREASE_PER_CHANGE
             );
@@ -284,11 +284,11 @@ contract PayoutRouter is
         GiveTypes.PendingFeeChange storage change = s.pendingFeeChanges[nonce];
 
         if (!change.exists) {
-            revert Errors.FeeChangeNotFound(nonce);
+            revert GiveErrors.FeeChangeNotFound(nonce);
         }
 
         if (block.timestamp < change.effectiveTimestamp) {
-            revert Errors.TimelockNotExpired(
+            revert GiveErrors.TimelockNotExpired(
                 block.timestamp,
                 change.effectiveTimestamp
             );
@@ -322,7 +322,7 @@ contract PayoutRouter is
         GiveTypes.PendingFeeChange storage change = s.pendingFeeChanges[nonce];
 
         if (!change.exists) {
-            revert Errors.FeeChangeNotFound(nonce);
+            revert GiveErrors.FeeChangeNotFound(nonce);
         }
 
         delete s.pendingFeeChanges[nonce];
@@ -373,7 +373,7 @@ contract PayoutRouter is
     function setProtocolTreasury(
         address newTreasury
     ) external onlyRole(FEE_MANAGER_ROLE) {
-        if (newTreasury == address(0)) revert Errors.ZeroAddress();
+        if (newTreasury == address(0)) revert GiveErrors.ZeroAddress();
         GiveTypes.PayoutRouterState storage s = _state();
         address oldTreasury = s.protocolTreasury;
         s.protocolTreasury = newTreasury;
@@ -395,7 +395,7 @@ contract PayoutRouter is
         bytes32 campaignId
     ) external onlyRole(VAULT_MANAGER_ROLE) {
         if (vault == address(0) || campaignId == bytes32(0))
-            revert Errors.ZeroAddress();
+            revert GiveErrors.ZeroAddress();
         GiveTypes.PayoutRouterState storage s = _state();
         s.vaultCampaigns[vault] = campaignId;
         emit CampaignVaultRegistered(vault, campaignId);
@@ -474,22 +474,22 @@ contract PayoutRouter is
         address asset,
         uint256 totalYield
     ) external nonReentrant whenNotPaused onlyAuthorized returns (uint256) {
-        if (asset == address(0)) revert Errors.ZeroAddress();
-        if (totalYield == 0) revert Errors.InvalidAmount();
+        if (asset == address(0)) revert GiveErrors.ZeroAddress();
+        if (totalYield == 0) revert GiveErrors.InvalidAmount();
 
         IERC20 token = IERC20(asset);
         if (token.balanceOf(address(this)) < totalYield)
-            revert Errors.InsufficientBalance();
+            revert GiveErrors.InsufficientBalance();
 
         GiveTypes.PayoutRouterState storage s = _state();
         bytes32 campaignId = _requireCampaignForVault(s, msg.sender);
         GiveTypes.CampaignConfig memory campaign = CampaignRegistry(
             s.campaignRegistry
         ).getCampaign(campaignId);
-        if (campaign.payoutsHalted) revert Errors.OperationNotAllowed();
+        if (campaign.payoutsHalted) revert GiveErrors.OperationNotAllowed();
 
         uint256 totalShares = s.totalVaultShares[msg.sender];
-        if (totalShares == 0) revert Errors.InvalidConfiguration();
+        if (totalShares == 0) revert GiveErrors.InvalidConfiguration();
 
         address[] storage holders = s.vaultShareholders[msg.sender];
         YieldTotals memory totals;
@@ -560,7 +560,7 @@ contract PayoutRouter is
         uint256 amount
     ) external onlyRole(DEFAULT_ADMIN_ROLE) {
         if (asset == address(0) || recipient == address(0))
-            revert Errors.ZeroAddress();
+            revert GiveErrors.ZeroAddress();
         IERC20(asset).safeTransfer(recipient, amount);
         emit EmergencyWithdrawal(asset, recipient, amount);
     }
@@ -655,7 +655,7 @@ contract PayoutRouter is
 
     modifier onlyAuthorized() {
         if (!_state().authorizedCallers[msg.sender]) {
-            revert Errors.UnauthorizedCaller(msg.sender);
+            revert GiveErrors.UnauthorizedCaller(msg.sender);
         }
         _;
     }

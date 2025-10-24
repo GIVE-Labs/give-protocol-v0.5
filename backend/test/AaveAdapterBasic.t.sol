@@ -4,7 +4,7 @@ pragma solidity ^0.8.20;
 import "forge-std/Test.sol";
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "../src/adapters/AaveAdapter.sol";
-import "../src/utils/Errors.sol";
+import "../src/utils/GiveErrors.sol";
 
 contract AaveAdapterBasicTest is Test {
     MockERC20 public usdc;
@@ -55,7 +55,7 @@ contract AaveAdapterBasicTest is Test {
     }
 
     function testOnlyVaultCanInvest() public {
-        vm.expectRevert(Errors.OnlyVault.selector);
+        vm.expectRevert(GiveErrors.OnlyVault.selector);
         adapter.invest(1);
     }
 }

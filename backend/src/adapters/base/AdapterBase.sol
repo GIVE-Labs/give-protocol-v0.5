@@ -4,7 +4,7 @@ pragma solidity ^0.8.20;
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 import "../../interfaces/IYieldAdapter.sol";
-import "../../utils/Errors.sol";
+import "../../utils/GiveErrors.sol";
 
 abstract contract AdapterBase is IYieldAdapter {
     bytes32 public immutable adapterId;
@@ -18,7 +18,7 @@ abstract contract AdapterBase is IYieldAdapter {
     }
 
     modifier onlyVault() {
-        if (msg.sender != adapterVault) revert Errors.OnlyVault();
+        if (msg.sender != adapterVault) revert GiveErrors.OnlyVault();
         _;
     }
 

@@ -96,7 +96,7 @@ flowchart TB
     A2 -->|Harvest Yield| PR
 
     PR -->|50% Campaign| CAMP
-    PR -->|5     0% Supporter| U
+    PR -->|50% Supporter| U
 
     CR -.->|Checkpoint Voting| CAMP
     U -.->|Vote on Milestones| CR

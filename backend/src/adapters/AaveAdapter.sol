@@ -6,7 +6,7 @@ import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/utils/Pausable.sol";
 import "../interfaces/IYieldAdapter.sol";
-import "../utils/Errors.sol";
+import "../utils/GiveErrors.sol";
 import "../utils/ACLShim.sol";
 
 // Aave V3 interfaces
@@ -79,7 +79,7 @@ contract AaveAdapter is IYieldAdapter, ACLShim, ReentrancyGuard, Pausable {
     // === Constructor ===
     constructor(address _asset, address _vault, address _aavePool, address _admin) {
         if (_asset == address(0) || _vault == address(0) || _aavePool == address(0) || _admin == address(0)) {
-            revert Errors.ZeroAddress();
+            revert GiveErrors.ZeroAddress();
         }
 
         asset = IERC20(_asset);
@@ -89,7 +89,7 @@ contract AaveAdapter is IYieldAdapter, ACLShim, ReentrancyGuard, Pausable {
         // Get aToken address from Aave pool
         ReserveData memory reserveData = aavePool.getReserveData(_asset);
         if (reserveData.aTokenAddress == address(0)) {
-            revert Errors.InvalidAsset();
+            revert GiveErrors.InvalidAsset();
         }
         aToken = IAToken(reserveData.aTokenAddress);
 
@@ -105,12 +105,12 @@ contract AaveAdapter is IYieldAdapter, ACLShim, ReentrancyGuard, Pausable {
 
     // === Modifiers ===
     modifier onlyVault() {
-        if (msg.sender != vault) revert Errors.OnlyVault();
+        if (msg.sender != vault) revert GiveErrors.OnlyVault();
         _;
     }
 
     modifier whenNotEmergency() {
-        if (emergencyMode) revert Errors.AdapterPaused();
+        if (emergencyMode) revert GiveErrors.AdapterPaused();
         _;
     }
 
@@ -128,10 +128,10 @@ contract AaveAdapter is IYieldAdapter, ACLShim, ReentrancyGuard, Pausable {
      * @param assets Amount of assets to invest
      */
     function invest(uint256 assets) external override onlyVault nonReentrant whenNotPaused whenNotEmergency {
-        if (assets == 0) revert Errors.InvalidInvestAmount();
+        if (assets == 0) revert GiveErrors.InvalidInvestAmount();
 
         uint256 balanceBefore = asset.balanceOf(address(this));
-        if (balanceBefore < assets) revert Errors.InsufficientBalance();
+        if (balanceBefore < assets) revert GiveErrors.InsufficientBalance();
 
         // Supply to Aave
         aavePool.supply(address(asset), assets, address(this), AAVE_REFERRAL_CODE);
@@ -147,7 +147,7 @@ contract AaveAdapter is IYieldAdapter, ACLShim, ReentrancyGuard, Pausable {
      * @return returned Actual amount of assets returned
      */
     function divest(uint256 assets) external override onlyVault nonReentrant whenNotPaused returns (uint256 returned) {
-        if (assets == 0) revert Errors.InvalidDivestAmount();
+        if (assets == 0) revert GiveErrors.InvalidDivestAmount();
 
         uint256 aTokenBalance = aToken.balanceOf(address(this));
         if (aTokenBalance == 0) return 0;
@@ -162,7 +162,7 @@ contract AaveAdapter is IYieldAdapter, ACLShim, ReentrancyGuard, Pausable {
         if (!emergencyMode && returned < assets) {
             uint256 slippage = ((assets - returned) * BASIS_POINTS) / assets;
             if (slippage > maxSlippageBps) {
-                revert Errors.SlippageExceeded(slippage, maxSlippageBps);
+                revert GiveErrors.SlippageExceeded(slippage, maxSlippageBps);
             }
         }
 
@@ -249,7 +249,7 @@ contract AaveAdapter is IYieldAdapter, ACLShim, ReentrancyGuard, Pausable {
      * @param _bps Basis points (100 = 1%)
      */
     function setMaxSlippageBps(uint256 _bps) external onlyRole(DEFAULT_ADMIN_ROLE) {
-        if (_bps > 1000) revert Errors.InvalidSlippageBps(); // Max 10%
+        if (_bps > 1000) revert GiveErrors.InvalidSlippageBps(); // Max 10%
 
         uint256 oldBps = maxSlippageBps;
         maxSlippageBps = _bps;
@@ -262,7 +262,7 @@ contract AaveAdapter is IYieldAdapter, ACLShim, ReentrancyGuard, Pausable {
      * @param _bps Basis points (9500 = 95%)
      */
     function setEmergencyExitBps(uint256 _bps) external onlyRole(DEFAULT_ADMIN_ROLE) {
-        if (_bps < 5000 || _bps > 10000) revert Errors.ParameterOutOfRange();
+        if (_bps < 5000 || _bps > 10000) revert GiveErrors.ParameterOutOfRange();
 
         uint256 oldBps = emergencyExitBps;
         emergencyExitBps = _bps;

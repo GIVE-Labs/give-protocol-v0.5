@@ -153,25 +153,240 @@ This plan replaces all previous overhaul documents. It is the single source of t
 
 ## 🔮 Future Improvements & Roadmap
 
-### Phase 17 – Pre-Mainnet Finalization (TODO)
+### Phase 17 – Base Sepolia Testnet Deployment
+**Objective:** Deploy WETH-only campaign with Aave V3 adapter to Base Sepolia for public testing.
+
+#### Phase 17.1 – Local Testing with MockAdapter
+- [ ] Run full test suite on Anvil with `MockYieldAdapter` to validate protocol stack
+- [ ] Execute end-to-end flow: deposit → auto-invest (99%) → harvest → payout distribution
+- [ ] Verify all 116 tests pass with zero regressions
+- [ ] Test emergency withdrawal and pause mechanisms
+- [ ] Validate checkpoint voting and stake withdrawal
+
+**Command:**
+```bash
+cd backend
+forge test -vv
+# Expected: 116/116 tests passing
+```
+
+#### Phase 17.2 – Base Sepolia Configuration
+- [ ] Add Base Sepolia network config to `HelperConfig.s.sol`:
+  - Chain ID: `84532`
+  - WETH: `0x4200000000000000000000000000000000000006` (canonical Base WETH)
+  - Aave V3 Pool: `0x07eA79F68B2B3df564D0A34F8e19D9B1e339814b`
+  - Chainlink ETH/USD: `0x4aDC67696bA383F43DD60A9e78F2C97Fbbfc7cb1`
+  - Base Sepolia RPC: Add to `.env`
+
+**File Changes:**
+```solidity
+// backend/script/HelperConfig.s.sol
+function getBaseSepoliaConfig() public pure returns (NetworkConfig memory) {
+    return NetworkConfig({
+        wethUsdPriceFeed: 0x4aDC67696bA383F43DD60A9e78F2C97Fbbfc7cb1,
+        wbtcUsdPriceFeed: address(0), // Not needed for WETH-only
+        weth: 0x4200000000000000000000000000000000000006,
+        wbtc: address(0),
+        usdc: address(0),
+        aavePool: 0x07eA79F68B2B3df564D0A34F8e19D9B1e339814b,
+        deployerKey: 0
+    });
+}
+```
+
+#### Phase 17.3 – Bootstrap Script Update
+- [ ] Modify `Bootstrap.s.sol` to support WETH-only mode for testnet
+- [ ] Skip USDC/WBTC vault creation when addresses are `address(0)`
+- [ ] Configure single WETH strategy with Aave adapter
+- [ ] Set conservative risk parameters (max TVL, slippage tolerance)
+
+**Config:**
+- Strategy: "WETH Conservative Yield"
+- Risk Tier: Low (Aave V3)
+- Max TVL: 10 ETH (testnet limit)
+- Cash Buffer: 1% (99% auto-invest)
+
+#### Phase 17.4 – Deployment Script
+- [ ] Create `script/DeployBaseSepolia.s.sol` with deterministic deployment flow
+- [ ] Deploy sequence:
+  1. ACL Manager (role-based access control)
+  2. Strategy Registry (WETH/Aave strategy)
+  3. Campaign Registry (sample climate campaign)
+  4. Payout Router (yield distribution)
+  5. Vault Factory (campaign vault deployer)
+  6. Aave Adapter (WETH → Aave V3)
+  7. Campaign Vault (WETH ERC-4626 vault)
+- [ ] Log all deployed addresses to `broadcast/DeployBaseSepolia.s.sol/84532/`
+- [ ] Emit events for indexer initialization
+
+**Script Structure:**
+```solidity
+contract DeployBaseSepolia is Script {
+    function run() external {
+        // 1. Load config
+        // 2. Deploy via Bootstrap
+        // 3. Register WETH strategy + Aave adapter
+        // 4. Create sample campaign
+        // 5. Deploy campaign vault via factory
+        // 6. Assign roles and verify setup
+        // 7. Log addresses
+    }
+}
+```
+
+#### Phase 17.5 – Fork Testing
+- [ ] Create `test/Fork_AaveBaseSepolia.t.sol` 
+- [ ] Fork Base Sepolia with `vm.createFork()`
+- [ ] Deploy `AaveAdapter` with real Aave V3 pool
+- [ ] Test WETH deposit → Aave supply → harvest yield flow
+- [ ] Verify aToken balance increases
+- [ ] Test emergency withdrawal from Aave
+
+**Test Command:**
+```bash
+FORK_RPC_URL=<base-sepolia-rpc> \
+forge test --match-test testFork_AaveBaseSepolia -vv
+```
+
+#### Phase 17.6 – Testnet Deployment Execution
+- [ ] Fund deployer wallet with Base Sepolia ETH:
+  - Faucet: https://www.coinbase.com/faucets/base-ethereum-sepolia-faucet
+  - Required: ~0.5 ETH for gas + initial deposits
+- [ ] Set environment variables in `.env`:
+  ```bash
+  BASE_SEPOLIA_RPC_URL=https://sepolia.base.org
+  PRIVATE_KEY=<deployer-key>
+  BASESCAN_API_KEY=<for-verification>
+  ```
+- [ ] Execute deployment:
+  ```bash
+  cd backend
+  forge script script/DeployBaseSepolia.s.sol \
+    --rpc-url base-sepolia \
+    --broadcast \
+    --verify \
+    --etherscan-api-key $BASESCAN_API_KEY
+  ```
+- [ ] Capture deployment transaction hashes and addresses
+
+#### Phase 17.7 – Post-Deployment Verification
+- [ ] Verify all contracts on Basescan:
+  - ACLManager: roles created correctly
+  - StrategyRegistry: WETH strategy active
+  - CampaignRegistry: sample campaign approved
+  - PayoutRouter: valid allocations set (50/75/100)
+  - VaultFactory: factory role assigned
+  - AaveAdapter: connected to Aave pool
+  - CampaignVault: WETH asset, Aave adapter configured
+
+- [ ] Run smoke tests calling deployed contracts:
+  ```bash
+  # Test deposit
+  cast send <vault-address> "deposit(uint256,address)" 0.1ether <user-address> \
+    --rpc-url base-sepolia --private-key $TEST_PRIVATE_KEY
+  
+  # Verify shares minted
+  cast call <vault-address> "balanceOf(address)" <user-address>
+  
+  # Check adapter investment
+  cast call <adapter-address> "totalAssets()(uint256)"
+  ```
+
+- [ ] Verify ACL role assignments:
+  ```bash
+  # Check vault manager role
+  cast call <acl-address> "hasRole(bytes32,address)" \
+    $(cast keccak "VAULT_MANAGER_ROLE") <admin-address>
+  ```
+
+#### Phase 17.8 – Testnet Operations Guide
+- [ ] Create `docs/TESTNET_GUIDE.md` with:
+  - Deployed contract addresses (ACL, registries, factory, vaults)
+  - Base Sepolia faucet links (ETH, WETH wrapper)
+  - Campaign creation flow for NGOs
+  - Supporter deposit/withdrawal instructions
+  - Harvest trigger process (manual or keeper)
+  - Payout allocation settings (50/75/100% to campaign)
+  - Emergency procedures (pause, emergency withdrawal)
+  - Checkpoint voting simulation
+  - Frontend integration examples (Wagmi hooks)
+
+- [ ] Document WETH wrapper flow:
+  ```solidity
+  // Convert ETH → WETH on Base Sepolia
+  WETH.deposit{value: 1 ether}();
+  
+  // Approve vault
+  WETH.approve(vaultAddress, type(uint256).max);
+  
+  // Deposit to campaign vault
+  vault.deposit(1 ether, msg.sender);
+  ```
+
+- [ ] Create frontend config template:
+  ```typescript
+  // apps/web/src/config/addresses.ts
+  export const BASE_SEPOLIA_ADDRESSES = {
+    aclManager: '0x...',
+    strategyRegistry: '0x...',
+    campaignRegistry: '0x...',
+    payoutRouter: '0x...',
+    vaultFactory: '0x...',
+    wethVault: '0x...',
+    aaveAdapter: '0x...',
+  }
+  ```
+
+#### Phase 17.9 – Frontend Integration Testing
+- [ ] Update `apps/web/src/config/addresses.ts` with Base Sepolia addresses
+- [ ] Test deposit flow: Connect wallet → Wrap ETH → Deposit to vault
+- [ ] Test withdrawal flow: Withdraw shares → Receive WETH → Unwrap to ETH
+- [ ] Test payout preferences: Set allocation (50/75/100%), verify on-chain
+- [ ] Test campaign views: List campaigns, show TVL, APY estimates
+- [ ] Test voting UI: Vote on checkpoints, view results
+- [ ] Verify events indexing: Subgraph or frontend polling
+
+#### Phase 17.10 – Public Testing Period
+- [ ] Share testnet links with community:
+  - Base Sepolia Basescan contract links
+  - Frontend dApp URL (Vercel/Netlify deployment)
+  - Test ETH faucet instructions
+  - Discord/Telegram support channel
+
+- [ ] Monitor for issues:
+  - Gas usage patterns
+  - Aave adapter performance
+  - Emergency pause triggers
+  - User experience friction
+
+- [ ] Collect feedback on:
+  - Campaign creation flow
+  - Deposit/withdrawal UX
+  - Payout allocation clarity
+  - Voting mechanism understanding
+
+---
+
+### Phase 18 – Pre-Mainnet Finalization (TODO)
 - [ ] **Documentation:**
   - [ ] Create `UPGRADE_GUIDE.md` with step-by-step upgrade procedures
-  - [ ] Create `EMERGENCY_PROCEDURES.md` for incident response
   - [ ] Create `BUG_BOUNTY.md` with scope and reward structure
-  - [ ] Create `FRONTEND_INTEGRATION.md` for dApp developers
-  - [ ] Update README with v0.5 architecture overview
-
-- [ ] **Testnet Deployment:**
-  - [ ] Deploy to Sepolia testnet via Bootstrap script
-  - [ ] Deploy to Base Sepolia testnet
-  - [ ] Run smoke tests on all networks
-  - [ ] Validate frontend integration
+  - [ ] Finalize `FRONTEND_INTEGRATION.md` for dApp developers
+  - [x] Create `EMERGENCY_PROCEDURES.md` for incident response ✅
+  - [ ] Update README with v0.5 production overview
 
 - [ ] **Operations Setup:**
   - [ ] Configure monitoring and alerting (emergency events, large withdrawals)
-  - [ ] Set up multisig for admin roles
-  - [ ] Create incident response playbook
+  - [ ] Set up Gnosis Safe multisig for admin roles (3-of-5 signers)
+  - [ ] Create incident response playbook with escalation matrix
   - [ ] Train operations team on emergency procedures
+  - [ ] Set up keeper infrastructure for automated harvests
+
+- [ ] **Security Final Checks:**
+  - [ ] Third-party audit firm engagement (if budget permits)
+  - [ ] Bug bounty program launch (ImmuneFi/Code4rena)
+  - [ ] Stress testing on mainnet fork (1000+ users, 100+ campaigns)
+  - [ ] Disaster recovery drills (emergency pause, upgrade, migration)
 
 ### Phase 18 – Post-Launch Optimizations (Future)
 - [ ] **Gas Optimization:**

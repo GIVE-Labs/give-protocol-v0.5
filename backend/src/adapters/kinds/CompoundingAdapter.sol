@@ -4,7 +4,7 @@ pragma solidity ^0.8.20;
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
 import "../base/AdapterBase.sol";
-import "../../utils/Errors.sol";
+import "../../utils/GiveErrors.sol";
 
 contract CompoundingAdapter is AdapterBase {
     using SafeERC20 for IERC20;
@@ -19,13 +19,13 @@ contract CompoundingAdapter is AdapterBase {
     }
 
     function invest(uint256 assets) external override onlyVault {
-        if (assets == 0) revert Errors.InvalidInvestAmount();
+        if (assets == 0) revert GiveErrors.InvalidInvestAmount();
         investedAmount += assets;
         emit Invested(assets);
     }
 
     function divest(uint256 assets) external override onlyVault returns (uint256 returned) {
-        if (assets == 0) revert Errors.InvalidDivestAmount();
+        if (assets == 0) revert GiveErrors.InvalidDivestAmount();
 
         uint256 balance = asset().balanceOf(address(this));
         returned = assets > balance ? balance : assets;
