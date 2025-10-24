@@ -40,14 +40,87 @@ See `audits/` folder for complete security documentation and `docs/` for system 
 
 ---
 
-## Architecture at a Glance
-- **Governance:** Timelock → Multisig → `ACLManager`. The ACL issues functional roles (vault manager, adapter manager, risk manager, etc.) plus a single Upgrader role controlling every UUPS proxy.
-- **Core Orchestrator:** `GiveProtocolCore` is a minimal proxy that delegates lifecycle actions to module libraries (`VaultModule`, `AdapterModule`, `DonationModule`, `SyntheticModule`, `RiskModule`, `EmergencyModule`). Modules operate on one shared storage struct.
-- **Shared State:** `GiveTypes`, `GiveStorage`, and `StorageLib` define canonical structs and enforce a dedicated storage slot so all contracts read from the same state.
-- **Yield Surface:** `GiveVault4626` manages cash buffers, harvest cadence, and payout hooks. Specialised adapters (compounding, claimable, growth index, PT rollover) conform to `IYieldAdapter` and are registered through `AdapterModule`.
-- **Payout Pipeline:** `PayoutRouter` tracks campaign vault share balances, supporter preferences (beneficiaries + campaign splits), and routes harvested yield between campaign recipients, supporter beneficiaries, and protocol fees. `CampaignRegistry`/`StrategyRegistry` provide metadata + role gating.
-- **Synthetic Layer:** `SyntheticLogic` maintains balances for synthetic representations (e.g., donated yield claims) via storage-only proxies.
-- **Checkpoint Voting:** Phase 14+ includes campaign checkpoint voting with stake-based governance for milestone validation.
+## Architecture Overview
+
+%% Architecture Diagram
+
+flowchart TB
+    subgraph Users
+        U[Supporters/Donors]
+    end
+
+    subgraph Governance
+        ACL[ACLManager Role-Based Access Control]
+        MS[Multisig + Timelock]
+    end
+
+    subgraph Campaign System
+        CR[CampaignRegistry Lifecycle Management]
+        SR[StrategyRegistry Risk Tiers & Adapters]
+        VF[VaultFactory Deploy Campaign Vaults]
+    end
+
+    subgraph Core Vault Layer
+        V1[CampaignVault 4626]
+        V2[CampaignVault 4626]
+    end
+
+    subgraph Yield Generation
+        A1[AaveAdapter]
+        A2[CompoundAdapter]
+        A3[MockAdapter]
+    end
+
+    subgraph Distribution
+        PR[PayoutRouter Yield Distribution]
+        CAMP[Campaign Recipients]
+    end
+
+    MS --> ACL
+    ACL -.->|Controls| CR
+    ACL -.->|Controls| VF
+    ACL -.->|Controls| PR
+
+    CR -->|Metadata| VF
+    SR -->|Strategy Config| VF
+    VF -->|Deploys| V1
+    VF -->|Deploys| V2
+
+    U -->|Deposit| V1
+    U -->|Deposit| V2
+
+    V1 -->|Auto-Invest 99%| A1
+    V2 -->|Auto-Invest 99%| A2
+
+    A1 -->|Harvest Yield| PR
+    A2 -->|Harvest Yield| PR
+
+    PR -->|50% Campaign| CAMP
+    PR -->|5     0% Supporter| U
+
+    CR -.->|Checkpoint Voting| CAMP
+    U -.->|Vote on Milestones| CR
+
+    style ACL fill:#e74c3c,stroke:#333,stroke-width:2px,color:#fff
+    style V1 fill:#4a90e2,stroke:#333,stroke-width:2px,color:#fff
+    style V2 fill:#4a90e2,stroke:#333,stroke-width:2px,color:#fff
+    style PR fill:#27ae60,stroke:#333,stroke-width:2px,color:#fff
+    style CAMP fill:#f39c12,stroke:#333,stroke-width:2px,color:#fff
+
+
+### Core Architecture Principles
+
+- **Governance:** Multisig + Timelock → ACLManager issues role-based permissions for all protocol operations
+- **Campaign-Centric:** Each campaign gets its own ERC-4626 vault deployed by the factory with strategy-specific risk parameters
+- **Auto-Investment:** 99% of deposits automatically flow to yield adapters (Aave, Compound), 1% kept as cash buffer
+- **Yield Distribution:** PayoutRouter splits harvested yield between campaigns (default 80%) and supporters (default 20%)
+- **Checkpoint Voting:** Supporters vote on campaign milestones; failed checkpoints halt payouts until resolved
+- **Upgradeability:** All core contracts use UUPS proxies controlled by ACL's `ROLE_UPGRADER`
+- **Shared Storage:** Module libraries (VaultModule, AdapterModule, etc.) operate on a single storage struct via `StorageLib`
+
+**Principal Protection:** User deposits remain withdrawable at all times (subject to optional lock periods). Only yield flows to campaigns.
+
+**For full technical details**, see [`docs/ARCHITECTURE.md`](/docs/ARCHITECTURE.md) - includes governance flows, emergency procedures, and security model.
 
 ---
 
