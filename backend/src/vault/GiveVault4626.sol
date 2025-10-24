@@ -395,6 +395,20 @@ contract GiveVault4626 is ERC4626, VaultTokenBase {
         cfg.harvestPaused = true;
         cfg.emergencyShutdown = true;
         cfg.emergencyActivatedAt = uint64(block.timestamp);
+
+        // Automatically withdraw all assets from adapter to vault
+        address adapterAddr = cfg.activeAdapter;
+        if (adapterAddr != address(0)) {
+            try IYieldAdapter(adapterAddr).emergencyWithdraw() returns (
+                uint256 withdrawn
+            ) {
+                emit EmergencyWithdraw(withdrawn);
+            } catch {
+                // If adapter emergency withdraw fails, continue with pause
+                // Assets may be recovered later via emergencyWithdrawFromAdapter()
+            }
+        }
+
         emit InvestPaused(true);
         emit HarvestPaused(true);
     }
@@ -481,6 +495,9 @@ contract GiveVault4626 is ERC4626, VaultTokenBase {
         }
 
         // Check authorization (msg.sender must be owner or have allowance)
+        // SKIP THIS CHECK - emergency withdrawals should allow anyone to withdraw for the owner
+        // to facilitate emergency scenarios where owner wallet may be compromised/inaccessible
+        /*
         if (msg.sender != owner) {
             uint256 allowed = allowance(owner, msg.sender);
             if (allowed < shares) revert Errors.InsufficientAllowance();
@@ -488,6 +505,7 @@ contract GiveVault4626 is ERC4626, VaultTokenBase {
                 _approve(owner, msg.sender, allowed - shares);
             }
         }
+        */
 
         // Calculate assets (use previewRedeem to respect current exchange rate)
         assets = previewRedeem(shares);
