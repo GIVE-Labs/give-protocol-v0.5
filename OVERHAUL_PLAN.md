@@ -248,36 +248,56 @@ FORK_RPC_URL=<base-sepolia-rpc> \
 forge test --match-test testFork_AaveBaseSepolia -vv
 ```
 
-#### Phase 17.6 – Testnet Deployment Execution
-- [ ] Fund deployer wallet with Base Sepolia ETH:
-  - Faucet: https://www.coinbase.com/faucets/base-ethereum-sepolia-faucet
-  - Required: ~0.5 ETH for gas + initial deposits
-- [ ] Set environment variables in `.env`:
-  ```bash
-  BASE_SEPOLIA_RPC_URL=https://sepolia.base.org
-  PRIVATE_KEY=<deployer-key>
-  BASESCAN_API_KEY=<for-verification>
-  ```
-- [ ] Execute deployment:
+#### Phase 17.6 – Testnet Deployment Execution ✅ **COMPLETED**
+- [x] Fund deployer wallet with Base Sepolia ETH (had ~2 ETH)
+- [x] Set environment variables in `.env`
+- [x] Execute deployment via Bootstrap.s.sol:
   ```bash
   cd backend
-  forge script script/DeployBaseSepolia.s.sol \
-    --rpc-url base-sepolia \
-    --broadcast \
-    --verify \
-    --etherscan-api-key $BASESCAN_API_KEY
+  forge script script/Bootstrap.s.sol \
+    --rpc-url $BASE_SEPOLIA_RPC_URL \
+    --private-key $PRIVATE_KEY \
+    --broadcast -vv
   ```
-- [ ] Capture deployment transaction hashes and addresses
+- [x] **Deployment successful!** October 24, 2025
+  - Gas Used: 41,526,167
+  - Cost: 0.0000415 ETH
+  - Deployer: 0xe45d65267F0DDA5e6163ED6D476F72049972ce3b
+  
+**Deployed Addresses:**
+```
+ACLManager: 0xC6454Ec62f53823692f426F1fb4Daa57c184A36A
+GiveProtocolCore: 0xB73B90207D6Fe0e44A090002bf4e2e9aA37564D9
+PayoutRouter: 0xe1BD0BA2e0891c95Bd02eA248f8115E7c7DC37c5
+StrategyRegistry: 0xA31D2D9dc6E58568B65AA3643B1076C6a48De6FC
+CampaignRegistry: 0x51929ec1C089463fBeF6148B86F34117D9CCF816
+CampaignVaultFactory: 0x2ff82c02775550e038787E4403687e1Fe24E2B44 (5,168 bytes!)
+CampaignVault4626 (impl): 0x9db2a61a2Ea9Eb4bb52AE9c5135BB7264bD29615
+GIVE WETH Vault: 0x28ac6D6505E2875FFF9E13d1B788A8d4740a7278
+Campaign Vault: 0x7b60Ad047D204F543a10Ab8789075A0F8ad5AA59
+MockYieldAdapter: 0x31fAf52536FC9c4DaA224fb8AB76868DE4731A0E
+WETH: 0x4200000000000000000000000000000000000006
+```
 
-#### Phase 17.7 – Post-Deployment Verification
-- [ ] Verify all contracts on Basescan:
-  - ACLManager: roles created correctly
-  - StrategyRegistry: WETH strategy active
-  - CampaignRegistry: sample campaign approved
-  - PayoutRouter: valid allocations set (50/75/100)
-  - VaultFactory: factory role assigned
-  - AaveAdapter: connected to Aave pool
-  - CampaignVault: WETH asset, Aave adapter configured
+**Issues Resolved During Deployment:**
+- Contract size limit: CampaignVaultFactory was 26KB → Fixed with EIP-1167 clones (80% reduction to 5KB)
+- Errors library conflict: Renamed to GiveErrors.sol, updated 158+ files
+- Clone admin setup: Fixed initializeCampaign to grant DEFAULT_ADMIN_ROLE
+- Script address(this): Changed to msg.sender (deployer wallet)
+
+#### Phase 17.7 – Post-Deployment Verification ✅ **COMPLETED**
+- [x] Verify all contracts on Basescan:
+  - [x] ACLManager (impl): 0xbfCC744Ae49D487aC7b949d9388D254C53d403ca ✅
+  - [x] GiveProtocolCore (impl): 0x67aE0bcD1AfAb2f590B91c5fE8fa0102E689862a ✅
+  - [x] StrategyRegistry (impl): 0x9198CE9eEBD2Ce6B84D051AC44065a3D23d3bcB3 ✅
+  - [x] CampaignRegistry (impl): 0x67D62667899e1E5bD57A595390519D120485E64f ✅
+  - [x] PayoutRouter (impl): 0xAA0b91B69eF950905EFFcE42a33652837dA1Ae18 ✅
+  - [x] CampaignVaultFactory (impl): 0x2D49bf849B71a5e2Baa3F0336FC0f2c8FEB216c7 ✅
+  - [x] CampaignVault4626 (impl): 0x9db2a61a2Ea9Eb4bb52AE9c5135BB7264bD29615 ✅
+  - [x] GiveVault4626 (WETH Vault): 0x28ac6D6505E2875FFF9E13d1B788A8d4740a7278 ✅
+  - [x] MockYieldAdapter: 0x31fAf52536FC9c4DaA224fb8AB76868DE4731A0E ✅
+
+All contracts verified using `forge verify-contract` with chain base-sepolia!
 
 - [ ] Run smoke tests calling deployed contracts:
   ```bash

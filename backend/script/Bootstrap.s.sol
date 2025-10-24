@@ -406,11 +406,12 @@ contract Bootstrap is Script {
         acl.grantRole(acl.checkpointCouncilRole(), admin);
         acl.grantRole(acl.strategyAdminRole(), admin);
 
-        // Grant deployer script temporary roles for seeding infrastructure
-        // During broadcast, the script contract is the msg.sender for internal calls
-        acl.grantRole(acl.strategyAdminRole(), address(this));
-        acl.grantRole(acl.campaignCreatorRole(), address(this));
-        acl.grantRole(acl.campaignCuratorRole(), address(this));
+        // Grant deployer (msg.sender during broadcast) temporary roles for seeding infrastructure
+        // msg.sender is the broadcaster's address (your wallet)
+        address deployer = msg.sender;
+        acl.grantRole(acl.strategyAdminRole(), deployer);
+        acl.grantRole(acl.campaignCreatorRole(), deployer);
+        acl.grantRole(acl.campaignCuratorRole(), deployer);
 
         acl.grantRole(acl.campaignAdminRole(), address(factory));
         acl.grantRole(acl.strategyAdminRole(), address(factory));
