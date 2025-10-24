@@ -113,7 +113,7 @@ flowchart TB
 - **Governance:** Multisig + Timelock → ACLManager issues role-based permissions for all protocol operations
 - **Campaign-Centric:** Each campaign gets its own ERC-4626 vault deployed by the factory with strategy-specific risk parameters
 - **Auto-Investment:** 99% of deposits automatically flow to yield adapters (Aave, Compound), 1% kept as cash buffer
-- **Yield Distribution:** PayoutRouter splits harvested yield between campaigns (default 80%) and supporters (default 20%)
+- **Yield Distribution:** PayoutRouter splits harvested yield between campaigns (default 80%) and supporters (default 50%)
 - **Checkpoint Voting:** Supporters vote on campaign milestones; failed checkpoints halt payouts until resolved
 - **Upgradeability:** All core contracts use UUPS proxies controlled by ACL's `ROLE_UPGRADER`
 - **Shared Storage:** Module libraries (VaultModule, AdapterModule, etc.) operate on a single storage struct via `StorageLib`
