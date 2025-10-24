@@ -322,7 +322,6 @@ contract UpgradeSimulationTest is BaseProtocolTest {
         vm.prank(admin);
         vault.emergencyPause();
 
-
         uint256 pauseTimeBefore = vault.emergencyActivatedAt();
         assertTrue(vault.paused(), "Should be paused before upgrade");
 
@@ -354,17 +353,18 @@ contract UpgradeSimulationTest is BaseProtocolTest {
     /// @notice Test multiple pending fee changes survive upgrade
     /// @dev Validates nonce-based storage with multiple pending changes
     function testMultiplePendingChangesPreservedDuringUpgrade() public {
-        // Create multiple pending fee changes
+        // Create multiple pending fee changes (must respect MAX_FEE_INCREASE_BPS = 250 = 2.5%)
+        // Current fee is 250 (2.5%), can increase by max 250 basis points at a time
         vm.startPrank(admin);
 
-        // Change 1: Increase to 500
-        router.proposeFeeChange(admin, 500);
+        // Change 1: Increase from 250 to 400 (increase of 150, well within 250 limit)
+        router.proposeFeeChange(admin, 400);
 
         // Fast forward 8 days
         vm.warp(block.timestamp + 8 days);
 
-        // Change 2: Increase to 750 (staged increase)
-        router.proposeFeeChange(admin, 750);
+        // Change 2: Increase to 500 (increase of 100, within limit)
+        router.proposeFeeChange(admin, 500);
 
         vm.stopPrank();
 
@@ -376,8 +376,8 @@ contract UpgradeSimulationTest is BaseProtocolTest {
 
         assertTrue(exists0, "Change 0 should exist");
         assertTrue(exists1, "Change 1 should exist");
-        assertEq(fee0, 500, "Change 0 should be 500");
-        assertEq(fee1, 750, "Change 1 should be 750");
+        assertEq(fee0, 400, "Change 0 should be 400");
+        assertEq(fee1, 500, "Change 1 should be 500");
 
         // Simulate upgrade
 
@@ -405,11 +405,11 @@ contract UpgradeSimulationTest is BaseProtocolTest {
         // Execute both in order
         vm.warp(time0After + 1);
         router.executeFeeChange(0);
-        assertEq(router.feeBps(), 500, "Should execute first change");
+        assertEq(router.feeBps(), 400, "Should execute first change");
 
         vm.warp(time1After + 1);
         router.executeFeeChange(1);
-        assertEq(router.feeBps(), 750, "Should execute second change");
+        assertEq(router.feeBps(), 500, "Should execute second change");
     }
 
     /// @notice Test adapter configuration survives upgrade
@@ -436,6 +436,28 @@ contract UpgradeSimulationTest is BaseProtocolTest {
         );
 
         // Verify adapter interaction still works after upgrade
+        // Deposit some user funds first so harvest has something to distribute
+        address user1 = makeAddr("user1");
+        deal(address(asset), user1, 1000 ether);
+        vm.startPrank(user1);
+        asset.approve(address(vault), 1000 ether);
+        vault.deposit(1000 ether, user1);
+        vm.stopPrank();
+
+        // Record stake for user (need curator role)
+        bytes32 curatorRole = acl.campaignCuratorRole();
+        vm.startPrank(admin);
+        if (!acl.hasRole(curatorRole, admin)) {
+            acl.grantRole(curatorRole, admin);
+        }
+        campaignRegistry.recordStakeDeposit(
+            campaignId,
+            user1,
+            vault.balanceOf(user1)
+        );
+        vm.stopPrank();
+
+        // Manually invest in adapter and add yield
         vm.prank(admin);
         asset.mint(address(vault), 1000 ether);
         vm.prank(address(vault));
