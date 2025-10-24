@@ -1,5 +1,5 @@
 import { getDefaultConfig } from '@rainbow-me/rainbowkit';
-import { sepolia } from 'wagmi/chains';
+import { sepolia, baseSepolia } from 'wagmi/chains';
 import { ANVIL_CHAIN } from './local';
 
 // Use a valid WalletConnect project ID for proper wallet icon loading
@@ -7,7 +7,14 @@ const projectId = import.meta.env.VITE_WALLETCONNECT_PROJECT_ID || '';
 
 // Determine which chains to include based on environment
 const isDevelopment = import.meta.env.DEV;
-const chains = isDevelopment ? [ANVIL_CHAIN, sepolia] as const : [sepolia] as const;
+const useBaseSepolia = import.meta.env.VITE_USE_BASE_SEPOLIA !== 'false'; // Default to Base Sepolia
+
+// Chain priority: Base Sepolia (default) > Sepolia (legacy) > Anvil (dev only)
+const chains = isDevelopment 
+  ? [ANVIL_CHAIN, baseSepolia, sepolia] as const
+  : useBaseSepolia
+    ? [baseSepolia, sepolia] as const
+    : [sepolia, baseSepolia] as const;
 
 export const config = getDefaultConfig({
   appName: 'GIVE Protocol',
@@ -16,5 +23,6 @@ export const config = getDefaultConfig({
   ssr: false,
 });
 
-// Export the Sepolia chain for backward compatibility
+// Export chains for direct reference
 export const SEPOLIA = sepolia;
+export const BASE_SEPOLIA = baseSepolia;

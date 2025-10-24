@@ -3,22 +3,22 @@
     "type": "constructor",
     "inputs": [
       {
-        "name": "_asset",
+        "name": "asset",
         "type": "address",
         "internalType": "contract IERC20"
       },
       {
-        "name": "_name",
+        "name": "name",
         "type": "string",
         "internalType": "string"
       },
       {
-        "name": "_symbol",
+        "name": "symbol",
         "type": "string",
         "internalType": "string"
       },
       {
-        "name": "_admin",
+        "name": "admin",
         "type": "address",
         "internalType": "address"
       }
@@ -235,6 +235,19 @@
         "name": "",
         "type": "uint256",
         "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "campaignInitialized",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bool",
+        "internalType": "bool"
       }
     ],
     "stateMutability": "view"
@@ -474,6 +487,34 @@
   },
   {
     "type": "function",
+    "name": "getCampaignMetadata",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "campaignId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "strategyId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "lockProfile",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "factory",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
     "name": "getCashBalance",
     "inputs": [],
     "outputs": [
@@ -632,6 +673,34 @@
       }
     ],
     "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "initializeCampaign",
+    "inputs": [
+      {
+        "name": "campaignId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "strategyId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "lockProfile",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "admin",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
   },
   {
     "type": "function",
@@ -1424,6 +1493,37 @@
   },
   {
     "type": "event",
+    "name": "CampaignMetadataInitialized",
+    "inputs": [
+      {
+        "name": "campaignId",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "strategyId",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "lockProfile",
+        "type": "bytes32",
+        "indexed": false,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "factory",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
     "name": "CashBufferUpdated",
     "inputs": [
       {
@@ -1890,6 +1990,11 @@
   },
   {
     "type": "error",
+    "name": "CampaignAlreadyInitialized",
+    "inputs": []
+  },
+  {
+    "type": "error",
     "name": "CashBufferTooHigh",
     "inputs": []
   },
@@ -2131,6 +2236,17 @@
   },
   {
     "type": "error",
+    "name": "InvalidCampaignVault",
+    "inputs": [
+      {
+        "name": "vaultId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ]
+  },
+  {
+    "type": "error",
     "name": "InvalidConfiguration",
     "inputs": []
   },
@@ -2237,6 +2353,17 @@
     "type": "error",
     "name": "TransferFailed",
     "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "UnauthorizedInitializer",
+    "inputs": [
+      {
+        "name": "caller",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
   },
   {
     "type": "error",
