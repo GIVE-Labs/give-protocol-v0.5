@@ -1,1 +1,0 @@
-Use only pnpm as package manager

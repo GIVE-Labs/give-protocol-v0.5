@@ -1,6 +1,6 @@
 import { LOCAL_CONTRACT_ADDRESSES } from './local';
 import { SEPOLIA_CONTRACT_ADDRESSES } from './sepolia';
-import { BASE_SEPOLIA_CONFIG, BASE_SEPOLIA_ADDRESSES } from './baseSepolia';
+import { BASE_SEPOLIA_ADDRESSES } from './baseSepolia';
 
 // Network configuration
 export const NETWORK_CONFIG = {

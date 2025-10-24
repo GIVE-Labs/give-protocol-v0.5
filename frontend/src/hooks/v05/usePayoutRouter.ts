@@ -7,8 +7,9 @@ import { useReadContract, useWriteContract, useWaitForTransactionReceipt, useAcc
 import { BASE_SEPOLIA_ADDRESSES } from '../../config/baseSepolia';
 import PayoutRouterABI from '../../abis/PayoutRouter.json';
 
-export function usePayoutRouter() {
+export function usePayoutRouter(address?: `0x${string}`) {
   const { address: userAddress } = useAccount();
+  const addr = address || userAddress;
   const { writeContract, data: hash, isPending, error } = useWriteContract();
   const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash });
 
@@ -47,9 +48,9 @@ export function usePayoutRouter() {
     address: BASE_SEPOLIA_ADDRESSES.PAYOUT_ROUTER as `0x${string}`,
     abi: PayoutRouterABI,
     functionName: 'payoutPreferences',
-    args: userAddress ? [BigInt(1), userAddress] : undefined, // vaultId = 1 (GIVE WETH Vault)
+    args: addr ? [BigInt(1), addr] : undefined, // vaultId = 1 (GIVE WETH Vault)
     query: {
-      enabled: !!userAddress,
+      enabled: !!addr,
     },
   });
 
@@ -149,7 +150,7 @@ export function usePayoutRouter() {
     protocolFeeBps: protocolFeeBps ? Number(protocolFeeBps) : 0,
     protocolFeePercent: protocolFeeBps ? Number(protocolFeeBps) / 100 : 0, // Convert to percentage
     feeRecipient: feeRecipient as `0x${string}` | undefined,
-    userPreference,
+    userPreference: userPreference as { campaignId: bigint; beneficiary: `0x${string}`; allocationBps: bigint } | undefined,
     
     // Read functions (parameterized)
     getPreference,
