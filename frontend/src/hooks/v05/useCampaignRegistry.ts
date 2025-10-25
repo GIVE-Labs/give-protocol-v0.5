@@ -13,39 +13,29 @@ export function useCampaignRegistry() {
 
   // ===== Read Functions =====
 
-  // Get total number of campaigns
-  const { data: campaignCount, refetch: refetchCampaignCount } = useReadContract({
+  // Get all campaign IDs
+  const { data: campaignIds, refetch: refetchCampaignIds } = useReadContract({
     address: BASE_SEPOLIA_ADDRESSES.CAMPAIGN_REGISTRY as `0x${string}`,
     abi: CampaignRegistryABI,
-    functionName: 'getCampaignCount',
+    functionName: 'listCampaignIds',
   });
 
   // Get campaign details by ID
-  const getCampaign = (campaignId: bigint) => {
+  const getCampaign = (campaignId: `0x${string}`) => {
     return useReadContract({
       address: BASE_SEPOLIA_ADDRESSES.CAMPAIGN_REGISTRY as `0x${string}`,
       abi: CampaignRegistryABI,
-      functionName: 'campaigns',
+      functionName: 'getCampaign',
       args: [campaignId],
     });
   };
 
-  // Get all active campaigns
-  const { data: activeCampaigns, refetch: refetchActiveCampaigns } = useReadContract({
-    address: BASE_SEPOLIA_ADDRESSES.CAMPAIGN_REGISTRY as `0x${string}`,
-    abi: CampaignRegistryABI,
-    functionName: 'getActiveCampaigns',
-  });
-
-  // Get pending campaigns (awaiting approval)
-  const { data: pendingCampaigns } = useReadContract({
-    address: BASE_SEPOLIA_ADDRESSES.CAMPAIGN_REGISTRY as `0x${string}`,
-    abi: CampaignRegistryABI,
-    functionName: 'getPendingCampaigns',
-  });
+  // Get all active campaigns (filter by status client-side for now)
+  // TODO: Add contract function to filter by status
+  const activeCampaigns = campaignIds as `0x${string}`[] | undefined;
 
   // Get campaign status
-  const getCampaignStatus = (campaignId: bigint) => {
+  const getCampaignStatus = (campaignId: `0x${string}`) => {
     return useReadContract({
       address: BASE_SEPOLIA_ADDRESSES.CAMPAIGN_REGISTRY as `0x${string}`,
       abi: CampaignRegistryABI,
@@ -55,17 +45,17 @@ export function useCampaignRegistry() {
   };
 
   // Get checkpoint details
-  const getCheckpoint = (campaignId: bigint, checkpointId: bigint) => {
+  const getCheckpoint = (campaignId: `0x${string}`, checkpointId: bigint) => {
     return useReadContract({
       address: BASE_SEPOLIA_ADDRESSES.CAMPAIGN_REGISTRY as `0x${string}`,
       abi: CampaignRegistryABI,
-      functionName: 'checkpoints',
+      functionName: 'getCheckpoint',
       args: [campaignId, checkpointId],
     });
   };
 
   // Check if user has voted on checkpoint
-  const hasVoted = (campaignId: bigint, checkpointId: bigint, voter: `0x${string}`) => {
+  const hasVoted = (campaignId: `0x${string}`, checkpointId: bigint, voter: `0x${string}`) => {
     return useReadContract({
       address: BASE_SEPOLIA_ADDRESSES.CAMPAIGN_REGISTRY as `0x${string}`,
       abi: CampaignRegistryABI,
@@ -190,9 +180,9 @@ export function useCampaignRegistry() {
 
   return {
     // Read data
-    campaignCount: campaignCount ? Number(campaignCount) : 0,
-    activeCampaigns: activeCampaigns as bigint[] | undefined,
-    pendingCampaigns: pendingCampaigns as bigint[] | undefined,
+    campaignCount: activeCampaigns ? activeCampaigns.length : 0,
+    activeCampaigns,
+    campaignIds,
     
     // Read functions (parameterized)
     getCampaign,
@@ -217,7 +207,6 @@ export function useCampaignRegistry() {
     hash,
     
     // Refetch utilities
-    refetchCampaignCount,
-    refetchActiveCampaigns,
+    refetchCampaignIds,
   };
 }

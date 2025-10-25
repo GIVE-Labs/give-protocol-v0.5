@@ -13,7 +13,7 @@ import { useState } from 'react';
 import { getBasescanLink } from '../../config/baseSepolia';
 
 interface CampaignCardProps {
-  campaignId: bigint;
+  campaignId: `0x${string}`;
   index?: number;
 }
 
@@ -28,9 +28,12 @@ export default function CampaignCard({ campaignId, index = 0 }: CampaignCardProp
   const handleDonate = async () => {
     if (!address) return;
     try {
+      // Convert hex string to bigint for the payout router
+      const campaignIdBigInt = BigInt(campaignId);
+      
       await setDefaultAllocation(
         BigInt(1), // vaultId (GIVE WETH Vault)
-        campaignId,
+        campaignIdBigInt,
         selectedAllocation
       );
     } catch (err) {
@@ -39,6 +42,9 @@ export default function CampaignCard({ campaignId, index = 0 }: CampaignCardProp
   };
 
   if (!campaign) return null;
+
+  // Type the campaign data properly
+  const campaignData = campaign as any; // TODO: Add proper type definition
 
   const allocations = [
     { value: 50, label: '50%', color: 'from-emerald-400 to-teal-400' },
@@ -63,10 +69,10 @@ export default function CampaignCard({ campaignId, index = 0 }: CampaignCardProp
           <div className="flex items-start justify-between mb-4">
             <div className="flex-1">
               <h3 className="text-xl font-bold text-gray-900 mb-2 group-hover:text-gray-800 transition-colors font-unbounded">
-                {(campaign as any).name || `Campaign #${campaignId.toString()}`}
+                Campaign
               </h3>
               <p className="text-sm text-gray-600 line-clamp-2">
-                Supporting sustainable development goals
+                {campaignData?.payoutRecipient && `Supporting ${campaignData.payoutRecipient.slice(0, 6)}...${campaignData.payoutRecipient.slice(-4)}`}
               </p>
             </div>
             <motion.div
@@ -81,13 +87,23 @@ export default function CampaignCard({ campaignId, index = 0 }: CampaignCardProp
           {/* Stats */}
           <div className="grid grid-cols-2 gap-4 mb-6 p-4 bg-gradient-to-br from-emerald-50 to-cyan-50 rounded-xl">
             <div>
-              <p className="text-xs text-gray-600 mb-1">Campaign ID</p>
-              <p className="text-lg font-bold text-gray-900">#{campaignId.toString()}</p>
+              <p className="text-xs text-gray-600 mb-1">Target Stake</p>
+              <p className="text-lg font-bold text-gray-900">
+                {campaignData?.targetStake ? `${Number(campaignData.targetStake) / 1e18} ETH` : '—'}
+              </p>
             </div>
             <div>
               <p className="text-xs text-gray-600 mb-1">Status</p>
-              <span className="inline-block px-3 py-1 bg-gradient-to-r from-emerald-500 to-teal-500 text-white text-xs font-semibold rounded-full">
-                Active
+              <span className={`inline-block px-3 py-1 text-white text-xs font-semibold rounded-full ${
+                campaignData?.status === 1 ? 'bg-yellow-500' : 
+                campaignData?.status === 2 ? 'bg-gradient-to-r from-emerald-500 to-teal-500' :
+                'bg-gray-500'
+              }`}>
+                {campaignData?.status === 0 ? 'Submitted' :
+                 campaignData?.status === 1 ? 'Approved' :
+                 campaignData?.status === 2 ? 'Active' :
+                 campaignData?.status === 3 ? 'Paused' :
+                 campaignData?.status === 4 ? 'Completed' : 'Unknown'}
               </span>
             </div>
           </div>

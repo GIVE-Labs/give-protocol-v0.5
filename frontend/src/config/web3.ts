@@ -6,11 +6,12 @@ import { ANVIL_CHAIN } from './local';
 const projectId = import.meta.env.VITE_WALLETCONNECT_PROJECT_ID || '';
 
 // Determine which chains to include based on environment
-const isDevelopment = import.meta.env.DEV;
 const useBaseSepolia = import.meta.env.VITE_USE_BASE_SEPOLIA !== 'false'; // Default to Base Sepolia
 
-// Chain priority: Base Sepolia (default) > Sepolia (legacy) > Anvil (dev only)
-const chains = isDevelopment 
+// Chain priority: Base Sepolia (default) > Sepolia > Anvil (only if explicitly enabled)
+const useAnvil = import.meta.env.VITE_USE_ANVIL === 'true'; // Explicitly opt-in to Anvil
+
+const chains = useAnvil
   ? [ANVIL_CHAIN, baseSepolia, sepolia] as const
   : useBaseSepolia
     ? [baseSepolia, sepolia] as const
