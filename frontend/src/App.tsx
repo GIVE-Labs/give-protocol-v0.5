@@ -7,6 +7,7 @@ import Footer from './components/Footer'
 const Home = lazy(() => import('./pages/Home'))
 const Campaigns = lazy(() => import('./pages/Campaigns'))
 const Dashboard = lazy(() => import('./pages/Dashboard'))
+const CreateCampaign = lazy(() => import('./pages/CreateCampaign'))
 
 // Loading fallback component
 function RouteLoader() {
@@ -30,6 +31,7 @@ function App() {
             <Routes>
               <Route path="/" element={<Home />} />
               <Route path="/campaigns" element={<Campaigns />} />
+              <Route path="/campaigns/create" element={<CreateCampaign />} />
               <Route path="/dashboard" element={<Dashboard />} />
             </Routes>
           </Suspense>

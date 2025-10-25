@@ -1,4 +1,7 @@
 import CampaignList from '../components/campaign/CampaignList'
+import { Link } from 'react-router-dom'
+import { Plus } from 'lucide-react'
+import { motion } from 'framer-motion'
 
 export default function Campaigns() {
   return (
@@ -11,6 +14,21 @@ export default function Campaigns() {
       </div>
 
       <div className="container mx-auto px-4 py-16 relative z-10">
+        {/* Create Campaign Button */}
+        <motion.div
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3 }}
+          className="flex justify-end mb-6"
+        >
+          <Link
+            to="/campaigns/create"
+            className="inline-flex items-center space-x-2 px-6 py-3 bg-gradient-to-r from-emerald-600 to-cyan-600 text-white font-semibold rounded-xl hover:from-emerald-700 hover:to-cyan-700 transition-all duration-300 shadow-lg hover:shadow-xl"
+          >
+            <Plus className="w-5 h-5" />
+            <span>Create Campaign</span>
+          </Link>
+        </motion.div>
 
         {/* Campaign List */}
         <CampaignList />

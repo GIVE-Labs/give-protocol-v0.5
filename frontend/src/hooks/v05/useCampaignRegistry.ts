@@ -67,36 +67,38 @@ export function useCampaignRegistry() {
   // ===== Write Functions =====
 
   /**
-   * Submit a new campaign for approval
-   * @param name Campaign name
-   * @param metadataCid IPFS CID for campaign metadata
-   * @param recipient Address to receive campaign funds
-   * @param strategyId Strategy ID from StrategyRegistry
+   * Submit a new campaign for approval (v0.5)
+   * @param input CampaignInput struct matching contract definition
    */
-  const submitCampaign = async (
-    name: string,
-    metadataCid: string,
-    recipient: `0x${string}`,
-    strategyId: bigint
-  ) => {
+  const submitCampaign = async (input: {
+    id: `0x${string}`;
+    payoutRecipient: `0x${string}`;
+    strategyId: `0x${string}`;
+    metadataHash: `0x${string}`;
+    targetStake: bigint;
+    minStake: bigint;
+    fundraisingStart: bigint;
+    fundraisingEnd: bigint;
+  }) => {
     return writeContract({
       address: BASE_SEPOLIA_ADDRESSES.CAMPAIGN_REGISTRY as `0x${string}`,
       abi: CampaignRegistryABI,
       functionName: 'submitCampaign',
-      args: [name, metadataCid, recipient, strategyId],
+      args: [input],
     });
   };
 
   /**
    * Approve a pending campaign (admin only)
-   * @param campaignId Campaign ID to approve
+   * @param campaignId Campaign ID (bytes32)
+   * @param curator Address to set as campaign curator
    */
-  const approveCampaign = async (campaignId: bigint) => {
+  const approveCampaign = async (campaignId: `0x${string}`, curator: `0x${string}`) => {
     return writeContract({
       address: BASE_SEPOLIA_ADDRESSES.CAMPAIGN_REGISTRY as `0x${string}`,
       abi: CampaignRegistryABI,
       functionName: 'approveCampaign',
-      args: [campaignId],
+      args: [campaignId, curator],
     });
   };
 
