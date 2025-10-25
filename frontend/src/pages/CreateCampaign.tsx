@@ -8,10 +8,12 @@ import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowLeft, ArrowRight, Upload, X, Check, Camera, AlertCircle } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
-import { useAccount } from 'wagmi';
+import { useAccount, useWaitForTransactionReceipt, useReadContract } from 'wagmi';
 import { useCampaignRegistry } from '../hooks/v05';
-import { parseEther } from 'viem';
+import { parseEther, keccak256, toBytes } from 'viem';
 import { DotLottieReact } from '@lottiefiles/dotlottie-react';
+import ACLManagerABI from '../abis/ACLManager.json';
+import { CONTRACT_ADDRESSES } from '../config/contracts';
 
 interface FormData {
   // Basic Info
@@ -66,8 +68,28 @@ const STEPS = [
 export default function CreateCampaign() {
   const [currentStep, setCurrentStep] = useState(1);
   const { address, isConnected } = useAccount();
-  const { submitCampaign, isPending, isSuccess, error } = useCampaignRegistry();
+  const { submitCampaign, isPending, isSuccess, error, hash } = useCampaignRegistry();
   const navigate = useNavigate();
+
+  // Check if user has CAMPAIGN_CREATOR_ROLE
+  const CAMPAIGN_CREATOR_ROLE = keccak256(toBytes('CAMPAIGN_CREATOR_ROLE'));
+  const { data: hasCreatorRole, isLoading: isCheckingRole } = useReadContract({
+    address: (CONTRACT_ADDRESSES as any).ACL_MANAGER as `0x${string}`,
+    abi: ACLManagerABI,
+    functionName: 'hasRole',
+    args: [CAMPAIGN_CREATOR_ROLE, address || '0x0000000000000000000000000000000000000000'],
+    query: { enabled: !!address }
+  });
+
+  // Monitor transaction receipt for revert reasons
+  const { 
+    data: receipt, 
+    isLoading: isConfirming, 
+    isSuccess: isConfirmed,
+    error: receiptError 
+  } = useWaitForTransactionReceipt({
+    hash: hash as `0x${string}` | undefined,
+  });
 
   // Form state
   const [formData, setFormData] = useState<FormData>({
@@ -96,34 +118,65 @@ export default function CreateCampaign() {
 
   // Handle transaction confirmation
   useEffect(() => {
-    if (isSuccess) {
-      console.log('Campaign submitted successfully');
+    if (isConfirmed) {
+      console.log('Campaign submitted successfully, receipt:', receipt);
       setIsSubmitting(false);
       navigate('/campaigns');
     }
-  }, [isSuccess, navigate]);
+  }, [isConfirmed, receipt, navigate]);
 
   // Handle submission errors
   useEffect(() => {
     if (error) {
-      console.error('Submission error:', error);
+      console.error('Transaction submission error:', error);
       
       let errorMessage = 'Failed to submit campaign';
       const fullError = error.message || '';
       
+      // Parse common error types
       if (fullError.includes('User rejected') || fullError.includes('User denied')) {
         errorMessage = 'Transaction was rejected by user';
       } else if (fullError.includes('insufficient funds')) {
-        errorMessage = 'Insufficient funds for transaction';
-      } else if (fullError.includes('network')) {
-        errorMessage = 'Network connection error';
+        errorMessage = 'Insufficient funds for gas fee';
+      } else if (fullError.includes('nonce')) {
+        errorMessage = 'Transaction nonce error - please try again';
+      } else if (fullError.includes('gas required exceeds')) {
+        errorMessage = 'Transaction will fail - check your inputs';
+      } else {
+        // Try to extract revert reason
+        const revertMatch = fullError.match(/reverted with reason string '([^']+)'/);
+        if (revertMatch) {
+          errorMessage = `Contract error: ${revertMatch[1]}`;
+        } else if (fullError.includes('execution reverted')) {
+          errorMessage = 'Transaction reverted - check campaign parameters';
+        }
+      }
+      
+      console.error('Parsed error:', errorMessage);
+      setSubmitError(errorMessage);
+      setIsSubmitting(false);
+      setShowFailureModal(true);
+    }
+  }, [error]);
+
+  // Handle receipt errors (transaction confirmed but reverted)
+  useEffect(() => {
+    if (receiptError) {
+      console.error('Transaction receipt error:', receiptError);
+      
+      let errorMessage = 'Transaction failed on-chain';
+      const fullError = receiptError.message || '';
+      
+      // Try to extract revert reason from receipt
+      if (fullError.includes('reverted')) {
+        errorMessage = 'Transaction was reverted by the contract';
       }
       
       setSubmitError(errorMessage);
       setIsSubmitting(false);
       setShowFailureModal(true);
     }
-  }, [error]);
+  }, [receiptError]);
 
   const updateFormData = (field: keyof FormData, value: any) => {
     setFormData(prev => ({ ...prev, [field]: value }));
@@ -144,6 +197,8 @@ export default function CreateCampaign() {
       
       if (!formData.campaignName.trim()) {
         errors.push('Campaign name is required');
+      } else if (formData.campaignName.length > 31) {
+        errors.push('Campaign name must be 31 characters or less (bytes32 limit)');
       }
       
       if (errors.length > 0) {
@@ -242,16 +297,45 @@ export default function CreateCampaign() {
         version: '0.5.0',
       };
 
-      // TODO: Replace with actual Pinata upload
-      const mockHash = `Qm${Math.random().toString(36).substring(2, 15)}${Math.random().toString(36).substring(2, 15)}`;
-      await new Promise(resolve => setTimeout(resolve, 1500));
+      console.log('📤 Uploading metadata to Pinata IPFS:', metadata);
+
+      // Upload to Pinata using JWT from .env
+      const pinataJWT = import.meta.env.VITE_PINATA_JWT;
       
-      console.log('Metadata uploaded to IPFS:', mockHash, metadata);
+      if (!pinataJWT) {
+        throw new Error('VITE_PINATA_JWT not configured in .env file');
+      }
+
+      const response = await fetch('https://api.pinata.cloud/pinning/pinJSONToIPFS', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${pinataJWT}`
+        },
+        body: JSON.stringify({
+          pinataContent: metadata,
+          pinataMetadata: {
+            name: `${formData.campaignName}-metadata.json`
+          }
+        })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        console.error('❌ Pinata upload failed:', response.status, errorData);
+        throw new Error(`Pinata upload failed: ${response.statusText}`);
+      }
+
+      const result = await response.json();
+      const ipfsHash = result.IpfsHash; // e.g., "QmXxx..."
       
-      return mockHash;
+      console.log('✅ Metadata uploaded to IPFS:', ipfsHash);
+      console.log('🔗 View at:', `https://${import.meta.env.VITE_PINATA_GATEWAY}/ipfs/${ipfsHash}`);
+      
+      return ipfsHash;
     } catch (err) {
       console.error('IPFS upload failed:', err);
-      throw new Error('Failed to upload metadata to IPFS');
+      throw new Error(`Failed to upload metadata to IPFS: ${err instanceof Error ? err.message : 'Unknown error'}`);
     }
   };
 
@@ -335,7 +419,29 @@ export default function CreateCampaign() {
         fundraisingEnd,
       };
 
-      console.log('Submitting campaign:', input);
+      console.log('=== Campaign Submission Details ===');
+      console.log('Campaign ID:', campaignId);
+      console.log('Campaign Name:', formData.campaignName);
+      console.log('Payout Recipient:', formData.campaignAddress);
+      console.log('Strategy ID:', defaultStrategyId);
+      console.log('Metadata Hash:', metadataHashBytes);
+      console.log('Target Stake:', targetStake.toString(), 'wei (', formData.targetAmount, 'ETH)');
+      console.log('Min Stake:', minStake.toString(), 'wei (', formData.minStake, 'ETH)');
+      console.log('Fundraising Start:', new Date(Number(fundraisingStart) * 1000).toISOString());
+      console.log('Fundraising End:', new Date(Number(fundraisingEnd) * 1000).toISOString());
+      console.log('Full input:', input);
+      
+      // Validate before submitting
+      console.log('\n=== Pre-flight Checks ===');
+      console.log('✓ Campaign ID is not zero:', campaignId !== '0x' + '0'.repeat(64));
+      console.log('✓ Recipient not zero:', formData.campaignAddress !== '0x' + '0'.repeat(40));
+      console.log('✓ Strategy ID not zero:', defaultStrategyId !== '0x' + '0'.repeat(64));
+      console.log('✓ Target stake > 0:', targetStake > 0n);
+      console.log('✓ Min stake <= Target stake:', minStake <= targetStake);
+      console.log('✓ End > Start (or End = 0):', fundraisingEnd === 0n || fundraisingEnd > fundraisingStart);
+      console.log('✓ All validations passed!');
+      console.log('=====================================');
+      
       await submitCampaign(input);
       
     } catch (error) {
@@ -423,15 +529,22 @@ export default function CreateCampaign() {
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-2 font-unbounded">
                   Campaign Name / Project Title *
+                  <span className="ml-2 text-xs font-normal text-gray-500">
+                    ({formData.campaignName.length}/31 characters)
+                  </span>
                 </label>
                 <input
                   type="text"
                   value={formData.campaignName}
                   onChange={(e) => updateFormData('campaignName', e.target.value)}
                   placeholder="Enter your campaign or project name"
+                  maxLength={31}
                   className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-colors"
                   required
                 />
+                <p className="mt-1 text-xs text-gray-500">
+                  Keep it short and memorable (max 31 characters for blockchain storage)
+                </p>
               </div>
 
               <div>
@@ -848,6 +961,72 @@ export default function CreateCampaign() {
             <p className="text-xl lg:text-2xl text-gray-700 leading-relaxed font-medium font-unbounded max-w-3xl mx-auto">
               Launch your humanitarian project and connect with compassionate backers worldwide
             </p>
+            
+            {/* Permission Notice */}
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.3 }}
+              className="mt-6 max-w-2xl mx-auto"
+            >
+              {!isConnected ? (
+                <div className="bg-blue-50 border-l-4 border-blue-400 p-4 rounded-lg">
+                  <div className="flex items-start">
+                    <AlertCircle className="w-5 h-5 text-blue-600 mr-3 mt-0.5 flex-shrink-0" />
+                    <div className="text-left">
+                      <p className="text-sm font-semibold text-blue-800">
+                        Connect Your Wallet
+                      </p>
+                      <p className="text-xs text-blue-700">
+                        Please connect your wallet to create a campaign.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              ) : isCheckingRole ? (
+                <div className="bg-gray-50 border-l-4 border-gray-400 p-4 rounded-lg">
+                  <div className="flex items-start">
+                    <div className="w-5 h-5 border-2 border-gray-400 border-t-transparent rounded-full animate-spin mr-3 mt-0.5" />
+                    <div className="text-left">
+                      <p className="text-sm font-semibold text-gray-800">
+                        Checking Permissions...
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              ) : hasCreatorRole ? (
+                <div className="bg-green-50 border-l-4 border-green-400 p-4 rounded-lg">
+                  <div className="flex items-start">
+                    <Check className="w-5 h-5 text-green-600 mr-3 mt-0.5 flex-shrink-0" />
+                    <div className="text-left">
+                      <p className="text-sm font-semibold text-green-800">
+                        ✓ Campaign Creator Role Verified
+                      </p>
+                      <p className="text-xs text-green-700">
+                        Your wallet has permission to create campaigns.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="bg-red-50 border-l-4 border-red-400 p-4 rounded-lg">
+                  <div className="flex items-start">
+                    <AlertCircle className="w-5 h-5 text-red-600 mr-3 mt-0.5 flex-shrink-0" />
+                    <div className="text-left">
+                      <p className="text-sm font-semibold text-red-800 mb-1">
+                        ⚠️ Missing Campaign Creator Role
+                      </p>
+                      <p className="text-xs text-red-700 mb-2">
+                        Your wallet (<code className="bg-red-100 px-1 py-0.5 rounded font-mono text-red-900">{address?.slice(0, 6)}...{address?.slice(-4)}</code>) does not have the <code className="bg-red-100 px-1.5 py-0.5 rounded text-red-900 font-mono">CAMPAIGN_CREATOR_ROLE</code>.
+                      </p>
+                      <p className="text-xs text-red-700">
+                        Contact an admin to request this role before attempting to submit a campaign.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </motion.div>
           </div>
         </motion.div>
 
@@ -1024,8 +1203,15 @@ export default function CreateCampaign() {
                       
                       {/* Loading Text */}
                       <h3 className="text-xl font-bold text-gray-900 mb-2 font-unbounded">
-                        {isSubmitting ? 'Submitting Campaign...' : 'Approving Transaction...'}
+                        {isPending ? 'Sign Transaction in Wallet...' : 
+                         isConfirming ? 'Confirming on Blockchain...' : 
+                         'Preparing Submission...'}
                       </h3>
+                      <p className="text-sm text-gray-600">
+                        {isPending ? 'Please check your wallet and approve the transaction' :
+                         isConfirming ? 'Waiting for block confirmation...' :
+                         'Processing campaign data'}
+                      </p>
                       
                       {/* Progress Dots */}
                       <div className="flex justify-center mt-6 space-x-1">

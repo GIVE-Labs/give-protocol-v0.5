@@ -176,7 +176,7 @@ export default function Home() {
                 whileTap={{ scale: 0.95 }}
               >
                 <Link
-                  to="/create-campaign"
+                  to="/campaigns/create"
                   className="group border-3 border-emerald-600 text-emerald-700 px-10 py-5 rounded-2xl font-bold text-xl hover:bg-emerald-600 hover:text-white transition-all duration-300 flex items-center justify-center space-x-3 shadow-lg hover:shadow-xl bg-white/80 backdrop-blur-sm"
                 >
                   <Heart className="w-6 h-6" />

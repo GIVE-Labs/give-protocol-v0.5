@@ -1,181 +1,241 @@
 /**
  * CampaignCard Component
- * Display individual campaign with donate button
- * Design: Glass-card style with emerald/cyan gradients
+ * Display individual campaign with image and progress
+ * Design: Glass-card style with emerald/cyan gradients, clickable to campaign details
  */
 
+import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Heart, ExternalLink } from 'lucide-react';
-import { useCampaignRegistry, usePayoutRouter } from '../../hooks/v05';
-import { useAccount } from 'wagmi';
-import Button from '../ui/Button';
-import { useState } from 'react';
-import { getBasescanLink } from '../../config/baseSepolia';
+import { Heart, MapPin, Users } from 'lucide-react';
+import { useCampaignRegistry } from '../../hooks/v05';
+import { useNavigate } from 'react-router-dom';
 
 interface CampaignCardProps {
   campaignId: `0x${string}`;
   index?: number;
 }
 
+interface CampaignMetadata {
+  name?: string;
+  description?: string;
+  category?: string;
+  image?: string;
+  images?: string[];
+}
+
 export default function CampaignCard({ campaignId, index = 0 }: CampaignCardProps) {
-  const { address } = useAccount();
+  const navigate = useNavigate();
   const { getCampaign } = useCampaignRegistry();
   const { data: campaign } = getCampaign(campaignId);
-  const { setDefaultAllocation, isPending } = usePayoutRouter();
-  
-  const [selectedAllocation, setSelectedAllocation] = useState<50 | 75 | 100>(100);
+  const [metadata, setMetadata] = useState<CampaignMetadata | null>(null);
 
-  const handleDonate = async () => {
-    if (!address) return;
-    try {
-      // Convert hex string to bigint for the payout router
-      const campaignIdBigInt = BigInt(campaignId);
+  // Fetch metadata from IPFS
+  useEffect(() => {
+    const fetchMetadata = async () => {
+      if (!campaign) return;
       
-      await setDefaultAllocation(
-        BigInt(1), // vaultId (GIVE WETH Vault)
-        campaignIdBigInt,
-        selectedAllocation
-      );
-    } catch (err) {
-      console.error('Failed to set allocation:', err);
-    }
-  };
+      const campaignData = campaign as any;
+      const metadataHash = campaignData?.metadataHash;
+      
+      console.log('Campaign ID:', campaignId);
+      console.log('Raw metadata hash:', metadataHash);
+      
+      if (!metadataHash || metadataHash === '0x' + '0'.repeat(64)) {
+        console.log('No metadata hash found');
+        return; // No metadata
+      }
 
-  if (!campaign) return null;
+      try {
+        // Try to decode as UTF-8 string (for IPFS CID stored as string)
+        const hashBytes = metadataHash.replace('0x', '');
+        let hashString = '';
+        
+        for (let i = 0; i < hashBytes.length; i += 2) {
+          const byte = parseInt(hashBytes.substr(i, 2), 16);
+          if (byte === 0) break; // Stop at null terminator
+          // Only include printable ASCII/UTF-8 characters
+          if (byte >= 32 && byte <= 126) {
+            hashString += String.fromCharCode(byte);
+          }
+        }
+        
+        console.log('Decoded hash string:', hashString);
+        
+        // Check if it looks like a valid IPFS CID (starts with Qm or b)
+        if (!hashString || (!hashString.startsWith('Qm') && !hashString.startsWith('b'))) {
+          console.log('Hash does not look like IPFS CID, trying as raw bytes32');
+          // If not a string CID, use the full hash as-is (might be CIDv1 bytes)
+          hashString = metadataHash;
+        }
+        
+        // Get Pinata gateway from env
+        const pinataGateway = import.meta.env.VITE_PINATA_GATEWAY || 'gateway.pinata.cloud';
+        
+        // Try IPFS gateways (use your Pinata gateway first!)
+        const gateways = [
+          `https://${pinataGateway}/ipfs/${hashString}`,
+          `https://gateway.pinata.cloud/ipfs/${hashString}`,
+          `https://ipfs.io/ipfs/${hashString}`
+        ];
+        
+        for (const url of gateways) {
+          console.log('Trying IPFS gateway:', url);
+          try {
+            const response = await fetch(url, { 
+              method: 'GET',
+              headers: { 'Accept': 'application/json' }
+            });
+            
+            if (response.ok) {
+              const data = await response.json();
+              console.log('✅ Metadata fetched successfully:', data);
+              setMetadata(data);
+              return;
+            } else {
+              console.log('❌ Gateway failed:', response.status, response.statusText);
+            }
+          } catch (err) {
+            console.log('❌ Gateway error:', err);
+            continue;
+          }
+        }
+        
+        console.error('❌ All IPFS gateways failed for hash:', hashString);
+      } catch (error) {
+        console.error('Failed to fetch campaign metadata:', error);
+      }
+    };
+
+    fetchMetadata();
+  }, [campaign, campaignId]);
+
+  if (!campaign) {
+    // Loading skeleton
+    return (
+      <motion.div 
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: index * 0.1 }}
+        className="bg-white rounded-xl shadow-sm border overflow-hidden animate-pulse"
+      >
+        <div className="h-48 bg-gray-200" />
+        <div className="p-6">
+          <div className="h-4 bg-gray-200 rounded mb-2" />
+          <div className="h-3 bg-gray-200 rounded mb-4" />
+          <div className="h-2 bg-gray-200 rounded mb-4" />
+          <div className="h-8 bg-gray-200 rounded" />
+        </div>
+      </motion.div>
+    );
+  }
 
   // Type the campaign data properly
   const campaignData = campaign as any; // TODO: Add proper type definition
 
-  const allocations = [
-    { value: 50, label: '50%', color: 'from-emerald-400 to-teal-400' },
-    { value: 75, label: '75%', color: 'from-cyan-400 to-blue-400' },
-    { value: 100, label: '100%', color: 'from-teal-400 to-emerald-400' },
+  // Calculate progress
+  const targetAmount = Number(campaignData?.targetStake || 0) / 1e18;
+  const totalStaked = Number(campaignData?.totalStaked || 0) / 1e18;
+  const progress = targetAmount > 0 ? Math.min((totalStaked / targetAmount) * 100, 100) : 0;
+
+  // Mock data for display
+  const mockSupporters = [234, 156, 89][index % 3] || 100;
+  const defaultImages = [
+    '/src/assets/IMG_4241.jpg',
+    '/src/assets/IMG_5543.jpg',
+    '/src/assets/IMG_5550.jpg'
   ];
 
+  // Use metadata or fallback to defaults
+  const campaignName = metadata?.name || 'Test Campaign';
+  const campaignDescription = metadata?.description || 'Supporting sustainable impact through no-loss giving';
+  const campaignCategory = metadata?.category || 'Climate Action';
+  const campaignImage = metadata?.image || metadata?.images?.[0] || defaultImages[index % defaultImages.length];
+
+  const handleClick = () => {
+    navigate(`/campaigns/${campaignId}`);
+  };
+
+  const isActive = campaignData?.status === 2;
+
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 30 }}
+    <motion.div 
+      initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.5, delay: index * 0.1 }}
-      whileHover={{ y: -5, scale: 1.02 }}
-      className="group"
+      transition={{ delay: index * 0.1 }}
+      className="bg-white rounded-xl shadow-sm border overflow-hidden hover:shadow-lg transition-all duration-300 cursor-pointer group flex flex-col h-full"
+      onClick={handleClick}
     >
-      <div className="relative bg-white/60 backdrop-blur-xl border border-white/70 rounded-2xl shadow-lg hover:shadow-2xl transition-all duration-500 overflow-hidden">
-        {/* Decorative gradient */}
-        <div className="absolute top-0 left-0 right-0 h-2 bg-gradient-to-r from-emerald-500 via-cyan-500 to-teal-500" />
-
-        <div className="p-6">
-          {/* Header */}
-          <div className="flex items-start justify-between mb-4">
-            <div className="flex-1">
-              <h3 className="text-xl font-bold text-gray-900 mb-2 group-hover:text-gray-800 transition-colors font-unbounded">
-                Campaign
-              </h3>
-              <p className="text-sm text-gray-600 line-clamp-2">
-                {campaignData?.payoutRecipient && `Supporting ${campaignData.payoutRecipient.slice(0, 6)}...${campaignData.payoutRecipient.slice(-4)}`}
-              </p>
-            </div>
-            <motion.div
-              className="w-12 h-12 bg-gradient-to-r from-emerald-500 to-teal-500 rounded-xl flex items-center justify-center shadow-md"
-              whileHover={{ rotate: 10, scale: 1.1 }}
-              transition={{ type: "spring", stiffness: 300 }}
-            >
-              <Heart className="w-6 h-6 text-white" />
-            </motion.div>
+      {/* Campaign Image */}
+      <div className="relative h-48 overflow-hidden">
+        <img 
+          src={campaignImage} 
+          alt={campaignName}
+          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+        />
+        <div className="absolute top-3 right-3">
+          <span className={`px-2 py-1 text-xs rounded-full font-medium backdrop-blur-sm ${
+            isActive ? 'bg-green-500/90 text-white' : 'bg-gray-500/90 text-white'
+          }`}>
+            {isActive ? 'Active' : 'Inactive'}
+          </span>
+        </div>
+        <div className="absolute bottom-3 left-3">
+          <div className="flex items-center text-white text-xs bg-black/50 backdrop-blur-sm px-2 py-1 rounded-full">
+            <MapPin className="w-3 h-3 mr-1" />
+            {campaignCategory}
           </div>
+        </div>
+      </div>
 
-          {/* Stats */}
-          <div className="grid grid-cols-2 gap-4 mb-6 p-4 bg-gradient-to-br from-emerald-50 to-cyan-50 rounded-xl">
-            <div>
-              <p className="text-xs text-gray-600 mb-1">Target Stake</p>
-              <p className="text-lg font-bold text-gray-900">
-                {campaignData?.targetStake ? `${Number(campaignData.targetStake) / 1e18} ETH` : '—'}
-              </p>
-            </div>
-            <div>
-              <p className="text-xs text-gray-600 mb-1">Status</p>
-              <span className={`inline-block px-3 py-1 text-white text-xs font-semibold rounded-full ${
-                campaignData?.status === 1 ? 'bg-yellow-500' : 
-                campaignData?.status === 2 ? 'bg-gradient-to-r from-emerald-500 to-teal-500' :
-                'bg-gray-500'
-              }`}>
-                {campaignData?.status === 0 ? 'Submitted' :
-                 campaignData?.status === 1 ? 'Approved' :
-                 campaignData?.status === 2 ? 'Active' :
-                 campaignData?.status === 3 ? 'Paused' :
-                 campaignData?.status === 4 ? 'Completed' : 'Unknown'}
+      {/* Campaign Content */}
+      <div className="p-6 flex flex-col flex-1">
+        <div className="flex items-center justify-between mb-3">
+          <span className="px-3 py-1 bg-emerald-100 text-emerald-800 text-xs font-medium rounded-full">
+            {campaignCategory}
+          </span>
+          <Heart className="w-5 h-5 text-gray-400 hover:text-red-500 cursor-pointer transition-colors" onClick={(e) => { e.stopPropagation(); }} />
+        </div>
+        
+        <h3 className="text-justify font-bold text-lg text-gray-900 mb-2 group-hover:text-emerald-600 transition-colors whitespace-normal break-words font-unbounded">
+          {campaignName}
+        </h3>
+        
+        <p className="text-gray-600 text-sm mb-4 line-clamp-2 leading-relaxed">
+          {campaignDescription}
+        </p>
+        
+        {/* Progress Bar and CTA - pushed to bottom for consistent alignment */}
+        <div className="mt-auto">
+          <div className="mb-4">
+            <div className="flex justify-between items-center mb-2">
+              <span className="text-sm font-semibold text-gray-900">
+                {totalStaked.toFixed(2)} ETH raised
+              </span>
+              <span className="text-sm text-gray-500">
+                {Math.round(progress)}%
               </span>
             </div>
-          </div>
-
-          {/* Allocation Selection */}
-          <div className="mb-6">
-            <p className="text-sm font-medium text-gray-700 mb-3">Choose your yield allocation:</p>
-            <div className="grid grid-cols-3 gap-2">
-              {allocations.map((option) => (
-                <motion.button
-                  key={option.value}
-                  onClick={() => setSelectedAllocation(option.value as 50 | 75 | 100)}
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                  className={`py-2 px-3 rounded-lg font-bold text-sm transition-all ${
-                    selectedAllocation === option.value
-                      ? `bg-gradient-to-r ${option.color} text-white shadow-md`
-                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                  }`}
-                >
-                  {option.label}
-                </motion.button>
-              ))}
+            <div className="w-full bg-gray-200 rounded-full h-2">
+              <div 
+                className="bg-gradient-to-r from-emerald-500 to-teal-500 h-2 rounded-full transition-all duration-500"
+                style={{ width: `${progress}%` }}
+              />
+            </div>
+            <div className="flex justify-between items-center mt-2 text-xs text-gray-500">
+              <span>{targetAmount.toFixed(2)} ETH goal</span>
+              <div className="flex items-center">
+                <Users className="w-3 h-3 mr-1" />
+                {mockSupporters} supporters
+              </div>
             </div>
           </div>
-
-          {/* Donate Button */}
-          <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
-            <Button
-              onClick={handleDonate}
-              disabled={!address || isPending}
-              className="w-full bg-gradient-to-r from-emerald-600 to-cyan-600 text-white py-3 rounded-xl font-bold hover:from-emerald-700 hover:to-cyan-700 transition-all duration-300 shadow-md hover:shadow-lg flex items-center justify-center space-x-2"
-              loading={isPending}
-            >
-              {!isPending && (
-                <>
-                  <Heart className="w-5 h-5" />
-                  <span>Donate {selectedAllocation}% of Yield</span>
-                </>
-              )}
-            </Button>
-          </motion.div>
-
-          {/* View on Basescan */}
-          {(campaign as any).recipient && (
-            <div className="mt-4 pt-4 border-t border-gray-200">
-              <a
-                href={getBasescanLink((campaign as any).recipient, 'address')}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-xs text-cyan-600 hover:text-cyan-700 flex items-center justify-center space-x-1"
-              >
-                <span>View recipient on Basescan</span>
-                <ExternalLink className="w-3 h-3" />
-              </a>
-            </div>
-          )}
+          
+          {/* Support Button */}
+          <button className="w-full bg-gradient-to-r from-emerald-500 to-teal-500 text-white py-3 px-4 rounded-lg hover:from-emerald-600 hover:to-teal-600 transition-all duration-200 font-semibold text-sm group-hover:shadow-lg flex items-center justify-center">
+            <Heart className="w-4 h-4 mr-2" />
+            Support This Cause
+          </button>
         </div>
-
-        {/* Hover effect */}
-        <motion.div
-          className="absolute bottom-0 right-0 w-24 h-24 bg-gradient-to-r from-emerald-500/10 to-cyan-500/10 rounded-tl-full"
-          animate={{
-            scale: [1, 1.2, 1],
-            rotate: [0, 45, 0]
-          }}
-          transition={{
-            duration: 4,
-            repeat: Infinity,
-            delay: index * 0.3
-          }}
-        />
       </div>
     </motion.div>
   );

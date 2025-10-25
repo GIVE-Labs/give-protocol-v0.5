@@ -6,6 +6,7 @@ import Footer from './components/Footer'
 // Code-split route components to reduce initial bundle size
 const Home = lazy(() => import('./pages/Home'))
 const Campaigns = lazy(() => import('./pages/Campaigns'))
+const CampaignDetails = lazy(() => import('./pages/CampaignDetails'))
 const Dashboard = lazy(() => import('./pages/Dashboard'))
 const CreateCampaign = lazy(() => import('./pages/CreateCampaign'))
 
@@ -32,6 +33,7 @@ function App() {
               <Route path="/" element={<Home />} />
               <Route path="/campaigns" element={<Campaigns />} />
               <Route path="/campaigns/create" element={<CreateCampaign />} />
+              <Route path="/campaigns/:campaignId" element={<CampaignDetails />} />
               <Route path="/dashboard" element={<Dashboard />} />
             </Routes>
           </Suspense>
