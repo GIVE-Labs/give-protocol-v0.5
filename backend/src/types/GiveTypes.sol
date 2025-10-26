@@ -88,9 +88,9 @@ library GiveTypes {
         uint256 totalSupply;
         bool active;
         mapping(address => uint256) balances;
-        // NOTE: Structs with mappings cannot have storage gaps due to Solidity restrictions.
-        // Future fields must be appended carefully, maintaining backward compatibility.
     }
+    // NOTE: Structs with mappings cannot have storage gaps due to Solidity restrictions.
+    // Future fields must be appended carefully, maintaining backward compatibility.
 
     /// @dev Versioned risk parameters applied per vault or asset grouping.
     struct RiskConfig {
@@ -143,8 +143,8 @@ library GiveTypes {
         address[] memberList;
         mapping(address => bool) isMember;
         mapping(address => uint256) memberIndex; // index + 1 for swap-and-pop
-        // NOTE: Structs with mappings cannot have storage gaps due to Solidity restrictions.
-        // Future fields must be appended carefully, maintaining backward compatibility.
+            // NOTE: Structs with mappings cannot have storage gaps due to Solidity restrictions.
+            // Future fields must be appended carefully, maintaining backward compatibility.
     }
 
     struct UserPreference {
@@ -181,9 +181,9 @@ library GiveTypes {
         mapping(address => uint256) totalProtocolFees;
         mapping(address => bool) authorizedCallers;
         uint8[3] validAllocations;
-        // NOTE: Structs with mappings cannot have storage gaps due to Solidity restrictions.
-        // Future fields must be appended carefully, maintaining backward compatibility.
     }
+    // NOTE: Structs with mappings cannot have storage gaps due to Solidity restrictions.
+    // Future fields must be appended carefully, maintaining backward compatibility.
 
     struct PayoutRouterState {
         address campaignRegistry;
@@ -203,9 +203,9 @@ library GiveTypes {
         uint8[3] validAllocations;
         mapping(uint256 => PendingFeeChange) pendingFeeChanges;
         uint256 feeChangeNonce;
-        // NOTE: Structs with mappings cannot have storage gaps due to Solidity restrictions.
-        // Future fields must be appended carefully, maintaining backward compatibility.
     }
+    // NOTE: Structs with mappings cannot have storage gaps due to Solidity restrictions.
+    // Future fields must be appended carefully, maintaining backward compatibility.
 
     /// @notice Pending fee change with timelock
     struct PendingFeeChange {
@@ -237,9 +237,9 @@ library GiveTypes {
         address currentNGO;
         address pendingCurrentNGO;
         uint256 currentNGOChangeETA;
-        // NOTE: Structs with mappings cannot have storage gaps due to Solidity restrictions.
-        // Future fields must be appended carefully, maintaining backward compatibility.
     }
+    // NOTE: Structs with mappings cannot have storage gaps due to Solidity restrictions.
+    // Future fields must be appended carefully, maintaining backward compatibility.
 
     enum StrategyStatus {
         Unknown,
@@ -320,9 +320,9 @@ library GiveTypes {
         uint256 totalPendingExit;
         address[] supporters;
         mapping(address => SupporterStake) supporterStake;
-        // NOTE: Structs with mappings cannot have storage gaps due to Solidity restrictions.
-        // Future fields must be appended carefully, maintaining backward compatibility.
     }
+    // NOTE: Structs with mappings cannot have storage gaps due to Solidity restrictions.
+    // Future fields must be appended carefully, maintaining backward compatibility.
 
     enum CheckpointStatus {
         None,
@@ -354,16 +354,16 @@ library GiveTypes {
         uint32 snapshotBlock;
         mapping(address => bool) hasVoted;
         mapping(address => bool) votedFor;
-        // NOTE: Structs with mappings cannot have storage gaps due to Solidity restrictions.
-        // Future fields must be appended carefully, maintaining backward compatibility.
     }
+    // NOTE: Structs with mappings cannot have storage gaps due to Solidity restrictions.
+    // Future fields must be appended carefully, maintaining backward compatibility.
 
     struct CampaignCheckpointState {
         uint256 nextIndex;
         mapping(uint256 => CampaignCheckpoint) checkpoints;
-        // NOTE: Structs with mappings cannot have storage gaps due to Solidity restrictions.
-        // Future fields must be appended carefully, maintaining backward compatibility.
     }
+    // NOTE: Structs with mappings cannot have storage gaps due to Solidity restrictions.
+    // Future fields must be appended carefully, maintaining backward compatibility.
 
     struct CampaignVaultMeta {
         bytes32 id;

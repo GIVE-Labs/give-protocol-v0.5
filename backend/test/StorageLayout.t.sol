@@ -38,11 +38,7 @@ contract StorageLayoutTest is Test {
         vault.active = true;
 
         assertTrue(vault.active, "VaultConfig should be usable");
-        assertEq(
-            vault.id,
-            bytes32(uint256(1)),
-            "VaultConfig fields should be accessible"
-        );
+        assertEq(vault.id, bytes32(uint256(1)), "VaultConfig fields should be accessible");
     }
 
     /// @notice Verify AssetConfig has proper storage gap
@@ -69,11 +65,7 @@ contract StorageLayoutTest is Test {
         adapter.active = true;
 
         assertTrue(adapter.active, "AdapterConfig should be usable");
-        assertEq(
-            uint8(adapter.kind),
-            uint8(GiveTypes.AdapterKind.CompoundingValue),
-            "AdapterConfig fields accessible"
-        );
+        assertEq(uint8(adapter.kind), uint8(GiveTypes.AdapterKind.CompoundingValue), "AdapterConfig fields accessible");
     }
 
     /// @notice Verify RiskConfig has proper storage gap
@@ -99,16 +91,8 @@ contract StorageLayoutTest is Test {
         position.principal = 1000 ether;
         position.shares = 1000e18;
 
-        assertEq(
-            position.principal,
-            1000 ether,
-            "PositionState should be usable"
-        );
-        assertEq(
-            position.shares,
-            1000e18,
-            "PositionState fields should be accessible"
-        );
+        assertEq(position.principal, 1000 ether, "PositionState should be usable");
+        assertEq(position.shares, 1000e18, "PositionState fields should be accessible");
     }
 
     /// @notice Verify StrategyConfig has proper storage gap
@@ -122,11 +106,7 @@ contract StorageLayoutTest is Test {
         strategy.exists = true;
 
         assertTrue(strategy.exists, "StrategyConfig should be usable");
-        assertEq(
-            uint8(strategy.status),
-            uint8(GiveTypes.StrategyStatus.Active),
-            "StrategyConfig fields accessible"
-        );
+        assertEq(uint8(strategy.status), uint8(GiveTypes.StrategyStatus.Active), "StrategyConfig fields accessible");
     }
 
     /// @notice Verify CampaignConfig has proper storage gap
@@ -141,10 +121,7 @@ contract StorageLayoutTest is Test {
         campaign.payoutsHalted = false;
 
         assertTrue(campaign.exists, "CampaignConfig should be usable");
-        assertFalse(
-            campaign.payoutsHalted,
-            "CampaignConfig fields should be accessible"
-        );
+        assertFalse(campaign.payoutsHalted, "CampaignConfig fields should be accessible");
     }
 
     /// @notice Verify SupporterStake has proper storage gap
@@ -157,11 +134,7 @@ contract StorageLayoutTest is Test {
         stake.exists = true;
 
         assertTrue(stake.exists, "SupporterStake should be usable");
-        assertEq(
-            stake.shares,
-            1000e18,
-            "SupporterStake fields should be accessible"
-        );
+        assertEq(stake.shares, 1000e18, "SupporterStake fields should be accessible");
     }
 
     /// @notice Verify CampaignVaultMeta has proper storage gap
@@ -175,11 +148,7 @@ contract StorageLayoutTest is Test {
         meta.exists = true;
 
         assertTrue(meta.exists, "CampaignVaultMeta should be usable");
-        assertEq(
-            meta.campaignId,
-            bytes32(uint256(2)),
-            "CampaignVaultMeta fields should be accessible"
-        );
+        assertEq(meta.campaignId, bytes32(uint256(2)), "CampaignVaultMeta fields should be accessible");
     }
 
     /// @notice Verify UserPreference has proper storage gap
@@ -190,11 +159,7 @@ contract StorageLayoutTest is Test {
         pref.allocationPercentage = 100;
         pref.lastUpdated = block.timestamp;
 
-        assertEq(
-            pref.allocationPercentage,
-            100,
-            "UserPreference should be usable"
-        );
+        assertEq(pref.allocationPercentage, 100, "UserPreference should be usable");
     }
 
     /// @notice Verify CampaignPreference has proper storage gap
@@ -206,11 +171,7 @@ contract StorageLayoutTest is Test {
         pref.allocationPercentage = 80;
         pref.lastUpdated = block.timestamp;
 
-        assertEq(
-            pref.allocationPercentage,
-            80,
-            "CampaignPreference should be usable"
-        );
+        assertEq(pref.allocationPercentage, 80, "CampaignPreference should be usable");
     }
 
     /// @notice Verify NGOInfo has proper storage gap
@@ -252,11 +213,7 @@ contract StorageLayoutTest is Test {
         // The gap ensures that adding fields doesn't collide with next struct
 
         // V1 fields should still be accessible
-        assertEq(
-            v1Vault.id,
-            bytes32(uint256(1)),
-            "V1 fields remain accessible"
-        );
+        assertEq(v1Vault.id, bytes32(uint256(1)), "V1 fields remain accessible");
         assertTrue(v1Vault.active, "V1 fields remain functional");
 
         // In a real upgrade, new fields would be added to the struct
@@ -314,10 +271,6 @@ contract StorageLayoutTest is Test {
         uint256 totalBytes = gapSize * slotSize;
 
         assertEq(gapSize, 50, "Gap size should be 50 slots");
-        assertEq(
-            totalBytes,
-            1600,
-            "Gap should provide 1600 bytes of upgrade space"
-        );
+        assertEq(totalBytes, 1600, "Gap should provide 1600 bytes of upgrade space");
     }
 }

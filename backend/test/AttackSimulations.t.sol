@@ -61,17 +61,10 @@ contract AttackSimulationsTest is BaseProtocolTest {
         campaignRegistry.approveCampaign(campaignId, admin);
 
         vm.prank(admin);
-        campaignRegistry.setCampaignStatus(
-            campaignId,
-            GiveTypes.CampaignStatus.Active
-        );
+        campaignRegistry.setCampaignStatus(campaignId, GiveTypes.CampaignStatus.Active);
 
         vm.prank(admin);
-        campaignRegistry.setCampaignVault(
-            campaignId,
-            address(vault),
-            keccak256("lock.default")
-        );
+        campaignRegistry.setCampaignVault(campaignId, address(vault), keccak256("lock.default"));
 
         vm.prank(admin);
         router.registerCampaignVault(address(vault), campaignId);
@@ -101,11 +94,7 @@ contract AttackSimulationsTest is BaseProtocolTest {
 
         // Update checkpoint status to Voting
         vm.prank(admin);
-        campaignRegistry.updateCheckpointStatus(
-            campaignId,
-            checkpointIndex,
-            GiveTypes.CheckpointStatus.Voting
-        );
+        campaignRegistry.updateCheckpointStatus(campaignId, checkpointIndex, GiveTypes.CheckpointStatus.Voting);
 
         // Attacker gets flash loan
         deal(address(asset), attacker, flashLoanAmount);
@@ -137,15 +126,10 @@ contract AttackSimulationsTest is BaseProtocolTest {
         vm.stopPrank();
 
         // Verify vote did NOT count by checking checkpoint still in Voting status
-        (, , , , GiveTypes.CheckpointStatus status, ) = campaignRegistry
-            .getCheckpoint(campaignId, checkpointIndex);
+        (,,,, GiveTypes.CheckpointStatus status,) = campaignRegistry.getCheckpoint(campaignId, checkpointIndex);
 
         // Should still be in Voting status (not enough votes)
-        assertEq(
-            uint256(status),
-            uint256(GiveTypes.CheckpointStatus.Voting),
-            "Should still be voting"
-        );
+        assertEq(uint256(status), uint256(GiveTypes.CheckpointStatus.Voting), "Should still be voting");
     }
 
     /// @notice Test fee front-running attack fails
@@ -162,7 +146,7 @@ contract AttackSimulationsTest is BaseProtocolTest {
         vm.prank(admin);
         router.proposeFeeChange(admin, 500); // Increase from 250 to 500
 
-        (, , uint256 effectiveTime, ) = router.getPendingFeeChange(0);
+        (,, uint256 effectiveTime,) = router.getPendingFeeChange(0);
 
         // Attacker sees this and deposits (trying to lock in 250 bps fee)
         vm.startPrank(attacker);
@@ -181,14 +165,10 @@ contract AttackSimulationsTest is BaseProtocolTest {
         asset.mint(address(adapter), 100 ether);
 
         vm.prank(admin);
-        (uint256 profitBefore, ) = vault.harvest();
+        (uint256 profitBefore,) = vault.harvest();
 
         uint256 feeAmountBefore = (profitBefore * 250) / 10000;
-        assertEq(
-            feeAmountBefore,
-            (profitBefore * 250) / 10000,
-            "Fee should be 250 bps"
-        );
+        assertEq(feeAmountBefore, (profitBefore * 250) / 10000, "Fee should be 250 bps");
 
         // Fee change executes after timelock
         vm.warp(effectiveTime + 1);
@@ -199,18 +179,14 @@ contract AttackSimulationsTest is BaseProtocolTest {
         asset.mint(address(adapter), 100 ether);
 
         vm.prank(admin);
-        (uint256 profitAfter, ) = vault.harvest();
+        (uint256 profitAfter,) = vault.harvest();
 
         // Attacker's position is NOW subject to higher fee
         // There's no "locked in" fee for their position
         uint256 feeAmountAfter = (profitAfter * 500) / 10000;
 
         // Verify attacker did NOT benefit from front-running
-        assertGt(
-            feeAmountAfter,
-            feeAmountBefore,
-            "Fee should be higher after change"
-        );
+        assertGt(feeAmountAfter, feeAmountBefore, "Fee should be higher after change");
 
         // Attacker withdraws - they get back their principal but lost fees on profits
         vm.prank(attacker);
@@ -218,11 +194,7 @@ contract AttackSimulationsTest is BaseProtocolTest {
 
         // Balance should be exactly 10000 ether (principal) - they don't get the profit
         // The profit went to fees and campaign
-        assertEq(
-            asset.balanceOf(attacker),
-            10000 ether,
-            "Attacker only gets principal back"
-        );
+        assertEq(asset.balanceOf(attacker), 10000 ether, "Attacker only gets principal back");
     }
 
     /// @notice Test emergency withdrawal griefing attack fails
@@ -270,18 +242,10 @@ contract AttackSimulationsTest is BaseProtocolTest {
         vm.prank(victim);
         vault.withdraw(10000 ether, victim, victim);
 
-        assertEq(
-            asset.balanceOf(victim),
-            10000 ether,
-            "Victim should withdraw safely"
-        );
+        assertEq(asset.balanceOf(victim), 10000 ether, "Victim should withdraw safely");
 
         // Attacker gets nothing (no griefing benefit)
-        assertEq(
-            vault.balanceOf(attacker),
-            0,
-            "Attacker has no shares to grief with"
-        );
+        assertEq(vault.balanceOf(attacker), 0, "Attacker has no shares to grief with");
     }
 
     /// @notice Test storage collision attack is impossible
@@ -305,9 +269,7 @@ contract AttackSimulationsTest is BaseProtocolTest {
 
         // Record critical state BEFORE attack attempt
         uint256 userSharesBefore = vault.balanceOf(user1);
-        (uint256 feeBefore, , , bool existsBefore) = router.getPendingFeeChange(
-            0
-        );
+        (uint256 feeBefore,,, bool existsBefore) = router.getPendingFeeChange(0);
         uint256 totalAssetsBefore = vault.totalAssets();
 
         // Attacker deploys malicious upgrade (simulated)
@@ -318,32 +280,15 @@ contract AttackSimulationsTest is BaseProtocolTest {
 
         vm.prank(attacker);
         vm.expectRevert(); // Should revert due to lack of ROLE_UPGRADER
-        UUPSUpgradeable(address(router)).upgradeToAndCall(
-            address(malicious),
-            ""
-        );
+        UUPSUpgradeable(address(router)).upgradeToAndCall(address(malicious), "");
 
         // Even if attacker had upgrade role, storage gaps prevent overwrite
         // Verify state is UNCHANGED
-        assertEq(
-            vault.balanceOf(user1),
-            userSharesBefore,
-            "User shares should be unchanged"
-        );
-        (uint256 feeAfter, , , bool existsAfter) = router.getPendingFeeChange(
-            0
-        );
-        assertEq(
-            existsAfter,
-            existsBefore,
-            "Pending change should be unchanged"
-        );
+        assertEq(vault.balanceOf(user1), userSharesBefore, "User shares should be unchanged");
+        (uint256 feeAfter,,, bool existsAfter) = router.getPendingFeeChange(0);
+        assertEq(existsAfter, existsBefore, "Pending change should be unchanged");
         assertEq(feeAfter, feeBefore, "Pending fee should be unchanged");
-        assertEq(
-            vault.totalAssets(),
-            totalAssetsBefore,
-            "Total assets should be unchanged"
-        );
+        assertEq(vault.totalAssets(), totalAssetsBefore, "Total assets should be unchanged");
     }
 
     /// @notice Test reentrancy attack on emergency withdrawal fails
@@ -377,11 +322,7 @@ contract AttackSimulationsTest is BaseProtocolTest {
 
         // Verify withdrawal succeeded
         assertEq(vault.balanceOf(user), 0, "Shares should be zero");
-        assertGt(
-            asset.balanceOf(user),
-            9000 ether,
-            "User should receive assets"
-        );
+        assertGt(asset.balanceOf(user), 9000 ether, "User should receive assets");
 
         // The nonReentrant modifier is in place (tested by function working correctly)
         // A true reentrancy test would require ERC777 or malicious token, which is out of scope
@@ -422,11 +363,7 @@ contract AttackSimulationsTest is BaseProtocolTest {
 
         // Update checkpoint status to Voting
         vm.prank(admin);
-        campaignRegistry.updateCheckpointStatus(
-            campaignId,
-            checkpointIndex,
-            GiveTypes.CheckpointStatus.Voting
-        );
+        campaignRegistry.updateCheckpointStatus(campaignId, checkpointIndex, GiveTypes.CheckpointStatus.Voting);
 
         // Attacker votes
         vm.warp(block.timestamp + 1 days + 1);
@@ -434,13 +371,8 @@ contract AttackSimulationsTest is BaseProtocolTest {
         campaignRegistry.voteOnCheckpoint(campaignId, checkpointIndex, true);
 
         // Checkpoint should be in Voting status after first vote
-        (, , , , GiveTypes.CheckpointStatus status1, ) = campaignRegistry
-            .getCheckpoint(campaignId, checkpointIndex);
-        assertEq(
-            uint256(status1),
-            uint256(GiveTypes.CheckpointStatus.Voting),
-            "Should be voting"
-        );
+        (,,,, GiveTypes.CheckpointStatus status1,) = campaignRegistry.getCheckpoint(campaignId, checkpointIndex);
+        assertEq(uint256(status1), uint256(GiveTypes.CheckpointStatus.Voting), "Should be voting");
 
         // Attacker transfers shares to accomplice
         vm.prank(attacker);
@@ -462,18 +394,12 @@ contract AttackSimulationsTest is BaseProtocolTest {
         vm.warp(block.timestamp + 1 days); // Still within 8-day window
 
         // Vote should revert with NoVotingPower (snapshot was before transfer)
-        vm.expectRevert(
-            abi.encodeWithSelector(
-                bytes4(keccak256("NoVotingPower(address)")),
-                accomplice
-            )
-        );
+        vm.expectRevert(abi.encodeWithSelector(bytes4(keccak256("NoVotingPower(address)")), accomplice));
         vm.prank(accomplice);
         campaignRegistry.voteOnCheckpoint(campaignId, checkpointIndex, true);
 
         // Verify accomplice couldn't vote (status unchanged, still voting)
-        (, , , , GiveTypes.CheckpointStatus status2, ) = campaignRegistry
-            .getCheckpoint(campaignId, checkpointIndex);
+        (,,,, GiveTypes.CheckpointStatus status2,) = campaignRegistry.getCheckpoint(campaignId, checkpointIndex);
 
         assertEq(
             uint256(status2),
@@ -503,7 +429,7 @@ contract AttackSimulationsTest is BaseProtocolTest {
 
         vm.startPrank(attacker);
 
-        for (uint i = 0; i < 10; i++) {
+        for (uint256 i = 0; i < 10; i++) {
             // Each increase requires 7-day delay
             // Use small increases that respect MAX_FEE_INCREASE_BPS (250 = 2.5%)
             router.proposeFeeChange(admin, 250 + uint16(i * 20)); // Increase by 20 bps each time
@@ -521,8 +447,8 @@ contract AttackSimulationsTest is BaseProtocolTest {
         assertLt(gasUsed, 3000000, "Gas cost should be reasonable");
 
         // Verify multiple pending changes exist (at least 9 created, nonces 0-8)
-        (, , , bool exists0) = router.getPendingFeeChange(0);
-        (, , , bool exists8) = router.getPendingFeeChange(8);
+        (,,, bool exists0) = router.getPendingFeeChange(0);
+        (,,, bool exists8) = router.getPendingFeeChange(8);
         assertTrue(exists0, "First fee change should exist");
         assertTrue(exists8, "9th fee change should exist");
 
@@ -537,14 +463,10 @@ contract AttackSimulationsTest is BaseProtocolTest {
         vm.prank(admin);
         router.proposeFeeChange(admin, 500);
 
-        (, , uint256 effectiveTime, ) = router.getPendingFeeChange(0);
+        (,, uint256 effectiveTime,) = router.getPendingFeeChange(0);
         uint256 expectedTime = block.timestamp + 7 days;
 
-        assertEq(
-            effectiveTime,
-            expectedTime,
-            "Effective time should be 7 days from now"
-        );
+        assertEq(effectiveTime, expectedTime, "Effective time should be 7 days from now");
 
         // Try to execute BEFORE timelock expires (should fail)
         vm.warp(block.timestamp + 6 days); // Only 6 days
@@ -552,9 +474,7 @@ contract AttackSimulationsTest is BaseProtocolTest {
         // Use custom error selector directly
         vm.expectRevert(
             abi.encodeWithSelector(
-                bytes4(keccak256("TimelockNotExpired(uint256,uint256)")),
-                block.timestamp,
-                effectiveTime
+                bytes4(keccak256("TimelockNotExpired(uint256,uint256)")), block.timestamp, effectiveTime
             )
         );
         router.executeFeeChange(0);
@@ -602,11 +522,7 @@ contract MaliciousReentrancyContract {
     function attackEmergencyWithdraw() external {
         attacking = true;
         uint256 shares = IGiveVault4626(vault).balanceOf(address(this));
-        IGiveVault4626(vault).emergencyWithdrawUser(
-            shares,
-            address(this),
-            address(this)
-        );
+        IGiveVault4626(vault).emergencyWithdrawUser(shares, address(this), address(this));
     }
 
     // Receive callback attempts to reenter
@@ -615,11 +531,7 @@ contract MaliciousReentrancyContract {
             // Try to withdraw again (should fail due to reentrancy guard)
             uint256 shares = IGiveVault4626(vault).balanceOf(address(this));
             if (shares > 0) {
-                IGiveVault4626(vault).emergencyWithdrawUser(
-                    shares,
-                    address(this),
-                    address(this)
-                );
+                IGiveVault4626(vault).emergencyWithdrawUser(shares, address(this), address(this));
             }
         }
     }
@@ -627,14 +539,7 @@ contract MaliciousReentrancyContract {
 
 /// @notice Minimal interface for attack tests
 interface IGiveVault4626 {
-    function deposit(
-        uint256 assets,
-        address receiver
-    ) external returns (uint256 shares);
+    function deposit(uint256 assets, address receiver) external returns (uint256 shares);
     function balanceOf(address account) external view returns (uint256);
-    function emergencyWithdrawUser(
-        uint256 shares,
-        address receiver,
-        address owner
-    ) external returns (uint256 assets);
+    function emergencyWithdrawUser(uint256 shares, address receiver, address owner) external returns (uint256 assets);
 }

@@ -32,18 +32,17 @@ contract RegisterTestCampaign is Script {
         vm.startBroadcast(deployerKey);
 
         // Submit campaign with proper struct
-        CampaignRegistry.CampaignInput memory input = CampaignRegistry
-            .CampaignInput({
-                id: campaignId,
-                payoutRecipient: recipientAddress,
-                strategyId: strategyId,
-                metadataHash: metadataHash,
-                metadataCID: "bafybeigdyrzt5sfp7udm7hu76uh7y26nf3efuylqabf3oclgtqy55fbzdi",
-                targetStake: 10 ether, // Target fundraising goal
-                minStake: 0.01 ether, // Minimum stake per donor
-                fundraisingStart: uint64(block.timestamp),
-                fundraisingEnd: uint64(block.timestamp + 90 days)
-            });
+        CampaignRegistry.CampaignInput memory input = CampaignRegistry.CampaignInput({
+            id: campaignId,
+            payoutRecipient: recipientAddress,
+            strategyId: strategyId,
+            metadataHash: metadataHash,
+            metadataCID: "bafybeigdyrzt5sfp7udm7hu76uh7y26nf3efuylqabf3oclgtqy55fbzdi",
+            targetStake: 10 ether, // Target fundraising goal
+            minStake: 0.01 ether, // Minimum stake per donor
+            fundraisingStart: uint64(block.timestamp),
+            fundraisingEnd: uint64(block.timestamp + 90 days)
+        });
 
         console.log("Submitting campaign...");
         registry.submitCampaign(input);

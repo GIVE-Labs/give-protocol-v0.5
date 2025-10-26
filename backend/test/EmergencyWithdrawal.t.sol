@@ -39,11 +39,7 @@ contract EmergencyWithdrawalTest is BaseProtocolTest {
         vm.prank(user1);
         vault.withdraw(500 ether, user1, user1);
 
-        assertEq(
-            asset.balanceOf(user1),
-            500 ether,
-            "User should receive assets"
-        );
+        assertEq(asset.balanceOf(user1), 500 ether, "User should receive assets");
     }
 
     /// @notice Test normal withdrawals blocked after grace period
@@ -86,11 +82,7 @@ contract EmergencyWithdrawalTest is BaseProtocolTest {
         uint256 assets = vault.emergencyWithdrawUser(shares, user1, user1);
 
         assertGt(assets, 0, "Should withdraw assets");
-        assertEq(
-            asset.balanceOf(user1),
-            assets,
-            "User should receive all assets"
-        );
+        assertEq(asset.balanceOf(user1), assets, "User should receive all assets");
         assertEq(vault.balanceOf(user1), 0, "Shares should be burned");
     }
 
@@ -151,22 +143,14 @@ contract EmergencyWithdrawalTest is BaseProtocolTest {
         vm.prank(user2);
         vault.emergencyWithdrawUser(500 ether, user1, user1);
 
-        assertGt(
-            asset.balanceOf(user1),
-            400 ether,
-            "User1 should receive assets"
-        );
+        assertGt(asset.balanceOf(user1), 400 ether, "User1 should receive assets");
 
         // User2 can continue to help withdraw remaining funds (emergency mode prioritizes access)
         vm.prank(user2);
         uint256 remainingShares = shares - 500 ether;
         vault.emergencyWithdrawUser(remainingShares, user1, user1);
 
-        assertGt(
-            asset.balanceOf(user1),
-            900 ether,
-            "User1 should receive all assets"
-        );
+        assertGt(asset.balanceOf(user1), 900 ether, "User1 should receive all assets");
     }
 
     /// @notice Test multiple users can emergency withdraw

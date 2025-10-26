@@ -16,17 +16,10 @@ import "../registry/CampaignRegistry.sol";
 
 /// @title PayoutRouter
 /// @notice Campaign-aware router that distributes harvested yield between campaigns, supporters, and protocol.
-contract PayoutRouter is
-    Initializable,
-    UUPSUpgradeable,
-    ACLShim,
-    ReentrancyGuard,
-    Pausable
-{
+contract PayoutRouter is Initializable, UUPSUpgradeable, ACLShim, ReentrancyGuard, Pausable {
     using SafeERC20 for IERC20;
 
-    bytes32 public constant VAULT_MANAGER_ROLE =
-        keccak256("VAULT_MANAGER_ROLE");
+    bytes32 public constant VAULT_MANAGER_ROLE = keccak256("VAULT_MANAGER_ROLE");
     bytes32 public constant FEE_MANAGER_ROLE = keccak256("FEE_MANAGER_ROLE");
     bytes32 public constant ROLE_UPGRADER = keccak256("ROLE_UPGRADER");
 
@@ -46,16 +39,8 @@ contract PayoutRouter is
         address beneficiary,
         uint8 allocationPercentage
     );
-    event UserSharesUpdated(
-        address indexed user,
-        address indexed vault,
-        uint256 shares,
-        uint256 totalShares
-    );
-    event CampaignVaultRegistered(
-        address indexed vault,
-        bytes32 indexed campaignId
-    );
+    event UserSharesUpdated(address indexed user, address indexed vault, uint256 shares, uint256 totalShares);
+    event CampaignVaultRegistered(address indexed vault, bytes32 indexed campaignId);
     event CampaignPayoutExecuted(
         bytes32 indexed campaignId,
         address indexed vault,
@@ -63,39 +48,17 @@ contract PayoutRouter is
         uint256 campaignAmount,
         uint256 protocolAmount
     );
-    event BeneficiaryPaid(
-        address indexed user,
-        address indexed vault,
-        address beneficiary,
-        uint256 amount
-    );
+    event BeneficiaryPaid(address indexed user, address indexed vault, address beneficiary, uint256 amount);
     event FeeConfigUpdated(
-        address indexed oldRecipient,
-        address indexed newRecipient,
-        uint256 oldFeeBps,
-        uint256 newFeeBps
+        address indexed oldRecipient, address indexed newRecipient, uint256 oldFeeBps, uint256 newFeeBps
     );
-    event ProtocolTreasuryUpdated(
-        address indexed oldTreasury,
-        address indexed newTreasury
-    );
+    event ProtocolTreasuryUpdated(address indexed oldTreasury, address indexed newTreasury);
     event AuthorizedCallerUpdated(address indexed caller, bool authorized);
-    event EmergencyWithdrawal(
-        address indexed asset,
-        address indexed recipient,
-        uint256 amount
-    );
+    event EmergencyWithdrawal(address indexed asset, address indexed recipient, uint256 amount);
     event FeeChangeProposed(
-        uint256 indexed nonce,
-        address indexed recipient,
-        uint256 feeBps,
-        uint256 effectiveTimestamp
+        uint256 indexed nonce, address indexed recipient, uint256 feeBps, uint256 effectiveTimestamp
     );
-    event FeeChangeExecuted(
-        uint256 indexed nonce,
-        uint256 newFeeBps,
-        address newRecipient
-    );
+    event FeeChangeExecuted(uint256 indexed nonce, uint256 newFeeBps, address newRecipient);
     event FeeChangeCancelled(uint256 indexed nonce);
 
     error Unauthorized(bytes32 roleId, address account);
@@ -118,10 +81,8 @@ contract PayoutRouter is
         uint256 feeBps_
     ) external initializer {
         if (
-            acl_ == address(0) ||
-            campaignRegistry_ == address(0) ||
-            feeRecipient_ == address(0) ||
-            protocolTreasury_ == address(0)
+            acl_ == address(0) || campaignRegistry_ == address(0) || feeRecipient_ == address(0)
+                || protocolTreasury_ == address(0)
         ) {
             revert GiveErrors.ZeroAddress();
         }
@@ -173,29 +134,23 @@ contract PayoutRouter is
         return _state().vaultCampaigns[vault];
     }
 
-    function getVaultPreference(
-        address user,
-        address vault
-    ) external view returns (GiveTypes.CampaignPreference memory) {
+    function getVaultPreference(address user, address vault)
+        external
+        view
+        returns (GiveTypes.CampaignPreference memory)
+    {
         return _state().userPreferences[user][vault];
     }
 
-    function getUserVaultShares(
-        address user,
-        address vault
-    ) external view returns (uint256) {
+    function getUserVaultShares(address user, address vault) external view returns (uint256) {
         return _state().userVaultShares[user][vault];
     }
 
-    function getTotalVaultShares(
-        address vault
-    ) external view returns (uint256) {
+    function getTotalVaultShares(address vault) external view returns (uint256) {
         return _state().totalVaultShares[vault];
     }
 
-    function getVaultShareholders(
-        address vault
-    ) external view returns (address[] memory) {
+    function getVaultShareholders(address vault) external view returns (address[] memory) {
         GiveTypes.PayoutRouterState storage s = _state();
         address[] storage list = s.vaultShareholders[vault];
         address[] memory copy = new address[](list.length);
@@ -205,22 +160,14 @@ contract PayoutRouter is
         return copy;
     }
 
-    function getCampaignTotals(
-        bytes32 campaignId
-    ) external view returns (uint256 payouts, uint256 protocolFees) {
+    function getCampaignTotals(bytes32 campaignId) external view returns (uint256 payouts, uint256 protocolFees) {
         GiveTypes.PayoutRouterState storage s = _state();
-        return (
-            s.campaignTotalPayouts[campaignId],
-            s.campaignProtocolFees[campaignId]
-        );
+        return (s.campaignTotalPayouts[campaignId], s.campaignProtocolFees[campaignId]);
     }
 
     // ===== Role-managed configuration =====
 
-    function setAuthorizedCaller(
-        address caller,
-        bool authorized
-    ) external onlyRole(VAULT_MANAGER_ROLE) {
+    function setAuthorizedCaller(address caller, bool authorized) external onlyRole(VAULT_MANAGER_ROLE) {
         if (caller == address(0)) revert GiveErrors.ZeroAddress();
         _state().authorizedCallers[caller] = authorized;
         emit AuthorizedCallerUpdated(caller, authorized);
@@ -230,10 +177,7 @@ contract PayoutRouter is
     /// @dev Fee decreases are instant, increases have 7-day delay
     /// @param newRecipient New fee recipient address
     /// @param newFeeBps New fee in basis points
-    function proposeFeeChange(
-        address newRecipient,
-        uint256 newFeeBps
-    ) external onlyRole(FEE_MANAGER_ROLE) {
+    function proposeFeeChange(address newRecipient, uint256 newFeeBps) external onlyRole(FEE_MANAGER_ROLE) {
         if (newRecipient == address(0)) revert GiveErrors.ZeroAddress();
         if (newFeeBps > MAX_FEE_BPS) revert GiveErrors.InvalidConfiguration();
 
@@ -245,22 +189,14 @@ contract PayoutRouter is
             address oldRecipient = s.feeRecipient;
             s.feeRecipient = newRecipient;
             s.feeBps = newFeeBps;
-            emit FeeConfigUpdated(
-                oldRecipient,
-                newRecipient,
-                currentFee,
-                newFeeBps
-            );
+            emit FeeConfigUpdated(oldRecipient, newRecipient, currentFee, newFeeBps);
             return;
         }
 
         // Fee increases require timelock
         uint256 feeIncrease = newFeeBps - currentFee;
         if (feeIncrease > MAX_FEE_INCREASE_PER_CHANGE) {
-            revert GiveErrors.FeeIncreaseTooLarge(
-                feeIncrease,
-                MAX_FEE_INCREASE_PER_CHANGE
-            );
+            revert GiveErrors.FeeIncreaseTooLarge(feeIncrease, MAX_FEE_INCREASE_PER_CHANGE);
         }
 
         // Create pending fee change
@@ -288,10 +224,7 @@ contract PayoutRouter is
         }
 
         if (block.timestamp < change.effectiveTimestamp) {
-            revert GiveErrors.TimelockNotExpired(
-                block.timestamp,
-                change.effectiveTimestamp
-            );
+            revert GiveErrors.TimelockNotExpired(block.timestamp, change.effectiveTimestamp);
         }
 
         address oldRecipient = s.feeRecipient;
@@ -315,9 +248,7 @@ contract PayoutRouter is
     /// @notice Cancel a pending fee change
     /// @dev Only FEE_MANAGER can cancel
     /// @param nonce The fee change nonce to cancel
-    function cancelFeeChange(
-        uint256 nonce
-    ) external onlyRole(FEE_MANAGER_ROLE) {
+    function cancelFeeChange(uint256 nonce) external onlyRole(FEE_MANAGER_ROLE) {
         GiveTypes.PayoutRouterState storage s = _state();
         GiveTypes.PendingFeeChange storage change = s.pendingFeeChanges[nonce];
 
@@ -335,44 +266,24 @@ contract PayoutRouter is
     /// @return newRecipient Proposed new recipient
     /// @return effectiveTimestamp When change can be executed
     /// @return exists Whether the change exists
-    function getPendingFeeChange(
-        uint256 nonce
-    )
+    function getPendingFeeChange(uint256 nonce)
         external
         view
-        returns (
-            uint256 newFeeBps,
-            address newRecipient,
-            uint256 effectiveTimestamp,
-            bool exists
-        )
+        returns (uint256 newFeeBps, address newRecipient, uint256 effectiveTimestamp, bool exists)
     {
-        GiveTypes.PendingFeeChange storage change = _state().pendingFeeChanges[
-            nonce
-        ];
-        return (
-            change.newFeeBps,
-            change.newRecipient,
-            change.effectiveTimestamp,
-            change.exists
-        );
+        GiveTypes.PendingFeeChange storage change = _state().pendingFeeChanges[nonce];
+        return (change.newFeeBps, change.newRecipient, change.effectiveTimestamp, change.exists);
     }
 
     /// @notice Check if a fee change is ready to execute
     /// @param nonce The fee change nonce
     /// @return ready True if timelock has expired
-    function isFeeChangeReady(
-        uint256 nonce
-    ) external view returns (bool ready) {
-        GiveTypes.PendingFeeChange storage change = _state().pendingFeeChanges[
-            nonce
-        ];
+    function isFeeChangeReady(uint256 nonce) external view returns (bool ready) {
+        GiveTypes.PendingFeeChange storage change = _state().pendingFeeChanges[nonce];
         return change.exists && block.timestamp >= change.effectiveTimestamp;
     }
 
-    function setProtocolTreasury(
-        address newTreasury
-    ) external onlyRole(FEE_MANAGER_ROLE) {
+    function setProtocolTreasury(address newTreasury) external onlyRole(FEE_MANAGER_ROLE) {
         if (newTreasury == address(0)) revert GiveErrors.ZeroAddress();
         GiveTypes.PayoutRouterState storage s = _state();
         address oldTreasury = s.protocolTreasury;
@@ -390,12 +301,10 @@ contract PayoutRouter is
 
     // ===== Campaign wiring =====
 
-    function registerCampaignVault(
-        address vault,
-        bytes32 campaignId
-    ) external onlyRole(VAULT_MANAGER_ROLE) {
-        if (vault == address(0) || campaignId == bytes32(0))
+    function registerCampaignVault(address vault, bytes32 campaignId) external onlyRole(VAULT_MANAGER_ROLE) {
+        if (vault == address(0) || campaignId == bytes32(0)) {
             revert GiveErrors.ZeroAddress();
+        }
         GiveTypes.PayoutRouterState storage s = _state();
         s.vaultCampaigns[vault] = campaignId;
         emit CampaignVaultRegistered(vault, campaignId);
@@ -403,50 +312,36 @@ contract PayoutRouter is
 
     // ===== Preferences =====
 
-    function setVaultPreference(
-        address vault,
-        address beneficiary,
-        uint8 allocationPercentage
-    ) external whenNotPaused {
+    function setVaultPreference(address vault, address beneficiary, uint8 allocationPercentage)
+        external
+        whenNotPaused
+    {
         GiveTypes.PayoutRouterState storage s = _state();
         bytes32 campaignId = _requireCampaignForVault(s, vault);
 
-        if (!_isValidAllocation(s, allocationPercentage))
+        if (!_isValidAllocation(s, allocationPercentage)) {
             revert InvalidAllocation(allocationPercentage);
-        if (allocationPercentage < 100 && beneficiary == address(0))
+        }
+        if (allocationPercentage < 100 && beneficiary == address(0)) {
             revert InvalidBeneficiary();
+        }
 
-        GiveTypes.CampaignPreference storage pref = s.userPreferences[
-            msg.sender
-        ][vault];
+        GiveTypes.CampaignPreference storage pref = s.userPreferences[msg.sender][vault];
         pref.campaignId = campaignId;
         pref.beneficiary = beneficiary;
         pref.allocationPercentage = allocationPercentage;
         pref.lastUpdated = block.timestamp;
 
-        emit YieldPreferenceUpdated(
-            msg.sender,
-            vault,
-            campaignId,
-            beneficiary,
-            allocationPercentage
-        );
+        emit YieldPreferenceUpdated(msg.sender, vault, campaignId, beneficiary, allocationPercentage);
     }
 
     // ===== Share tracking =====
 
-    function updateUserShares(
-        address user,
-        address vault,
-        uint256 newShares
-    ) external onlyAuthorized {
+    function updateUserShares(address user, address vault, uint256 newShares) external onlyAuthorized {
         GiveTypes.PayoutRouterState storage s = _state();
         uint256 oldShares = s.userVaultShares[user][vault];
         s.userVaultShares[user][vault] = newShares;
-        s.totalVaultShares[vault] =
-            s.totalVaultShares[vault] -
-            oldShares +
-            newShares;
+        s.totalVaultShares[vault] = s.totalVaultShares[vault] - oldShares + newShares;
 
         if (oldShares == 0 && newShares > 0) {
             if (!s.hasVaultShare[vault][user]) {
@@ -460,32 +355,29 @@ contract PayoutRouter is
             }
         }
 
-        emit UserSharesUpdated(
-            user,
-            vault,
-            newShares,
-            s.totalVaultShares[vault]
-        );
+        emit UserSharesUpdated(user, vault, newShares, s.totalVaultShares[vault]);
     }
 
     // ===== Yield distribution =====
 
-    function distributeToAllUsers(
-        address asset,
-        uint256 totalYield
-    ) external nonReentrant whenNotPaused onlyAuthorized returns (uint256) {
+    function distributeToAllUsers(address asset, uint256 totalYield)
+        external
+        nonReentrant
+        whenNotPaused
+        onlyAuthorized
+        returns (uint256)
+    {
         if (asset == address(0)) revert GiveErrors.ZeroAddress();
         if (totalYield == 0) revert GiveErrors.InvalidAmount();
 
         IERC20 token = IERC20(asset);
-        if (token.balanceOf(address(this)) < totalYield)
+        if (token.balanceOf(address(this)) < totalYield) {
             revert GiveErrors.InsufficientBalance();
+        }
 
         GiveTypes.PayoutRouterState storage s = _state();
         bytes32 campaignId = _requireCampaignForVault(s, msg.sender);
-        GiveTypes.CampaignConfig memory campaign = CampaignRegistry(
-            s.campaignRegistry
-        ).getCampaign(campaignId);
+        GiveTypes.CampaignConfig memory campaign = CampaignRegistry(s.campaignRegistry).getCampaign(campaignId);
         if (campaign.payoutsHalted) revert GiveErrors.OperationNotAllowed();
 
         uint256 totalShares = s.totalVaultShares[msg.sender];
@@ -502,19 +394,8 @@ contract PayoutRouter is
             uint256 userYield = (totalYield * userShares) / totalShares;
             if (userYield == 0) continue;
 
-            (
-                uint256 campaignAmount,
-                uint256 beneficiaryAmount,
-                uint256 protocolAmount,
-                address beneficiary
-            ) = _calculateAllocations(
-                    s,
-                    campaignId,
-                    campaign.payoutRecipient,
-                    user,
-                    msg.sender,
-                    userYield
-                );
+            (uint256 campaignAmount, uint256 beneficiaryAmount, uint256 protocolAmount, address beneficiary) =
+                _calculateAllocations(s, campaignId, campaign.payoutRecipient, user, msg.sender, userYield);
 
             totals.campaign += campaignAmount;
             totals.beneficiary += beneficiaryAmount;
@@ -522,12 +403,7 @@ contract PayoutRouter is
 
             if (beneficiaryAmount > 0) {
                 token.safeTransfer(beneficiary, beneficiaryAmount);
-                emit BeneficiaryPaid(
-                    user,
-                    msg.sender,
-                    beneficiary,
-                    beneficiaryAmount
-                );
+                emit BeneficiaryPaid(user, msg.sender, beneficiary, beneficiaryAmount);
             }
         }
 
@@ -543,24 +419,18 @@ contract PayoutRouter is
 
         s.totalDistributions += 1;
 
-        emit CampaignPayoutExecuted(
-            campaignId,
-            msg.sender,
-            campaign.payoutRecipient,
-            totals.campaign,
-            totals.protocol
-        );
+        emit CampaignPayoutExecuted(campaignId, msg.sender, campaign.payoutRecipient, totals.campaign, totals.protocol);
 
         return totals.campaign + totals.beneficiary + totals.protocol;
     }
 
-    function emergencyWithdraw(
-        address asset,
-        address recipient,
-        uint256 amount
-    ) external onlyRole(DEFAULT_ADMIN_ROLE) {
-        if (asset == address(0) || recipient == address(0))
+    function emergencyWithdraw(address asset, address recipient, uint256 amount)
+        external
+        onlyRole(DEFAULT_ADMIN_ROLE)
+    {
+        if (asset == address(0) || recipient == address(0)) {
             revert GiveErrors.ZeroAddress();
+        }
         IERC20(asset).safeTransfer(recipient, amount);
         emit EmergencyWithdrawal(asset, recipient, amount);
     }
@@ -577,28 +447,18 @@ contract PayoutRouter is
     )
         private
         view
-        returns (
-            uint256 campaignAmount,
-            uint256 beneficiaryAmount,
-            uint256 protocolAmount,
-            address payoutTo
-        )
+        returns (uint256 campaignAmount, uint256 beneficiaryAmount, uint256 protocolAmount, address payoutTo)
     {
         protocolAmount = (userYield * PROTOCOL_FEE_BPS) / 10_000;
         uint256 netYield = userYield - protocolAmount;
 
-        GiveTypes.CampaignPreference memory pref = s.userPreferences[user][
-            vault
-        ];
-        if (pref.campaignId != bytes32(0) && pref.campaignId != campaignId)
+        GiveTypes.CampaignPreference memory pref = s.userPreferences[user][vault];
+        if (pref.campaignId != bytes32(0) && pref.campaignId != campaignId) {
             revert CampaignMismatch(campaignId, pref.campaignId);
+        }
 
-        uint8 allocation = pref.allocationPercentage == 0
-            ? 100
-            : pref.allocationPercentage;
-        payoutTo = pref.beneficiary == address(0)
-            ? defaultBeneficiary
-            : pref.beneficiary;
+        uint8 allocation = pref.allocationPercentage == 0 ? 100 : pref.allocationPercentage;
+        payoutTo = pref.beneficiary == address(0) ? defaultBeneficiary : pref.beneficiary;
 
         campaignAmount = (netYield * allocation) / 100;
         beneficiaryAmount = netYield - campaignAmount;
@@ -608,11 +468,7 @@ contract PayoutRouter is
         }
     }
 
-    function _removeShareholder(
-        GiveTypes.PayoutRouterState storage s,
-        address vault,
-        address user
-    ) private {
+    function _removeShareholder(GiveTypes.PayoutRouterState storage s, address vault, address user) private {
         address[] storage holders = s.vaultShareholders[vault];
         uint256 length = holders.length;
         for (uint256 i = 0; i < length; i++) {
@@ -626,30 +482,24 @@ contract PayoutRouter is
         }
     }
 
-    function _requireCampaignForVault(
-        GiveTypes.PayoutRouterState storage s,
-        address vault
-    ) private view returns (bytes32) {
+    function _requireCampaignForVault(GiveTypes.PayoutRouterState storage s, address vault)
+        private
+        view
+        returns (bytes32)
+    {
         bytes32 campaignId = s.vaultCampaigns[vault];
         if (campaignId == bytes32(0)) revert VaultNotRegistered(vault);
         return campaignId;
     }
 
-    function _isValidAllocation(
-        GiveTypes.PayoutRouterState storage s,
-        uint8 allocation
-    ) private view returns (bool) {
+    function _isValidAllocation(GiveTypes.PayoutRouterState storage s, uint8 allocation) private view returns (bool) {
         for (uint256 i = 0; i < s.validAllocations.length; i++) {
             if (s.validAllocations[i] == allocation) return true;
         }
         return false;
     }
 
-    function _state()
-        private
-        view
-        returns (GiveTypes.PayoutRouterState storage)
-    {
+    function _state() private view returns (GiveTypes.PayoutRouterState storage) {
         return StorageLib.payoutRouter();
     }
 

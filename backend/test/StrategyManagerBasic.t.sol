@@ -25,44 +25,27 @@ contract StrategyManagerBasicTest is Test {
     function setUp() public {
         // Deploy ACL
         ACLManager aclImpl = new ACLManager();
-        ERC1967Proxy aclProxy = new ERC1967Proxy(
-            address(aclImpl),
-            abi.encodeCall(ACLManager.initialize, (admin, admin))
-        );
+        ERC1967Proxy aclProxy =
+            new ERC1967Proxy(address(aclImpl), abi.encodeCall(ACLManager.initialize, (admin, admin)));
         acl = ACLManager(address(aclProxy));
 
         // Deploy StrategyRegistry
         StrategyRegistry strategyImpl = new StrategyRegistry();
-        ERC1967Proxy strategyProxy = new ERC1967Proxy(
-            address(strategyImpl),
-            abi.encodeCall(StrategyRegistry.initialize, (address(acl)))
-        );
+        ERC1967Proxy strategyProxy =
+            new ERC1967Proxy(address(strategyImpl), abi.encodeCall(StrategyRegistry.initialize, (address(acl))));
         strategyRegistry = StrategyRegistry(address(strategyProxy));
 
         // Deploy CampaignRegistry
         CampaignRegistry campaignImpl = new CampaignRegistry();
         ERC1967Proxy campaignProxy = new ERC1967Proxy(
             address(campaignImpl),
-            abi.encodeCall(
-                CampaignRegistry.initialize,
-                (address(acl), address(strategyRegistry))
-            )
+            abi.encodeCall(CampaignRegistry.initialize, (address(acl), address(strategyRegistry)))
         );
         campaignRegistry = CampaignRegistry(address(campaignProxy));
 
         usdc = new MockERC20("Test USDC", "TUSDC", 6);
-        vault = new GiveVault4626(
-            IERC20(address(usdc)),
-            "GIVE USDC",
-            "gvUSDC",
-            admin
-        );
-        manager = new StrategyManager(
-            address(vault),
-            admin,
-            address(strategyRegistry),
-            address(campaignRegistry)
-        );
+        vault = new GiveVault4626(IERC20(address(usdc)), "GIVE USDC", "gvUSDC", admin);
+        manager = new StrategyManager(address(vault), admin, address(strategyRegistry), address(campaignRegistry));
         adapter = new MockAdapter(IERC20(address(usdc)), address(vault));
 
         // Grant the manager permission to call vault setters invoked by manager
@@ -88,7 +71,7 @@ contract StrategyManagerBasicTest is Test {
     function testUpdateVaultParameters() public {
         vm.prank(admin);
         manager.updateVaultParameters(200, 75, 100);
-        (uint256 cash, , uint256 maxLoss, , ) = vault.getConfiguration();
+        (uint256 cash,, uint256 maxLoss,,) = vault.getConfiguration();
         assertEq(cash, 200);
         assertEq(maxLoss, 100);
     }

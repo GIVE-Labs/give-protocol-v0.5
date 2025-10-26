@@ -38,19 +38,10 @@ contract FeeChangeTimelockTest is BaseProtocolTest {
         router.proposeFeeChange(admin, 400);
 
         // Fee should NOT be updated immediately
-        assertEq(
-            router.feeBps(),
-            currentFee,
-            "Fee should not increase immediately"
-        );
+        assertEq(router.feeBps(), currentFee, "Fee should not increase immediately");
 
         // Should create pending change
-        (
-            uint256 newFee,
-            address recipient,
-            uint256 effectiveTime,
-            bool exists
-        ) = router.getPendingFeeChange(0);
+        (uint256 newFee, address recipient, uint256 effectiveTime, bool exists) = router.getPendingFeeChange(0);
         assertTrue(exists, "Pending change should exist");
         assertEq(newFee, 400, "Pending fee should be 400");
     }
@@ -87,7 +78,7 @@ contract FeeChangeTimelockTest is BaseProtocolTest {
         assertEq(router.feeBps(), 400, "Fee should be updated after timelock");
 
         // Verify pending change was removed
-        (, , , bool exists) = router.getPendingFeeChange(0);
+        (,,, bool exists) = router.getPendingFeeChange(0);
         assertFalse(exists, "Pending change should be removed");
     }
 
@@ -121,19 +112,17 @@ contract FeeChangeTimelockTest is BaseProtocolTest {
         router.executeFeeChange(1);
 
         // Verify final fee
-        assertEq(
-            router.feeBps(),
-            750,
-            "Fee should be 7.5% after two increases"
-        );
-    } /// @notice Test admin can cancel pending fee change
+        assertEq(router.feeBps(), 750, "Fee should be 7.5% after two increases");
+    }
+    /// @notice Test admin can cancel pending fee change
+
     function testAdminCanCancelPendingChange() public {
         // Propose fee increase (from 250 to 500)
         vm.prank(admin);
         router.proposeFeeChange(admin, 500);
 
         // Verify pending change exists
-        (, , , bool exists) = router.getPendingFeeChange(0);
+        (,,, bool exists) = router.getPendingFeeChange(0);
         assertTrue(exists, "Pending change should exist");
 
         // Admin cancels
@@ -141,7 +130,7 @@ contract FeeChangeTimelockTest is BaseProtocolTest {
         router.cancelFeeChange(0);
 
         // Verify pending change removed
-        (, , , exists) = router.getPendingFeeChange(0);
+        (,,, exists) = router.getPendingFeeChange(0);
         assertFalse(exists, "Pending change should be removed");
 
         // Cannot execute cancelled change
@@ -179,17 +168,11 @@ contract FeeChangeTimelockTest is BaseProtocolTest {
         router.proposeFeeChange(admin, 500);
 
         // Should not be ready immediately
-        assertFalse(
-            router.isFeeChangeReady(0),
-            "Should not be ready immediately"
-        );
+        assertFalse(router.isFeeChangeReady(0), "Should not be ready immediately");
 
         // Should not be ready after 6 days
         vm.warp(block.timestamp + 6 days);
-        assertFalse(
-            router.isFeeChangeReady(0),
-            "Should not be ready after 6 days"
-        );
+        assertFalse(router.isFeeChangeReady(0), "Should not be ready after 6 days");
 
         // Should be ready after 7 days
         vm.warp(block.timestamp + 1 days + 1);
@@ -200,12 +183,7 @@ contract FeeChangeTimelockTest is BaseProtocolTest {
     function testFeeChangeEvents() public {
         // Expect FeeChangeProposed event
         vm.expectEmit(true, true, false, true);
-        emit PayoutRouter.FeeChangeProposed(
-            0,
-            admin,
-            500,
-            block.timestamp + 7 days
-        );
+        emit PayoutRouter.FeeChangeProposed(0, admin, 500, block.timestamp + 7 days);
 
         vm.prank(admin);
         router.proposeFeeChange(admin, 500);

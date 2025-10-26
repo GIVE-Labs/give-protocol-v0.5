@@ -30,8 +30,9 @@ contract UpgradeSimulationTest is BaseProtocolTest {
         vm.startPrank(admin);
         if (!acl.roleExists(vaultRole)) acl.createRole(vaultRole, admin);
         acl.grantRole(vaultRole, address(vault));
-        if (!acl.roleExists(emergencyRole))
+        if (!acl.roleExists(emergencyRole)) {
             acl.createRole(emergencyRole, admin);
+        }
         acl.grantRole(emergencyRole, address(vault));
         vm.stopPrank();
 
@@ -72,17 +73,10 @@ contract UpgradeSimulationTest is BaseProtocolTest {
         campaignRegistry.approveCampaign(campaignId, admin);
 
         vm.prank(admin);
-        campaignRegistry.setCampaignStatus(
-            campaignId,
-            GiveTypes.CampaignStatus.Active
-        );
+        campaignRegistry.setCampaignStatus(campaignId, GiveTypes.CampaignStatus.Active);
 
         vm.prank(admin);
-        campaignRegistry.setCampaignVault(
-            campaignId,
-            address(vault),
-            keccak256("lock.default")
-        );
+        campaignRegistry.setCampaignVault(campaignId, address(vault), keccak256("lock.default"));
 
         vm.prank(admin);
         router.registerCampaignVault(address(vault), campaignId);
@@ -96,12 +90,8 @@ contract UpgradeSimulationTest is BaseProtocolTest {
         router.proposeFeeChange(admin, 500);
 
         // Verify pending change exists BEFORE upgrade
-        (
-            uint256 feeBefore,
-            address recipientBefore,
-            uint256 timeBefore,
-            bool existsBefore
-        ) = router.getPendingFeeChange(0);
+        (uint256 feeBefore, address recipientBefore, uint256 timeBefore, bool existsBefore) =
+            router.getPendingFeeChange(0);
         assertTrue(existsBefore, "Pending change should exist before upgrade");
         assertEq(feeBefore, 500, "Pending fee should be 500");
         assertEq(recipientBefore, admin, "Recipient should be admin");
@@ -119,38 +109,17 @@ contract UpgradeSimulationTest is BaseProtocolTest {
         // router.upgradeToAndCall(address(mockUpgrade), "");
 
         // Verify pending change SURVIVES upgrade (storage layout preserved)
-        (
-            uint256 feeAfter,
-            address recipientAfter,
-            uint256 timeAfter,
-            bool existsAfter
-        ) = router.getPendingFeeChange(0);
+        (uint256 feeAfter, address recipientAfter, uint256 timeAfter, bool existsAfter) = router.getPendingFeeChange(0);
 
         // Storage should be identical
-        assertEq(
-            existsAfter,
-            existsBefore,
-            "Pending change existence should be preserved"
-        );
+        assertEq(existsAfter, existsBefore, "Pending change existence should be preserved");
         assertEq(feeAfter, feeBefore, "Pending fee should be preserved");
-        assertEq(
-            recipientAfter,
-            recipientBefore,
-            "Recipient should be preserved"
-        );
+        assertEq(recipientAfter, recipientBefore, "Recipient should be preserved");
         assertEq(timeAfter, timeBefore, "Effective time should be preserved");
 
         // Other storage should be preserved
-        assertEq(
-            router.feeBps(),
-            currentFeeBefore,
-            "Current fee should be preserved"
-        );
-        assertEq(
-            router.feeRecipient(),
-            feeRecipientBefore,
-            "Fee recipient should be preserved"
-        );
+        assertEq(router.feeBps(), currentFeeBefore, "Current fee should be preserved");
+        assertEq(router.feeRecipient(), feeRecipientBefore, "Fee recipient should be preserved");
 
         // Execute pending change after upgrade
         vm.warp(timeAfter + 1);
@@ -168,15 +137,11 @@ contract UpgradeSimulationTest is BaseProtocolTest {
         address user3 = makeAddr("user3");
 
         // Users deposit different amounts
-        uint256[3] memory depositAmounts = [
-            uint256(1000 ether),
-            5000 ether,
-            10000 ether
-        ];
+        uint256[3] memory depositAmounts = [uint256(1000 ether), 5000 ether, 10000 ether];
         address[3] memory users = [user1, user2, user3];
         uint256[3] memory shareAmounts;
 
-        for (uint i = 0; i < 3; i++) {
+        for (uint256 i = 0; i < 3; i++) {
             deal(address(asset), users[i], depositAmounts[i]);
 
             vm.startPrank(users[i]);
@@ -186,11 +151,7 @@ contract UpgradeSimulationTest is BaseProtocolTest {
 
             // Record stake in campaign registry
             vm.prank(admin);
-            campaignRegistry.recordStakeDeposit(
-                campaignId,
-                users[i],
-                shareAmounts[i]
-            );
+            campaignRegistry.recordStakeDeposit(campaignId, users[i], shareAmounts[i]);
         }
 
         // Wait for stake duration
@@ -210,29 +171,21 @@ contract UpgradeSimulationTest is BaseProtocolTest {
 
         // Update checkpoint status to Voting
         vm.prank(admin);
-        campaignRegistry.updateCheckpointStatus(
-            campaignId,
-            checkpointIndex,
-            GiveTypes.CheckpointStatus.Voting
-        );
+        campaignRegistry.updateCheckpointStatus(campaignId, checkpointIndex, GiveTypes.CheckpointStatus.Voting);
 
         // Users vote
         vm.warp(block.timestamp + 1 days + 1);
 
-        for (uint i = 0; i < 3; i++) {
+        for (uint256 i = 0; i < 3; i++) {
             vm.prank(users[i]);
-            campaignRegistry.voteOnCheckpoint(
-                campaignId,
-                checkpointIndex,
-                true
-            );
+            campaignRegistry.voteOnCheckpoint(campaignId, checkpointIndex, true);
         }
 
         // Record state BEFORE upgrade
         uint256[3] memory sharesBefore;
         uint256[3] memory assetsBefore;
 
-        for (uint i = 0; i < 3; i++) {
+        for (uint256 i = 0; i < 3; i++) {
             sharesBefore[i] = vault.balanceOf(users[i]);
             assetsBefore[i] = vault.convertToAssets(sharesBefore[i]);
         }
@@ -244,63 +197,31 @@ contract UpgradeSimulationTest is BaseProtocolTest {
         // We verify storage by checking values remain consistent
 
         // Verify shares PRESERVED after upgrade
-        for (uint i = 0; i < 3; i++) {
+        for (uint256 i = 0; i < 3; i++) {
             uint256 sharesAfter = vault.balanceOf(users[i]);
             uint256 assetsAfter = vault.convertToAssets(sharesAfter);
 
-            assertEq(
-                sharesAfter,
-                sharesBefore[i],
-                "User shares should be preserved"
-            );
-            assertEq(
-                assetsAfter,
-                assetsBefore[i],
-                "User assets should be preserved"
-            );
+            assertEq(sharesAfter, sharesBefore[i], "User shares should be preserved");
+            assertEq(assetsAfter, assetsBefore[i], "User assets should be preserved");
         }
 
         // Verify vault totals preserved
-        assertEq(
-            vault.totalAssets(),
-            totalAssetsBefore,
-            "Total assets should be preserved"
-        );
-        assertEq(
-            vault.totalSupply(),
-            totalSupplyBefore,
-            "Total supply should be preserved"
-        );
+        assertEq(vault.totalAssets(), totalAssetsBefore, "Total assets should be preserved");
+        assertEq(vault.totalSupply(), totalSupplyBefore, "Total supply should be preserved");
 
         // Verify users can still interact after upgrade
         vm.prank(user1);
         vault.withdraw(500 ether, user1, user1);
 
-        assertEq(
-            asset.balanceOf(user1),
-            500 ether,
-            "User should withdraw after upgrade"
-        );
-        assertLt(
-            vault.balanceOf(user1),
-            sharesBefore[0],
-            "User shares should decrease"
-        );
+        assertEq(asset.balanceOf(user1), 500 ether, "User should withdraw after upgrade");
+        assertLt(vault.balanceOf(user1), sharesBefore[0], "User shares should decrease");
 
         // Verify voting data preserved (checkpoint still exists and is in voting status)
-        (
-            ,
-            ,
-            ,
-            ,
-            GiveTypes.CheckpointStatus checkpointStatus,
-
-        ) = campaignRegistry.getCheckpoint(campaignId, checkpointIndex);
+        (,,,, GiveTypes.CheckpointStatus checkpointStatus,) =
+            campaignRegistry.getCheckpoint(campaignId, checkpointIndex);
 
         assertEq(
-            uint256(checkpointStatus),
-            uint256(GiveTypes.CheckpointStatus.Voting),
-            "Checkpoint should be preserved"
+            uint256(checkpointStatus), uint256(GiveTypes.CheckpointStatus.Voting), "Checkpoint should be preserved"
         );
     }
 
@@ -331,11 +252,7 @@ contract UpgradeSimulationTest is BaseProtocolTest {
 
         // Verify emergency state PRESERVED after upgrade
         assertTrue(vault.paused(), "Should still be paused after upgrade");
-        assertEq(
-            vault.emergencyActivatedAt(),
-            pauseTimeBefore,
-            "Pause time should be preserved"
-        );
+        assertEq(vault.emergencyActivatedAt(), pauseTimeBefore, "Pause time should be preserved");
 
         // Verify emergency withdrawal still works after upgrade
         vm.warp(block.timestamp + 25 hours); // Past grace period
@@ -344,11 +261,7 @@ contract UpgradeSimulationTest is BaseProtocolTest {
         uint256 userShares = vault.balanceOf(user1);
         vault.emergencyWithdrawUser(userShares, user1, user1);
 
-        assertGt(
-            asset.balanceOf(user1),
-            900 ether,
-            "User should emergency withdraw"
-        );
+        assertGt(asset.balanceOf(user1), 900 ether, "User should emergency withdraw");
     }
 
     /// @notice Test multiple pending fee changes survive upgrade
@@ -370,10 +283,8 @@ contract UpgradeSimulationTest is BaseProtocolTest {
         vm.stopPrank();
 
         // Record state before upgrade
-        (uint256 fee0, address recipient0, uint256 time0, bool exists0) = router
-            .getPendingFeeChange(0);
-        (uint256 fee1, address recipient1, uint256 time1, bool exists1) = router
-            .getPendingFeeChange(1);
+        (uint256 fee0, address recipient0, uint256 time0, bool exists0) = router.getPendingFeeChange(0);
+        (uint256 fee1, address recipient1, uint256 time1, bool exists1) = router.getPendingFeeChange(1);
 
         assertTrue(exists0, "Change 0 should exist");
         assertTrue(exists1, "Change 1 should exist");
@@ -383,18 +294,10 @@ contract UpgradeSimulationTest is BaseProtocolTest {
         // Simulate upgrade
 
         // Verify BOTH pending changes preserved
-        (
-            uint256 fee0After,
-            address recipient0After,
-            uint256 time0After,
-            bool exists0After
-        ) = router.getPendingFeeChange(0);
-        (
-            uint256 fee1After,
-            address recipient1After,
-            uint256 time1After,
-            bool exists1After
-        ) = router.getPendingFeeChange(1);
+        (uint256 fee0After, address recipient0After, uint256 time0After, bool exists0After) =
+            router.getPendingFeeChange(0);
+        (uint256 fee1After, address recipient1After, uint256 time1After, bool exists1After) =
+            router.getPendingFeeChange(1);
 
         assertEq(exists0After, exists0, "Change 0 existence preserved");
         assertEq(exists1After, exists1, "Change 1 existence preserved");
@@ -425,16 +328,8 @@ contract UpgradeSimulationTest is BaseProtocolTest {
         // Simulate upgrade
 
         // Verify adapter preserved
-        assertEq(
-            address(vault.activeAdapter()),
-            adapterBefore,
-            "Adapter should be preserved"
-        );
-        assertEq(
-            vault.totalAssets(),
-            totalAssetsBefore,
-            "Total assets should be preserved"
-        );
+        assertEq(address(vault.activeAdapter()), adapterBefore, "Adapter should be preserved");
+        assertEq(vault.totalAssets(), totalAssetsBefore, "Total assets should be preserved");
 
         // Verify adapter interaction still works after upgrade
         // Deposit some user funds first so harvest has something to distribute
@@ -451,11 +346,7 @@ contract UpgradeSimulationTest is BaseProtocolTest {
         if (!acl.hasRole(curatorRole, admin)) {
             acl.grantRole(curatorRole, admin);
         }
-        campaignRegistry.recordStakeDeposit(
-            campaignId,
-            user1,
-            vault.balanceOf(user1)
-        );
+        campaignRegistry.recordStakeDeposit(campaignId, user1, vault.balanceOf(user1));
         vm.stopPrank();
 
         // Manually invest in adapter and add yield
@@ -469,7 +360,7 @@ contract UpgradeSimulationTest is BaseProtocolTest {
         asset.mint(address(adapter), 100 ether);
 
         vm.prank(admin);
-        (uint256 profit, ) = vault.harvest();
+        (uint256 profit,) = vault.harvest();
 
         assertGt(profit, 0, "Should harvest after upgrade");
     }

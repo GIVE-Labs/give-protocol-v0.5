@@ -133,7 +133,8 @@ contract VaultPayoutTest is Test {
 
     function _deployStrategyRegistry(ACLManager acl) internal returns (StrategyRegistry) {
         StrategyRegistry impl = new StrategyRegistry();
-        ERC1967Proxy proxy = new ERC1967Proxy(address(impl), abi.encodeCall(StrategyRegistry.initialize, (address(acl))));
+        ERC1967Proxy proxy =
+            new ERC1967Proxy(address(impl), abi.encodeCall(StrategyRegistry.initialize, (address(acl))));
         return StrategyRegistry(address(proxy));
     }
 
@@ -149,7 +150,9 @@ contract VaultPayoutTest is Test {
         PayoutRouter impl = new PayoutRouter();
         ERC1967Proxy proxy = new ERC1967Proxy(
             address(impl),
-            abi.encodeCall(PayoutRouter.initialize, (address(acl), address(campaignRegistry), admin, protocolTreasury, 250))
+            abi.encodeCall(
+                PayoutRouter.initialize, (address(acl), address(campaignRegistry), admin, protocolTreasury, 250)
+            )
         );
         return PayoutRouter(payable(address(proxy)));
     }

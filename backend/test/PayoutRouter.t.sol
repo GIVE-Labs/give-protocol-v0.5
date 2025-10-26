@@ -95,13 +95,9 @@ contract PayoutRouterTest is Test {
         token.mint(address(router), 1_000 ether);
 
         vm.prank(campaignVault);
-        uint256 distributed = router.distributeToAllUsers(
-            address(token),
-            1_000 ether
-        );
+        uint256 distributed = router.distributeToAllUsers(address(token), 1_000 ether);
 
-        uint256 protocolFee = (1_000 ether * router.PROTOCOL_FEE_BPS()) /
-            10_000;
+        uint256 protocolFee = (1_000 ether * router.PROTOCOL_FEE_BPS()) / 10_000;
         uint256 netYield = 1_000 ether - protocolFee;
 
         assertEq(distributed, 1_000 ether);
@@ -110,12 +106,7 @@ contract PayoutRouterTest is Test {
     }
 
     function testUnauthorizedCallerCannotDistribute() public {
-        vm.expectRevert(
-            abi.encodeWithSelector(
-                GiveErrors.UnauthorizedCaller.selector,
-                address(this)
-            )
-        );
+        vm.expectRevert(abi.encodeWithSelector(GiveErrors.UnauthorizedCaller.selector, address(this)));
         router.distributeToAllUsers(address(token), 100 ether);
     }
 
@@ -123,10 +114,7 @@ contract PayoutRouterTest is Test {
         address supporter = makeAddr("supporter");
 
         vm.prank(admin);
-        campaignRegistry.setCampaignStatus(
-            campaignId,
-            GiveTypes.CampaignStatus.Active
-        );
+        campaignRegistry.setCampaignStatus(campaignId, GiveTypes.CampaignStatus.Active);
 
         vm.prank(campaignVault);
         router.updateUserShares(supporter, campaignVault, 1_000);
@@ -137,26 +125,18 @@ contract PayoutRouterTest is Test {
         // Flash loan protection: Wait for MIN_STAKE_DURATION (1 hour) before voting
         vm.warp(block.timestamp + 1 hours + 1);
 
-        CampaignRegistry.CheckpointInput memory input = CampaignRegistry
-            .CheckpointInput({
-                windowStart: uint64(block.timestamp),
-                windowEnd: uint64(block.timestamp + 1 days),
-                executionDeadline: uint64(block.timestamp + 2 days),
-                quorumBps: 5_000
-            });
+        CampaignRegistry.CheckpointInput memory input = CampaignRegistry.CheckpointInput({
+            windowStart: uint64(block.timestamp),
+            windowEnd: uint64(block.timestamp + 1 days),
+            executionDeadline: uint64(block.timestamp + 2 days),
+            quorumBps: 5_000
+        });
 
         vm.prank(admin);
-        uint256 checkpointId = campaignRegistry.scheduleCheckpoint(
-            campaignId,
-            input
-        );
+        uint256 checkpointId = campaignRegistry.scheduleCheckpoint(campaignId, input);
 
         vm.prank(admin);
-        campaignRegistry.updateCheckpointStatus(
-            campaignId,
-            checkpointId,
-            GiveTypes.CheckpointStatus.Voting
-        );
+        campaignRegistry.updateCheckpointStatus(campaignId, checkpointId, GiveTypes.CheckpointStatus.Voting);
 
         vm.prank(supporter);
         campaignRegistry.voteOnCheckpoint(campaignId, checkpointId, false);
@@ -167,9 +147,7 @@ contract PayoutRouterTest is Test {
 
         token.mint(address(router), 500 ether);
         vm.prank(campaignVault);
-        vm.expectRevert(
-            abi.encodeWithSelector(GiveErrors.OperationNotAllowed.selector)
-        );
+        vm.expectRevert(abi.encodeWithSelector(GiveErrors.OperationNotAllowed.selector));
         router.distributeToAllUsers(address(token), 500 ether);
     }
 
@@ -207,39 +185,26 @@ contract PayoutRouterTest is Test {
         campaignRegistry.approveCampaign(campaignId, admin);
 
         vm.prank(admin);
-        campaignRegistry.setCampaignVault(
-            campaignId,
-            campaignVault,
-            keccak256("lock.default")
-        );
+        campaignRegistry.setCampaignVault(campaignId, campaignVault, keccak256("lock.default"));
     }
 
     function _deployACL() internal returns (ACLManager) {
         ACLManager impl = new ACLManager();
-        ERC1967Proxy proxy = new ERC1967Proxy(
-            address(impl),
-            abi.encodeCall(ACLManager.initialize, (admin, admin))
-        );
+        ERC1967Proxy proxy = new ERC1967Proxy(address(impl), abi.encodeCall(ACLManager.initialize, (admin, admin)));
         return ACLManager(address(proxy));
     }
 
     function _deployStrategyRegistry() internal returns (StrategyRegistry) {
         StrategyRegistry impl = new StrategyRegistry();
-        ERC1967Proxy proxy = new ERC1967Proxy(
-            address(impl),
-            abi.encodeCall(StrategyRegistry.initialize, (address(acl)))
-        );
+        ERC1967Proxy proxy =
+            new ERC1967Proxy(address(impl), abi.encodeCall(StrategyRegistry.initialize, (address(acl))));
         return StrategyRegistry(address(proxy));
     }
 
     function _deployCampaignRegistry() internal returns (CampaignRegistry) {
         CampaignRegistry impl = new CampaignRegistry();
         ERC1967Proxy proxy = new ERC1967Proxy(
-            address(impl),
-            abi.encodeCall(
-                CampaignRegistry.initialize,
-                (address(acl), address(strategyRegistry))
-            )
+            address(impl), abi.encodeCall(CampaignRegistry.initialize, (address(acl), address(strategyRegistry)))
         );
         return CampaignRegistry(address(proxy));
     }
@@ -249,14 +214,7 @@ contract PayoutRouterTest is Test {
         ERC1967Proxy proxy = new ERC1967Proxy(
             address(impl),
             abi.encodeCall(
-                PayoutRouter.initialize,
-                (
-                    address(acl),
-                    address(campaignRegistry),
-                    admin,
-                    protocolTreasury,
-                    0
-                )
+                PayoutRouter.initialize, (address(acl), address(campaignRegistry), admin, protocolTreasury, 0)
             )
         );
         return PayoutRouter(payable(address(proxy)));

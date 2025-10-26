@@ -42,14 +42,10 @@ contract DeployBaseSepolia is Script {
     /// @notice Main entry point for forge script
     function run() external returns (BaseSepoliaDeployment memory deployment) {
         // Load Base Sepolia config
-        require(
-            block.chainid == 84532,
-            "Must deploy on Base Sepolia (chainId 84532)"
-        );
+        require(block.chainid == 84532, "Must deploy on Base Sepolia (chainId 84532)");
 
         HelperConfig helper = new HelperConfig();
-        (, , address weth, , address usdc, address aavePool, ) = helper
-            .getActiveNetworkConfig();
+        (,, address weth,, address usdc, address aavePool,) = helper.getActiveNetworkConfig();
 
         require(weth != address(0), "WETH address not configured");
         require(aavePool != address(0), "Aave pool address not configured");
@@ -88,19 +84,16 @@ contract DeployBaseSepolia is Script {
         console.log("Aave Adapter:", address(aaveAdapter));
 
         // 3. Register WETH strategy with Aave adapter
-        StrategyRegistry strategyRegistry = StrategyRegistry(
-            coreDeployment.strategyRegistry
-        );
+        StrategyRegistry strategyRegistry = StrategyRegistry(coreDeployment.strategyRegistry);
 
         bytes32 strategyId = keccak256("strategy.weth.aave.conservative");
-        StrategyRegistry.StrategyInput memory strategyInput = StrategyRegistry
-            .StrategyInput({
-                id: strategyId,
-                adapter: address(aaveAdapter),
-                riskTier: bytes32("tier.low"),
-                maxTvl: 10 ether, // 10 ETH cap for testnet
-                metadataHash: keccak256("strategy.weth.aave.metadata")
-            });
+        StrategyRegistry.StrategyInput memory strategyInput = StrategyRegistry.StrategyInput({
+            id: strategyId,
+            adapter: address(aaveAdapter),
+            riskTier: bytes32("tier.low"),
+            maxTvl: 10 ether, // 10 ETH cap for testnet
+            metadataHash: keccak256("strategy.weth.aave.metadata")
+        });
 
         strategyRegistry.registerStrategy(strategyInput);
 
@@ -111,25 +104,22 @@ contract DeployBaseSepolia is Script {
         console.log("Max TVL: 10 ETH");
 
         // 4. Create sample campaign
-        CampaignRegistry campaignRegistry = CampaignRegistry(
-            coreDeployment.campaignRegistry
-        );
+        CampaignRegistry campaignRegistry = CampaignRegistry(coreDeployment.campaignRegistry);
 
         bytes32 campaignId = keccak256("campaign.climate.action.001");
         address payoutRecipient = coreDeployment.admin; // Use admin as recipient for testing
 
-        CampaignRegistry.CampaignInput memory campaignInput = CampaignRegistry
-            .CampaignInput({
-                id: campaignId,
-                payoutRecipient: payoutRecipient,
-                strategyId: strategyId,
-                metadataHash: keccak256("campaign.metadata"),
-                metadataCID: "bafybeigdyrzt5sfp7udm7hu76uh7y26nf3efuylqabf3oclgtqy55fbzdi",
-                targetStake: 5 ether, // 5 ETH fundraising goal
-                minStake: 0.01 ether, // 0.01 ETH minimum stake
-                fundraisingStart: uint64(block.timestamp),
-                fundraisingEnd: uint64(block.timestamp + 90 days) // 90 day fundraising period
-            });
+        CampaignRegistry.CampaignInput memory campaignInput = CampaignRegistry.CampaignInput({
+            id: campaignId,
+            payoutRecipient: payoutRecipient,
+            strategyId: strategyId,
+            metadataHash: keccak256("campaign.metadata"),
+            metadataCID: "bafybeigdyrzt5sfp7udm7hu76uh7y26nf3efuylqabf3oclgtqy55fbzdi",
+            targetStake: 5 ether, // 5 ETH fundraising goal
+            minStake: 0.01 ether, // 0.01 ETH minimum stake
+            fundraisingStart: uint64(block.timestamp),
+            fundraisingEnd: uint64(block.timestamp + 90 days) // 90 day fundraising period
+        });
 
         campaignRegistry.submitCampaign(campaignInput);
         campaignRegistry.approveCampaign(campaignId, coreDeployment.admin); // Admin as curator
@@ -178,19 +168,11 @@ contract DeployBaseSepolia is Script {
         return arr;
     }
 
-    function _logDeploymentSummary(
-        BaseSepoliaDeployment memory deployment
-    ) private view {
+    function _logDeploymentSummary(BaseSepoliaDeployment memory deployment) private view {
         console.log("\n");
-        console.log(
-            "================================================================================"
-        );
-        console.log(
-            "     GIVE Protocol - Base Sepolia Testnet Deployment Complete"
-        );
-        console.log(
-            "================================================================================"
-        );
+        console.log("================================================================================");
+        console.log("     GIVE Protocol - Base Sepolia Testnet Deployment Complete");
+        console.log("================================================================================");
         console.log("");
         console.log("Core Contracts:");
         console.log("  ACL Manager:         ", deployment.acl);
@@ -210,14 +192,8 @@ contract DeployBaseSepolia is Script {
         console.log("  Aave V3 Pool:        ", deployment.aavePool);
         console.log("");
         console.log("Identifiers:");
-        console.log(
-            "  Strategy ID:         ",
-            vm.toString(deployment.strategyId)
-        );
-        console.log(
-            "  Campaign ID:         ",
-            vm.toString(deployment.campaignId)
-        );
+        console.log("  Strategy ID:         ", vm.toString(deployment.strategyId));
+        console.log("  Campaign ID:         ", vm.toString(deployment.campaignId));
         console.log("  Vault ID:            ", vm.toString(deployment.vaultId));
         console.log("");
         console.log("Next Steps:");
@@ -227,23 +203,13 @@ contract DeployBaseSepolia is Script {
         console.log("  4. Update frontend config with addresses");
         console.log("");
         console.log("Faucets:");
-        console.log(
-            "  Base Sepolia ETH: https://www.coinbase.com/faucets/base-ethereum-sepolia-faucet"
-        );
-        console.log(
-            "  Wrap ETH to WETH: cast send",
-            deployment.weth,
-            '"deposit()" --value 1ether'
-        );
+        console.log("  Base Sepolia ETH: https://www.coinbase.com/faucets/base-ethereum-sepolia-faucet");
+        console.log("  Wrap ETH to WETH: cast send", deployment.weth, '"deposit()" --value 1ether');
         console.log("");
-        console.log(
-            "================================================================================"
-        );
+        console.log("================================================================================");
     }
 
-    function _saveDeploymentConfig(
-        BaseSepoliaDeployment memory deployment
-    ) private {
+    function _saveDeploymentConfig(BaseSepoliaDeployment memory deployment) private {
         string memory json = string(
             abi.encodePacked(
                 "{\n",

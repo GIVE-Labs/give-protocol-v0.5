@@ -12,8 +12,7 @@ import "../types/GiveTypes.sol";
 ///      3. Gap after SystemConfig protects against inter-struct collision
 library GiveStorage {
     // keccak256("give.protocol.storage")
-    bytes32 internal constant STORAGE_SLOT =
-        0x9278f57ecbe047283e665e9a2fb0980ac932c01a01f401ad491194769d990f62;
+    bytes32 internal constant STORAGE_SLOT = 0x9278f57ecbe047283e665e9a2fb0980ac932c01a01f401ad491194769d990f62;
 
     /// @dev Root storage struct for the entire GIVE Protocol.
     /// @notice Storage Layout Security:
@@ -64,10 +63,10 @@ library GiveStorage {
         mapping(bytes32 => uint256) uintRegistry;
         mapping(bytes32 => address) addressRegistry;
         mapping(bytes32 => bool) boolRegistry;
-
-        // Future fields can be added here (mappings are always safe to append)
-        // For fixed-size fields, add a new gap and document the consumed slots
     }
+
+    // Future fields can be added here (mappings are always safe to append)
+    // For fixed-size fields, add a new gap and document the consumed slots
 
     /// @dev Returns the storage pointer for the shared store.
     function store() internal pure returns (Store storage s) {

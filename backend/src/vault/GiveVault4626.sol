@@ -17,8 +17,7 @@ contract GiveVault4626 is ERC4626, VaultTokenBase {
     using SafeERC20 for IERC20;
 
     // === Roles ===
-    bytes32 public constant VAULT_MANAGER_ROLE =
-        keccak256("VAULT_MANAGER_ROLE");
+    bytes32 public constant VAULT_MANAGER_ROLE = keccak256("VAULT_MANAGER_ROLE");
     bytes32 public constant PAUSER_ROLE = keccak256("PAUSER_ROLE");
 
     // === Constants ===
@@ -32,42 +31,22 @@ contract GiveVault4626 is ERC4626, VaultTokenBase {
     uint256 public constant EMERGENCY_GRACE_PERIOD = 24 hours;
 
     // === Events ===
-    event AdapterUpdated(
-        address indexed oldAdapter,
-        address indexed newAdapter
-    );
+    event AdapterUpdated(address indexed oldAdapter, address indexed newAdapter);
     event CashBufferUpdated(uint256 oldBps, uint256 newBps);
     event SlippageUpdated(uint256 oldBps, uint256 newBps);
     event MaxLossUpdated(uint256 oldBps, uint256 newBps);
-    event PayoutRouterUpdated(
-        address indexed oldRouter,
-        address indexed newRouter
-    );
+    event PayoutRouterUpdated(address indexed oldRouter, address indexed newRouter);
     event Harvest(uint256 profit, uint256 loss, uint256 donated);
     event InvestPaused(bool paused);
     event HarvestPaused(bool paused);
     event EmergencyWithdraw(uint256 amount);
     event WrappedNativeSet(address indexed token);
-    event RiskLimitsUpdated(
-        bytes32 indexed riskId,
-        uint256 maxDeposit,
-        uint256 maxBorrow
-    );
+    event RiskLimitsUpdated(bytes32 indexed riskId, uint256 maxDeposit, uint256 maxBorrow);
 
     /// @notice Emitted when user withdraws via emergency mechanism
-    event EmergencyWithdrawal(
-        address indexed owner,
-        address indexed receiver,
-        uint256 shares,
-        uint256 assets
-    );
+    event EmergencyWithdrawal(address indexed owner, address indexed receiver, uint256 shares, uint256 assets);
 
-    constructor(
-        IERC20 _asset,
-        string memory _name,
-        string memory _symbol,
-        address _admin
-    )
+    constructor(IERC20 _asset, string memory _name, string memory _symbol, address _admin)
         ERC4626(_asset)
         ERC20(_name, _symbol)
         VaultTokenBase(keccak256(abi.encodePacked("vault", address(this))))
@@ -93,9 +72,7 @@ contract GiveVault4626 is ERC4626, VaultTokenBase {
     // Receive only allowed for unwrapping WETH
     receive() external payable {
         GiveTypes.VaultConfig storage cfg = _vaultConfig();
-        if (
-            cfg.wrappedNative == address(0) || msg.sender != cfg.wrappedNative
-        ) {
+        if (cfg.wrappedNative == address(0) || msg.sender != cfg.wrappedNative) {
             revert GiveErrors.InvalidConfiguration();
         }
     }
@@ -174,10 +151,7 @@ contract GiveVault4626 is ERC4626, VaultTokenBase {
 
             // If emergency shutdown, check grace period
             if (cfg.emergencyShutdown) {
-                if (
-                    block.timestamp >=
-                    cfg.emergencyActivatedAt + EMERGENCY_GRACE_PERIOD
-                ) {
+                if (block.timestamp >= cfg.emergencyActivatedAt + EMERGENCY_GRACE_PERIOD) {
                     revert GiveErrors.GracePeriodExpired();
                 }
                 // Within grace period - allow
@@ -194,31 +168,19 @@ contract GiveVault4626 is ERC4626, VaultTokenBase {
     function totalAssets() public view override returns (uint256) {
         GiveTypes.VaultConfig storage cfg = _vaultConfig();
         uint256 cash = IERC20(asset()).balanceOf(address(this));
-        uint256 adapterAssets = cfg.activeAdapter != address(0)
-            ? IYieldAdapter(cfg.activeAdapter).totalAssets()
-            : 0;
+        uint256 adapterAssets = cfg.activeAdapter != address(0) ? IYieldAdapter(cfg.activeAdapter).totalAssets() : 0;
         return cash + adapterAssets;
     }
 
-    function deposit(
-        uint256 assets,
-        address receiver
-    ) public override nonReentrant whenNotPaused returns (uint256) {
+    function deposit(uint256 assets, address receiver) public override nonReentrant whenNotPaused returns (uint256) {
         return super.deposit(assets, receiver);
     }
 
-    function mint(
-        uint256 shares,
-        address receiver
-    ) public override nonReentrant whenNotPaused returns (uint256) {
+    function mint(uint256 shares, address receiver) public override nonReentrant whenNotPaused returns (uint256) {
         return super.mint(shares, receiver);
     }
 
-    function withdraw(
-        uint256 assets,
-        address receiver,
-        address owner
-    )
+    function withdraw(uint256 assets, address receiver, address owner)
         public
         override
         nonReentrant
@@ -228,11 +190,7 @@ contract GiveVault4626 is ERC4626, VaultTokenBase {
         return super.withdraw(assets, receiver, owner);
     }
 
-    function redeem(
-        uint256 shares,
-        address receiver,
-        address owner
-    )
+    function redeem(uint256 shares, address receiver, address owner)
         public
         override
         nonReentrant
@@ -242,62 +200,48 @@ contract GiveVault4626 is ERC4626, VaultTokenBase {
         return super.redeem(shares, receiver, owner);
     }
 
-    function _deposit(
-        address caller,
-        address receiver,
-        uint256 assets,
-        uint256 shares
-    ) internal override whenNotPaused {
+    function _deposit(address caller, address receiver, uint256 assets, uint256 shares)
+        internal
+        override
+        whenNotPaused
+    {
         RiskModule.enforceDepositLimit(vaultId(), totalAssets(), assets);
         super._deposit(caller, receiver, assets, shares);
 
         address router = _vaultConfig().donationRouter;
         if (router != address(0)) {
-            PayoutRouter(payable(router)).updateUserShares(
-                receiver,
-                address(this),
-                balanceOf(receiver)
-            );
+            PayoutRouter(payable(router)).updateUserShares(receiver, address(this), balanceOf(receiver));
         }
 
         _investExcessCash();
     }
 
-    function _withdraw(
-        address caller,
-        address receiver,
-        address owner,
-        uint256 assets,
-        uint256 shares
-    ) internal override whenNotPausedOrGracePeriod {
+    function _withdraw(address caller, address receiver, address owner, uint256 assets, uint256 shares)
+        internal
+        override
+        whenNotPausedOrGracePeriod
+    {
         _ensureSufficientCash(assets);
         super._withdraw(caller, receiver, owner, assets, shares);
 
         address router = _vaultConfig().donationRouter;
         if (router != address(0)) {
-            PayoutRouter(payable(router)).updateUserShares(
-                owner,
-                address(this),
-                balanceOf(owner)
-            );
+            PayoutRouter(payable(router)).updateUserShares(owner, address(this), balanceOf(owner));
         }
     }
 
     // === Vault Management ===
 
-    function setWrappedNative(
-        address _wrapped
-    ) external onlyRole(VAULT_MANAGER_ROLE) {
+    function setWrappedNative(address _wrapped) external onlyRole(VAULT_MANAGER_ROLE) {
         if (_wrapped == address(0)) revert GiveErrors.ZeroAddress();
-        if (_wrapped != address(asset()))
+        if (_wrapped != address(asset())) {
             revert GiveErrors.InvalidConfiguration();
+        }
         _vaultConfig().wrappedNative = _wrapped;
         emit WrappedNativeSet(_wrapped);
     }
 
-    function setActiveAdapter(
-        IYieldAdapter adapter
-    ) external onlyRole(VAULT_MANAGER_ROLE) whenNotPaused {
+    function setActiveAdapter(IYieldAdapter adapter) external onlyRole(VAULT_MANAGER_ROLE) whenNotPaused {
         GiveTypes.VaultConfig storage cfg = _vaultConfig();
         address adapterAddr = address(adapter);
         if (adapterAddr != address(0)) {
@@ -311,9 +255,7 @@ contract GiveVault4626 is ERC4626, VaultTokenBase {
 
         address oldAdapter = cfg.activeAdapter;
         cfg.activeAdapter = adapterAddr;
-        cfg.adapterId = adapterAddr == address(0)
-            ? bytes32(0)
-            : bytes32(uint256(uint160(adapterAddr)));
+        cfg.adapterId = adapterAddr == address(0) ? bytes32(0) : bytes32(uint256(uint160(adapterAddr)));
 
         emit AdapterUpdated(oldAdapter, adapterAddr);
     }
@@ -326,9 +268,7 @@ contract GiveVault4626 is ERC4626, VaultTokenBase {
         emit AdapterUpdated(oldAdapter, address(0));
     }
 
-    function setDonationRouter(
-        address router
-    ) external onlyRole(VAULT_MANAGER_ROLE) {
+    function setDonationRouter(address router) external onlyRole(VAULT_MANAGER_ROLE) {
         if (router == address(0)) revert GiveErrors.ZeroAddress();
         GiveTypes.VaultConfig storage cfg = _vaultConfig();
         address oldRouter = cfg.donationRouter;
@@ -337,9 +277,7 @@ contract GiveVault4626 is ERC4626, VaultTokenBase {
         emit PayoutRouterUpdated(oldRouter, router);
     }
 
-    function setCashBufferBps(
-        uint256 _bps
-    ) external onlyRole(VAULT_MANAGER_ROLE) {
+    function setCashBufferBps(uint256 _bps) external onlyRole(VAULT_MANAGER_ROLE) {
         if (_bps > MAX_CASH_BUFFER_BPS) revert GiveErrors.CashBufferTooHigh();
         GiveTypes.VaultConfig storage cfg = _vaultConfig();
         uint256 old = cfg.cashBufferBps;
@@ -347,9 +285,7 @@ contract GiveVault4626 is ERC4626, VaultTokenBase {
         emit CashBufferUpdated(old, _bps);
     }
 
-    function setSlippageBps(
-        uint256 _bps
-    ) external onlyRole(VAULT_MANAGER_ROLE) {
+    function setSlippageBps(uint256 _bps) external onlyRole(VAULT_MANAGER_ROLE) {
         if (_bps > MAX_SLIPPAGE_BPS) revert GiveErrors.InvalidSlippageBps();
         GiveTypes.VaultConfig storage cfg = _vaultConfig();
         uint256 old = cfg.slippageBps;
@@ -377,11 +313,10 @@ contract GiveVault4626 is ERC4626, VaultTokenBase {
         emit HarvestPaused(_paused);
     }
 
-    function syncRiskLimits(
-        bytes32 riskId,
-        uint256 maxDeposit,
-        uint256 maxBorrow
-    ) external onlyRole(VAULT_MANAGER_ROLE) {
+    function syncRiskLimits(bytes32 riskId, uint256 maxDeposit, uint256 maxBorrow)
+        external
+        onlyRole(VAULT_MANAGER_ROLE)
+    {
         GiveTypes.VaultConfig storage cfg = _vaultConfig();
         cfg.riskId = riskId;
         cfg.maxVaultDeposit = maxDeposit;
@@ -400,9 +335,7 @@ contract GiveVault4626 is ERC4626, VaultTokenBase {
         // Automatically withdraw all assets from adapter to vault
         address adapterAddr = cfg.activeAdapter;
         if (adapterAddr != address(0)) {
-            try IYieldAdapter(adapterAddr).emergencyWithdraw() returns (
-                uint256 withdrawn
-            ) {
+            try IYieldAdapter(adapterAddr).emergencyWithdraw() returns (uint256 withdrawn) {
                 emit EmergencyWithdraw(withdrawn);
             } catch {
                 // If adapter emergency withdraw fails, continue with pause
@@ -427,17 +360,13 @@ contract GiveVault4626 is ERC4626, VaultTokenBase {
 
     // === Yield Operations ===
 
-    function harvest()
-        external
-        nonReentrant
-        whenHarvestNotPaused
-        returns (uint256 profit, uint256 loss)
-    {
+    function harvest() external nonReentrant whenHarvestNotPaused returns (uint256 profit, uint256 loss) {
         GiveTypes.VaultConfig storage cfg = _vaultConfig();
         address adapterAddr = cfg.activeAdapter;
         if (adapterAddr == address(0)) revert GiveErrors.AdapterNotSet();
-        if (cfg.donationRouter == address(0))
+        if (cfg.donationRouter == address(0)) {
             revert GiveErrors.InvalidConfiguration();
+        }
 
         (profit, loss) = IYieldAdapter(adapterAddr).harvest();
 
@@ -448,18 +377,13 @@ contract GiveVault4626 is ERC4626, VaultTokenBase {
         uint256 donated = 0;
         if (profit > 0) {
             IERC20(asset()).safeTransfer(cfg.donationRouter, profit);
-            donated = PayoutRouter(payable(cfg.donationRouter))
-                .distributeToAllUsers(asset(), profit);
+            donated = PayoutRouter(payable(cfg.donationRouter)).distributeToAllUsers(asset(), profit);
         }
 
         emit Harvest(profit, loss, donated);
     }
 
-    function emergencyWithdrawFromAdapter()
-        external
-        onlyRole(DEFAULT_ADMIN_ROLE)
-        returns (uint256 withdrawn)
-    {
+    function emergencyWithdrawFromAdapter() external onlyRole(DEFAULT_ADMIN_ROLE) returns (uint256 withdrawn) {
         GiveTypes.VaultConfig storage cfg = _vaultConfig();
         address adapterAddr = cfg.activeAdapter;
         if (adapterAddr == address(0)) revert GiveErrors.AdapterNotSet();
@@ -474,11 +398,11 @@ contract GiveVault4626 is ERC4626, VaultTokenBase {
     /// @param receiver Address receiving withdrawn assets
     /// @param owner Address owning the shares
     /// @return assets Amount of assets withdrawn
-    function emergencyWithdrawUser(
-        uint256 shares,
-        address receiver,
-        address owner
-    ) external nonReentrant returns (uint256 assets) {
+    function emergencyWithdrawUser(uint256 shares, address receiver, address owner)
+        external
+        nonReentrant
+        returns (uint256 assets)
+    {
         if (receiver == address(0)) revert GiveErrors.ZeroAddress();
 
         GiveTypes.VaultConfig storage cfg = _vaultConfig();
@@ -489,9 +413,7 @@ contract GiveVault4626 is ERC4626, VaultTokenBase {
         }
 
         // Grace period must have passed
-        if (
-            block.timestamp < cfg.emergencyActivatedAt + EMERGENCY_GRACE_PERIOD
-        ) {
+        if (block.timestamp < cfg.emergencyActivatedAt + EMERGENCY_GRACE_PERIOD) {
             revert GiveErrors.GracePeriodActive();
         }
 
@@ -524,13 +446,8 @@ contract GiveVault4626 is ERC4626, VaultTokenBase {
         // Update payout router shares (don't trigger payout during emergency)
         address router = cfg.donationRouter;
         if (router != address(0)) {
-            try
-                PayoutRouter(payable(router)).updateUserShares(
-                    owner,
-                    address(this),
-                    balanceOf(owner)
-                )
-            {} catch {
+            try PayoutRouter(payable(router)).updateUserShares(owner, address(this), balanceOf(owner)) {}
+            catch {
                 // If payout router fails, continue anyway (emergency priority)
             }
         }
@@ -584,20 +501,13 @@ contract GiveVault4626 is ERC4626, VaultTokenBase {
 
     function getAdapterAssets() external view returns (uint256) {
         address adapterAddr = _vaultConfig().activeAdapter;
-        return
-            adapterAddr != address(0)
-                ? IYieldAdapter(adapterAddr).totalAssets()
-                : 0;
+        return adapterAddr != address(0) ? IYieldAdapter(adapterAddr).totalAssets() : 0;
     }
 
     function getHarvestStats()
         external
         view
-        returns (
-            uint256 totalProfit_,
-            uint256 totalLoss_,
-            uint256 lastHarvestTime_
-        )
+        returns (uint256 totalProfit_, uint256 totalLoss_, uint256 lastHarvestTime_)
     {
         GiveTypes.VaultConfig storage cfg = _vaultConfig();
         return (cfg.totalProfit, cfg.totalLoss, cfg.lastHarvestTime);
@@ -615,13 +525,7 @@ contract GiveVault4626 is ERC4626, VaultTokenBase {
         )
     {
         GiveTypes.VaultConfig storage cfg = _vaultConfig();
-        return (
-            cfg.cashBufferBps,
-            cfg.slippageBps,
-            cfg.maxLossBps,
-            cfg.investPaused,
-            cfg.harvestPaused
-        );
+        return (cfg.cashBufferBps, cfg.slippageBps, cfg.maxLossBps, cfg.investPaused, cfg.harvestPaused);
     }
 
     function emergencyShutdownActive() external view returns (bool) {
@@ -630,15 +534,15 @@ contract GiveVault4626 is ERC4626, VaultTokenBase {
 
     // === Native ETH Convenience Methods ===
 
-    function depositETH(
-        address receiver,
-        uint256 minShares
-    ) external payable nonReentrant whenNotPaused returns (uint256 shares) {
+    function depositETH(address receiver, uint256 minShares)
+        external
+        payable
+        nonReentrant
+        whenNotPaused
+        returns (uint256 shares)
+    {
         GiveTypes.VaultConfig storage cfg = _vaultConfig();
-        if (
-            cfg.wrappedNative == address(0) ||
-            cfg.wrappedNative != address(asset())
-        ) {
+        if (cfg.wrappedNative == address(0) || cfg.wrappedNative != address(asset())) {
             revert GiveErrors.InvalidConfiguration();
         }
         if (receiver == address(0)) revert GiveErrors.InvalidReceiver();
@@ -646,19 +550,16 @@ contract GiveVault4626 is ERC4626, VaultTokenBase {
 
         RiskModule.enforceDepositLimit(vaultId(), totalAssets(), msg.value);
         shares = previewDeposit(msg.value);
-        if (shares < minShares)
+        if (shares < minShares) {
             revert GiveErrors.SlippageExceeded(minShares, shares);
+        }
 
         IWETH(cfg.wrappedNative).deposit{value: msg.value}();
         _mint(receiver, shares);
 
         address router = cfg.donationRouter;
         if (router != address(0)) {
-            PayoutRouter(payable(router)).updateUserShares(
-                receiver,
-                address(this),
-                balanceOf(receiver)
-            );
+            PayoutRouter(payable(router)).updateUserShares(receiver, address(this), balanceOf(receiver));
         }
 
         _investExcessCash();
@@ -667,59 +568,55 @@ contract GiveVault4626 is ERC4626, VaultTokenBase {
         return shares;
     }
 
-    function redeemETH(
-        uint256 shares,
-        address receiver,
-        address owner,
-        uint256 minAssets
-    ) external nonReentrant whenNotPaused returns (uint256 assets) {
+    function redeemETH(uint256 shares, address receiver, address owner, uint256 minAssets)
+        external
+        nonReentrant
+        whenNotPaused
+        returns (uint256 assets)
+    {
         GiveTypes.VaultConfig storage cfg = _vaultConfig();
-        if (
-            cfg.wrappedNative == address(0) ||
-            cfg.wrappedNative != address(asset())
-        ) {
+        if (cfg.wrappedNative == address(0) || cfg.wrappedNative != address(asset())) {
             revert GiveErrors.InvalidConfiguration();
         }
         if (receiver == address(0)) revert GiveErrors.InvalidReceiver();
         if (shares == 0) revert GiveErrors.InvalidAmount();
 
         assets = previewRedeem(shares);
-        if (assets < minAssets)
+        if (assets < minAssets) {
             revert GiveErrors.SlippageExceeded(minAssets, assets);
+        }
 
         _withdraw(msg.sender, address(this), owner, assets, shares);
 
         IWETH(cfg.wrappedNative).withdraw(assets);
-        (bool ok, ) = payable(receiver).call{value: assets}("");
+        (bool ok,) = payable(receiver).call{value: assets}("");
         if (!ok) revert GiveErrors.TransferFailed();
 
         return assets;
     }
 
-    function withdrawETH(
-        uint256 assets,
-        address receiver,
-        address owner,
-        uint256 maxShares
-    ) external nonReentrant whenNotPaused returns (uint256 shares) {
+    function withdrawETH(uint256 assets, address receiver, address owner, uint256 maxShares)
+        external
+        nonReentrant
+        whenNotPaused
+        returns (uint256 shares)
+    {
         GiveTypes.VaultConfig storage cfg = _vaultConfig();
-        if (
-            cfg.wrappedNative == address(0) ||
-            cfg.wrappedNative != address(asset())
-        ) {
+        if (cfg.wrappedNative == address(0) || cfg.wrappedNative != address(asset())) {
             revert GiveErrors.InvalidConfiguration();
         }
         if (receiver == address(0)) revert GiveErrors.InvalidReceiver();
         if (assets == 0) revert GiveErrors.InvalidAmount();
 
         shares = previewWithdraw(assets);
-        if (shares > maxShares)
+        if (shares > maxShares) {
             revert GiveErrors.SlippageExceeded(shares, maxShares);
+        }
 
         _withdraw(msg.sender, address(this), owner, assets, shares);
 
         IWETH(cfg.wrappedNative).withdraw(assets);
-        (bool ok, ) = payable(receiver).call{value: assets}("");
+        (bool ok,) = payable(receiver).call{value: assets}("");
         if (!ok) revert GiveErrors.TransferFailed();
 
         return shares;

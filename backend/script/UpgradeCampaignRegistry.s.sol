@@ -46,7 +46,7 @@ contract UpgradeCampaignRegistry is Script {
         CampaignRegistry registry = CampaignRegistry(proxyAddress);
         console.log("\n=== Verification ===");
         console.log("Registry responds:", address(registry) == proxyAddress);
-        
+
         // Try to read existing campaign IDs to verify storage is intact
         try registry.listCampaignIds() returns (bytes32[] memory ids) {
             console.log("Existing campaigns preserved:", ids.length);

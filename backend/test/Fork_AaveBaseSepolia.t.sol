@@ -14,9 +14,7 @@ interface IWETH is IERC20 {
 
 // Minimal IPool interface for testing
 interface IPool {
-    function getReserveData(
-        address asset
-    )
+    function getReserveData(address asset)
         external
         view
         returns (
@@ -116,32 +114,18 @@ contract Fork_AaveBaseSepoliaTest is Test {
 
         // 3. Verify totalAssets reports correct amount
         uint256 totalAssets = adapter.totalAssets();
-        assertApproxEqRel(
-            totalAssets,
-            depositAmount,
-            0.01e18,
-            "Total assets should match deposit"
-        );
+        assertApproxEqRel(totalAssets, depositAmount, 0.01e18, "Total assets should match deposit");
 
         // 4. Simulate time passing to accrue yield (1 day)
         skip(1 days);
 
         // 5. Verify yield accrual (totalAssets should increase slightly)
         uint256 totalAssetsAfterYield = adapter.totalAssets();
-        assertGe(
-            totalAssetsAfterYield,
-            totalAssets,
-            "Total assets should increase or stay same after time"
-        );
+        assertGe(totalAssetsAfterYield, totalAssets, "Total assets should increase or stay same after time");
 
         console.log("\n=== After 1 Day ===");
         console.log("Total assets:", totalAssetsAfterYield);
-        console.log(
-            "Yield accrued:",
-            totalAssetsAfterYield > totalAssets
-                ? totalAssetsAfterYield - totalAssets
-                : 0
-        );
+        console.log("Yield accrued:", totalAssetsAfterYield > totalAssets ? totalAssetsAfterYield - totalAssets : 0);
 
         // 6. Harvest yield (if any)
         vm.prank(vault);
@@ -156,12 +140,7 @@ contract Fork_AaveBaseSepoliaTest is Test {
         uint256 divested = adapter.divest(assetsBeforeDivest);
 
         assertGt(divested, 0, "Should divest some WETH");
-        assertApproxEqRel(
-            divested,
-            assetsBeforeDivest,
-            0.01e18,
-            "Divested should match total assets"
-        );
+        assertApproxEqRel(divested, assetsBeforeDivest, 0.01e18, "Divested should match total assets");
 
         console.log("\n=== After Divestment ===");
         console.log("Divested WETH:", divested);
@@ -200,23 +179,13 @@ contract Fork_AaveBaseSepoliaTest is Test {
         IERC20(WETH).transfer(address(adapter), firstDeposit);
         adapter.invest(firstDeposit);
         uint256 assetsAfterFirst = adapter.totalAssets();
-        assertApproxEqRel(
-            assetsAfterFirst,
-            firstDeposit,
-            0.01e18,
-            "First deposit should be recorded"
-        );
+        assertApproxEqRel(assetsAfterFirst, firstDeposit, 0.01e18, "First deposit should be recorded");
 
         // Second deposit
         IERC20(WETH).transfer(address(adapter), secondDeposit);
         adapter.invest(secondDeposit);
         uint256 assetsAfterSecond = adapter.totalAssets();
-        assertApproxEqRel(
-            assetsAfterSecond,
-            firstDeposit + secondDeposit,
-            0.01e18,
-            "Second deposit should be added"
-        );
+        assertApproxEqRel(assetsAfterSecond, firstDeposit + secondDeposit, 0.01e18, "Second deposit should be added");
 
         console.log("\n=== Multiple Deposits ===");
         console.log("After first deposit:", assetsAfterFirst);
@@ -225,20 +194,10 @@ contract Fork_AaveBaseSepoliaTest is Test {
         // Partial divestment
         uint256 partialDivest = 0.4 ether;
         uint256 divested = adapter.divest(partialDivest);
-        assertApproxEqRel(
-            divested,
-            partialDivest,
-            0.01e18,
-            "Partial divest should match requested"
-        );
+        assertApproxEqRel(divested, partialDivest, 0.01e18, "Partial divest should match requested");
 
         uint256 remaining = adapter.totalAssets();
-        assertApproxEqRel(
-            remaining,
-            assetsAfterSecond - divested,
-            0.01e18,
-            "Remaining assets should be correct"
-        );
+        assertApproxEqRel(remaining, assetsAfterSecond - divested, 0.01e18, "Remaining assets should be correct");
 
         console.log("After partial divest:", remaining);
 
