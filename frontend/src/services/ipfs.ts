@@ -163,6 +163,84 @@ export async function createNGOMetadata(
 }
 
 /**
+ * Complete Campaign creation process:
+ * 1. Upload images to IPFS (if any)
+ * 2. Create metadata with image hashes
+ * 3. Upload metadata to IPFS
+ * 4. Return metadata IPFS hash (CID)
+ */
+export async function createCampaignMetadata(
+  formData: {
+    campaignName: string
+    missionStatement: string
+    category: string
+    detailedDescription: string
+    campaignAddress: string
+    targetAmount: string
+    minStake: string
+    fundraisingDuration: string
+    images: File[]
+    videos: string[]
+    teamMembers: Array<{
+      name: string
+      role: string
+      bio: string
+    }>
+    impactMetrics: Array<{
+      name: string
+      target: string
+      description: string
+    }>
+  }
+): Promise<{ metadataHash: string; imageHashes: string[] }> {
+  try {
+    // Validate required fields
+    if (!formData.campaignName || !formData.missionStatement || !formData.category) {
+      throw new Error('Missing required fields')
+    }
+
+    // Upload images if provided (optional for campaigns)
+    let imageHashes: string[] = [];
+    if (formData.images && formData.images.length > 0) {
+      console.log('Uploading campaign images to IPFS...');
+      imageHashes = await uploadImagesToIPFS(formData.images);
+      console.log('Campaign images uploaded:', imageHashes);
+    }
+
+    // Create campaign metadata object
+    const metadata = {
+      name: formData.campaignName,
+      mission: formData.missionStatement,
+      description: formData.detailedDescription,
+      category: formData.category,
+      recipient: formData.campaignAddress,
+      targetAmount: formData.targetAmount,
+      minStake: formData.minStake,
+      fundraisingDuration: formData.fundraisingDuration,
+      images: imageHashes,
+      videos: formData.videos || [],
+      teamMembers: formData.teamMembers.filter(m => m.name.trim()),
+      impactMetrics: formData.impactMetrics.filter(m => m.name.trim()),
+      createdAt: new Date().toISOString(),
+      version: '0.5.0',
+    };
+
+    // Upload metadata to IPFS
+    console.log('Uploading campaign metadata to IPFS...');
+    const metadataHash = await uploadMetadataToIPFS(metadata as any);
+    console.log('Campaign metadata uploaded:', metadataHash);
+
+    return {
+      metadataHash,
+      imageHashes
+    };
+  } catch (error) {
+    console.error('Error creating campaign metadata:', error);
+    throw error;
+  }
+}
+
+/**
  * Get IPFS URL for a hash
  */
 export function getIPFSUrl(hash: string): string {

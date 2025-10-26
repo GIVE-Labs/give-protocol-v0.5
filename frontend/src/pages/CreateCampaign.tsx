@@ -14,6 +14,7 @@ import { parseEther, keccak256, toBytes } from 'viem';
 import { DotLottieReact } from '@lottiefiles/dotlottie-react';
 import ACLManagerABI from '../abis/ACLManager.json';
 import { CONTRACT_ADDRESSES } from '../config/contracts';
+import { createCampaignMetadata } from '../services/ipfs';
 
 interface FormData {
   // Basic Info
@@ -283,56 +284,16 @@ export default function CreateCampaign() {
 
   const uploadToIPFS = async () => {
     try {
-      // Prepare metadata
-      const metadata = {
-        name: formData.campaignName,
-        mission: formData.missionStatement,
-        description: formData.detailedDescription,
-        category: formData.category,
-        recipient: formData.campaignAddress,
-        targetAmount: formData.targetAmount,
-        teamMembers: formData.teamMembers.filter(m => m.name.trim()),
-        impactMetrics: formData.impactMetrics.filter(m => m.name.trim()),
-        createdAt: new Date().toISOString(),
-        version: '0.5.0',
-      };
-
-      console.log('📤 Uploading metadata to Pinata IPFS:', metadata);
-
-      // Upload to Pinata using JWT from .env
-      const pinataJWT = import.meta.env.VITE_PINATA_JWT;
+      // Use the proper IPFS service function like the NGO creation page
+      console.log('📤 Uploading campaign metadata to IPFS...');
       
-      if (!pinataJWT) {
-        throw new Error('VITE_PINATA_JWT not configured in .env file');
-      }
-
-      const response = await fetch('https://api.pinata.cloud/pinning/pinJSONToIPFS', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${pinataJWT}`
-        },
-        body: JSON.stringify({
-          pinataContent: metadata,
-          pinataMetadata: {
-            name: `${formData.campaignName}-metadata.json`
-          }
-        })
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        console.error('❌ Pinata upload failed:', response.status, errorData);
-        throw new Error(`Pinata upload failed: ${response.statusText}`);
-      }
-
-      const result = await response.json();
-      const ipfsHash = result.IpfsHash; // e.g., "QmXxx..."
+      const { metadataHash, imageHashes } = await createCampaignMetadata(formData);
       
-      console.log('✅ Metadata uploaded to IPFS:', ipfsHash);
-      console.log('🔗 View at:', `https://${import.meta.env.VITE_PINATA_GATEWAY}/ipfs/${ipfsHash}`);
+      console.log('✅ Metadata uploaded to IPFS:', metadataHash);
+      console.log('✅ Images uploaded:', imageHashes);
+      console.log('🔗 View at:', `https://${import.meta.env.VITE_PINATA_GATEWAY}/ipfs/${metadataHash}`);
       
-      return ipfsHash;
+      return metadataHash;
     } catch (err) {
       console.error('IPFS upload failed:', err);
       throw new Error(`Failed to upload metadata to IPFS: ${err instanceof Error ? err.message : 'Unknown error'}`);
@@ -382,28 +343,31 @@ export default function CreateCampaign() {
     setSubmitError(null);
     
     try {
-      // Step 1: Upload to IPFS
+      // Step 1: Upload to IPFS (images + metadata)
       console.log('Creating campaign metadata...');
-      const hash = await uploadToIPFS();
-      console.log('Metadata uploaded to IPFS:', hash);
+      const metadataCid = await uploadToIPFS();
+      console.log('Metadata CID from IPFS:', metadataCid);
       
-      // Step 2: Generate campaign ID from name
+      // Step 2: Generate campaign ID from name (bytes32)
       const campaignId = `0x${Array.from(new TextEncoder().encode(formData.campaignName))
         .map(b => b.toString(16).padStart(2, '0'))
         .join('')
         .padEnd(64, '0')}` as `0x${string}`;
 
-      // Step 3: Prepare CampaignInput
+      // Step 3: Convert IPFS CID to bytes32 for contract storage
+      // IPFS CID is stored as UTF-8 bytes in bytes32 (padded/truncated to 32 bytes)
+      const cidBytes = new TextEncoder().encode(metadataCid);
+      const metadataHashBytes = `0x${Array.from(cidBytes.slice(0, 32)) // Take first 32 bytes
+        .map(b => b.toString(16).padStart(2, '0'))
+        .join('')
+        .padEnd(64, '0')}` as `0x${string}`; // Pad with zeros if needed
+
+      // Step 4: Prepare amounts and timestamps
       const targetStake = parseEther(formData.targetAmount || '10');
       const minStake = parseEther(formData.minStake || '0.01');
       const fundraisingStart = BigInt(Math.floor(Date.now() / 1000));
       const fundraisingDuration = BigInt(parseInt(formData.fundraisingDuration) * 24 * 60 * 60);
       const fundraisingEnd = fundraisingStart + fundraisingDuration;
-
-      const metadataHashBytes = `0x${Array.from(new TextEncoder().encode(hash))
-        .map(b => b.toString(16).padStart(2, '0'))
-        .join('')
-        .slice(0, 64)}` as `0x${string}`; // Take only first 32 bytes (64 hex chars)
 
       // Default strategy ID (TODO: let user select)
       const defaultStrategyId = '0x79861c7f93db9d6c9c5c46da4760ee78aef494b26e84a8b82a4cdfbf4dbdc848' as `0x${string}`;
@@ -424,22 +388,13 @@ export default function CreateCampaign() {
       console.log('Campaign Name:', formData.campaignName);
       console.log('Payout Recipient:', formData.campaignAddress);
       console.log('Strategy ID:', defaultStrategyId);
-      console.log('Metadata Hash:', metadataHashBytes);
+      console.log('IPFS CID:', metadataCid);
+      console.log('Metadata Hash (bytes32):', metadataHashBytes);
       console.log('Target Stake:', targetStake.toString(), 'wei (', formData.targetAmount, 'ETH)');
       console.log('Min Stake:', minStake.toString(), 'wei (', formData.minStake, 'ETH)');
       console.log('Fundraising Start:', new Date(Number(fundraisingStart) * 1000).toISOString());
       console.log('Fundraising End:', new Date(Number(fundraisingEnd) * 1000).toISOString());
       console.log('Full input:', input);
-      
-      // Validate before submitting
-      console.log('\n=== Pre-flight Checks ===');
-      console.log('✓ Campaign ID is not zero:', campaignId !== '0x' + '0'.repeat(64));
-      console.log('✓ Recipient not zero:', formData.campaignAddress !== '0x' + '0'.repeat(40));
-      console.log('✓ Strategy ID not zero:', defaultStrategyId !== '0x' + '0'.repeat(64));
-      console.log('✓ Target stake > 0:', targetStake > 0n);
-      console.log('✓ Min stake <= Target stake:', minStake <= targetStake);
-      console.log('✓ End > Start (or End = 0):', fundraisingEnd === 0n || fundraisingEnd > fundraisingStart);
-      console.log('✓ All validations passed!');
       console.log('=====================================');
       
       await submitCampaign(input);
