@@ -348,11 +348,11 @@ export default function CreateCampaign() {
       const metadataCid = await uploadToIPFS();
       console.log('Metadata CID from IPFS:', metadataCid);
       
-      // Step 2: Generate campaign ID from name (bytes32)
-      const campaignId = `0x${Array.from(new TextEncoder().encode(formData.campaignName))
-        .map(b => b.toString(16).padStart(2, '0'))
-        .join('')
-        .padEnd(64, '0')}` as `0x${string}`;
+      // Step 2: Generate unique campaign ID (hash of name + timestamp + creator address)
+      // This prevents collisions from campaigns with the same name
+      const uniqueString = `${formData.campaignName}-${Date.now()}-${address}`;
+      const campaignIdHash = keccak256(toBytes(uniqueString));
+      const campaignId = campaignIdHash as `0x${string}`;
 
       // Step 3: Convert IPFS CID to bytes32 for contract storage
       // Since IPFS CIDv1 doesn't fit in bytes32, we hash it deterministically

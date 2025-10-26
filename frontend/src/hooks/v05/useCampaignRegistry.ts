@@ -3,11 +3,12 @@
  * Manages campaign lifecycle: submission, approval, voting, checkpoints
  */
 
-import { useReadContract, useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
+import { useReadContract, useWriteContract, useWaitForTransactionReceipt, useAccount } from 'wagmi';
 import { BASE_SEPOLIA_ADDRESSES } from '../../config/baseSepolia';
 import CampaignRegistryABI from '../../abis/CampaignRegistry.json';
 
 export function useCampaignRegistry() {
+  const { address: connectedAddress } = useAccount();
   const { writeContract, data: hash, isPending, error } = useWriteContract();
   const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash });
 
@@ -80,11 +81,15 @@ export function useCampaignRegistry() {
     fundraisingStart: bigint;
     fundraisingEnd: bigint;
   }) => {
+    if (!connectedAddress) {
+      throw new Error('No wallet connected');
+    }
     return writeContract({
       address: BASE_SEPOLIA_ADDRESSES.CAMPAIGN_REGISTRY as `0x${string}`,
       abi: CampaignRegistryABI,
       functionName: 'submitCampaign',
       args: [input],
+      account: connectedAddress,
     });
   };
 
