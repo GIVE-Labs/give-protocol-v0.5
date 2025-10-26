@@ -71,8 +71,8 @@ export default function CreateCampaign() {
   const { submitCampaign, isPending, isSuccess, error, hash } = useCampaignRegistry();
   const navigate = useNavigate();
 
-  // Check if user has CAMPAIGN_CREATOR_ROLE
-  const CAMPAIGN_CREATOR_ROLE = keccak256(toBytes('CAMPAIGN_CREATOR_ROLE'));
+  // Check if user has ROLE_CAMPAIGN_CREATOR (matches ACLManager.sol)
+  const CAMPAIGN_CREATOR_ROLE = keccak256(toBytes('ROLE_CAMPAIGN_CREATOR'));
   const { data: hasCreatorRole, isLoading: isCheckingRole } = useReadContract({
     address: (CONTRACT_ADDRESSES as any).ACL_MANAGER as `0x${string}`,
     abi: ACLManagerABI,
@@ -403,7 +403,7 @@ export default function CreateCampaign() {
       const metadataHashBytes = `0x${Array.from(new TextEncoder().encode(hash))
         .map(b => b.toString(16).padStart(2, '0'))
         .join('')
-        .padEnd(64, '0')}` as `0x${string}`;
+        .slice(0, 64)}` as `0x${string}`; // Take only first 32 bytes (64 hex chars)
 
       // Default strategy ID (TODO: let user select)
       const defaultStrategyId = '0x79861c7f93db9d6c9c5c46da4760ee78aef494b26e84a8b82a4cdfbf4dbdc848' as `0x${string}`;
@@ -952,81 +952,54 @@ export default function CreateCampaign() {
           </Link>
           
           <div className="text-center">
-            <h1 className="text-5xl lg:text-6xl font-bold text-gray-900 mb-4 font-unbounded leading-tight">
+            <h1 className="text-4xl lg:text-5xl font-bold text-gray-900 mb-4 font-unbounded leading-tight">
               <span className="text-gray-900">Create Campaign</span>
               <span className="block text-transparent bg-gradient-to-r from-emerald-600 via-cyan-600 to-teal-600 bg-clip-text pb-1">
-                for Good
+                for Good.
               </span>
             </h1>
             <p className="text-xl lg:text-2xl text-gray-700 leading-relaxed font-medium font-unbounded max-w-3xl mx-auto">
               Launch your humanitarian project and connect with compassionate backers worldwide
             </p>
             
-            {/* Permission Notice */}
-            <motion.div
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.3 }}
-              className="mt-6 max-w-2xl mx-auto"
-            >
-              {!isConnected ? (
-                <div className="bg-blue-50 border-l-4 border-blue-400 p-4 rounded-lg">
-                  <div className="flex items-start">
-                    <AlertCircle className="w-5 h-5 text-blue-600 mr-3 mt-0.5 flex-shrink-0" />
-                    <div className="text-left">
-                      <p className="text-sm font-semibold text-blue-800">
-                        Connect Your Wallet
-                      </p>
-                      <p className="text-xs text-blue-700">
-                        Please connect your wallet to create a campaign.
+            {/* Permission Notice - only show warnings */}
+            {(!isConnected || isCheckingRole || !hasCreatorRole) && (
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.3 }}
+                className="mt-6 max-w-2xl mx-auto"
+              >
+                {!isConnected ? (
+                  <div className="bg-blue-50 border-l-4 border-blue-400 p-4 rounded-lg">
+                    <div className="flex items-start">
+                      <AlertCircle className="w-5 h-5 text-blue-600 mr-3 mt-0.5 flex-shrink-0" />
+                      <p className="text-sm text-gray-600 font-medium">
+                        Please connect your wallet first.
                       </p>
                     </div>
                   </div>
-                </div>
-              ) : isCheckingRole ? (
-                <div className="bg-gray-50 border-l-4 border-gray-400 p-4 rounded-lg">
-                  <div className="flex items-start">
-                    <div className="w-5 h-5 border-2 border-gray-400 border-t-transparent rounded-full animate-spin mr-3 mt-0.5" />
-                    <div className="text-left">
-                      <p className="text-sm font-semibold text-gray-800">
-                        Checking Permissions...
+                ) : isCheckingRole ? (
+                  <div className="bg-gray-50 border-l-4 border-gray-400 p-4 rounded-lg">
+                    <div className="flex items-start">
+                      <div className="w-5 h-5 border-2 border-gray-400 border-t-transparent rounded-full animate-spin mr-3 mt-0.5" />
+                      <p className="text-sm text-gray-600 font-medium">
+                        Checking permissions...
                       </p>
                     </div>
                   </div>
-                </div>
-              ) : hasCreatorRole ? (
-                <div className="bg-green-50 border-l-4 border-green-400 p-4 rounded-lg">
-                  <div className="flex items-start">
-                    <Check className="w-5 h-5 text-green-600 mr-3 mt-0.5 flex-shrink-0" />
-                    <div className="text-left">
-                      <p className="text-sm font-semibold text-green-800">
-                        ✓ Campaign Creator Role Verified
-                      </p>
-                      <p className="text-xs text-green-700">
-                        Your wallet has permission to create campaigns.
+                ) : (
+                  <div className="bg-red-50 border-l-4 border-red-400 p-4 rounded-lg">
+                    <div className="flex items-start">
+                      <AlertCircle className="w-5 h-5 text-red-600 mr-3 mt-0.5 flex-shrink-0" />
+                      <p className="text-sm text-gray-600 font-medium">
+                        You are not authorized to create a campaign. Contact an admin to request the Campaign Creator role.
                       </p>
                     </div>
                   </div>
-                </div>
-              ) : (
-                <div className="bg-red-50 border-l-4 border-red-400 p-4 rounded-lg">
-                  <div className="flex items-start">
-                    <AlertCircle className="w-5 h-5 text-red-600 mr-3 mt-0.5 flex-shrink-0" />
-                    <div className="text-left">
-                      <p className="text-sm font-semibold text-red-800 mb-1">
-                        ⚠️ Missing Campaign Creator Role
-                      </p>
-                      <p className="text-xs text-red-700 mb-2">
-                        Your wallet (<code className="bg-red-100 px-1 py-0.5 rounded font-mono text-red-900">{address?.slice(0, 6)}...{address?.slice(-4)}</code>) does not have the <code className="bg-red-100 px-1.5 py-0.5 rounded text-red-900 font-mono">CAMPAIGN_CREATOR_ROLE</code>.
-                      </p>
-                      <p className="text-xs text-red-700">
-                        Contact an admin to request this role before attempting to submit a campaign.
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </motion.div>
+                )}
+              </motion.div>
+            )}
           </div>
         </motion.div>
 
