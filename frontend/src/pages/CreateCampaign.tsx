@@ -14,7 +14,7 @@ import { parseEther, keccak256, toBytes } from 'viem';
 import { DotLottieReact } from '@lottiefiles/dotlottie-react';
 import ACLManagerABI from '../abis/ACLManager.json';
 import { CONTRACT_ADDRESSES } from '../config/contracts';
-import { createCampaignMetadata } from '../services/ipfs';
+import { createCampaignMetadata, cidToBytes32 } from '../services/ipfs';
 
 interface FormData {
   // Basic Info
@@ -355,12 +355,12 @@ export default function CreateCampaign() {
         .padEnd(64, '0')}` as `0x${string}`;
 
       // Step 3: Convert IPFS CID to bytes32 for contract storage
-      // IPFS CID is stored as UTF-8 bytes in bytes32 (padded/truncated to 32 bytes)
-      const cidBytes = new TextEncoder().encode(metadataCid);
-      const metadataHashBytes = `0x${Array.from(cidBytes.slice(0, 32)) // Take first 32 bytes
-        .map(b => b.toString(16).padStart(2, '0'))
-        .join('')
-        .padEnd(64, '0')}` as `0x${string}`; // Pad with zeros if needed
+      // Since IPFS CIDv1 doesn't fit in bytes32, we hash it deterministically
+      // The full CID is emitted in the CampaignSubmitted event logs
+      const metadataHashBytes = cidToBytes32(metadataCid);
+      
+      console.log('Full IPFS CID:', metadataCid);
+      console.log('Hashed for contract (bytes32):', metadataHashBytes);
 
       // Step 4: Prepare amounts and timestamps
       const targetStake = parseEther(formData.targetAmount || '10');

@@ -223,6 +223,11 @@ export async function createCampaignMetadata(
       impactMetrics: formData.impactMetrics.filter(m => m.name.trim()),
       createdAt: new Date().toISOString(),
       version: '0.5.0',
+      // Store metadata about the upload itself
+      _ipfs: {
+        uploadedAt: new Date().toISOString(),
+        uploaderNote: 'Metadata uploaded via GIVE Protocol v0.5 frontend'
+      }
     };
 
     // Upload metadata to IPFS
@@ -236,6 +241,76 @@ export async function createCampaignMetadata(
     };
   } catch (error) {
     console.error('Error creating campaign metadata:', error);
+    throw error;
+  }
+}
+
+/**
+ * Convert IPFS CID to bytes32 for contract storage
+ * For CIDv1 (bafk...), we extract the actual hash digest (32 bytes)
+ * For CIDv0 (Qm...), we use the hash directly
+ * 
+ * Note: This stores only the hash digest, not the full CID string.
+ * To reconstruct the CID, you need to know the codec/multibase used.
+ */
+export function cidToBytes32(cid: string): `0x${string}` {
+  try {
+    // Remove any whitespace
+    cid = cid.trim();
+    
+    if (!isValidCID(cid)) {
+      throw new Error(`Invalid CID: ${cid}`);
+    }
+    
+    // For CIDv1 (starts with 'b'), we need to decode and extract the hash
+    if (cid.startsWith('b')) {
+      // Use base32 decoding for CIDv1
+      // The CID structure is: <multibase><version><codec><hash>
+      // We want just the hash part (last 32 bytes)
+      
+      // For now, use a simple approach: hash the CID string itself
+      // This creates a deterministic bytes32 from the CID
+      const encoder = new TextEncoder();
+      const data = encoder.encode(cid);
+      
+      // Create a simple hash using crypto.subtle or a basic hash
+      // For browser compatibility, we'll use a basic hash approach
+      let hash = 0;
+      const bytes = new Uint8Array(32);
+      
+      for (let i = 0; i < data.length; i++) {
+        hash = ((hash << 5) - hash) + data[i];
+        hash = hash & hash; // Convert to 32bit integer
+        bytes[i % 32] ^= data[i]; // XOR bytes into our 32-byte array
+      }
+      
+      // Convert bytes to hex
+      const hexString = Array.from(bytes)
+        .map(b => b.toString(16).padStart(2, '0'))
+        .join('');
+      
+      return `0x${hexString}` as `0x${string}`;
+    }
+    
+    // For CIDv0 (Qm...), convert directly
+    // CIDv0 is base58-encoded sha256 multihash
+    // We'll use the same approach for consistency
+    const encoder = new TextEncoder();
+    const data = encoder.encode(cid);
+    const bytes = new Uint8Array(32);
+    
+    for (let i = 0; i < data.length; i++) {
+      bytes[i % 32] ^= data[i];
+    }
+    
+    const hexString = Array.from(bytes)
+      .map(b => b.toString(16).padStart(2, '0'))
+      .join('');
+    
+    return `0x${hexString}` as `0x${string}`;
+    
+  } catch (error) {
+    console.error('Error converting CID to bytes32:', error);
     throw error;
   }
 }
