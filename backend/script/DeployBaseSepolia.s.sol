@@ -123,7 +123,8 @@ contract DeployBaseSepolia is Script {
                 id: campaignId,
                 payoutRecipient: payoutRecipient,
                 strategyId: strategyId,
-                metadataHash: keccak256("campaign.climate.metadata"),
+                metadataHash: keccak256("campaign.metadata"),
+                metadataCID: "bafybeigdyrzt5sfp7udm7hu76uh7y26nf3efuylqabf3oclgtqy55fbzdi",
                 targetStake: 5 ether, // 5 ETH fundraising goal
                 minStake: 0.01 ether, // 0.01 ETH minimum stake
                 fundraisingStart: uint64(block.timestamp),

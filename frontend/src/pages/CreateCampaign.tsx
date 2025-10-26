@@ -14,7 +14,7 @@ import { parseEther, keccak256, toBytes } from 'viem';
 import { DotLottieReact } from '@lottiefiles/dotlottie-react';
 import ACLManagerABI from '../abis/ACLManager.json';
 import { CONTRACT_ADDRESSES } from '../config/contracts';
-import { createCampaignMetadata, cidToBytes32 } from '../services/ipfs';
+import { createCampaignMetadata, cidToBytes32, saveCampaignCID } from '../services/ipfs';
 
 interface FormData {
   // Basic Info
@@ -377,6 +377,7 @@ export default function CreateCampaign() {
         payoutRecipient: formData.campaignAddress as `0x${string}`,
         strategyId: defaultStrategyId,
         metadataHash: metadataHashBytes,
+        metadataCID: metadataCid,
         targetStake,
         minStake,
         fundraisingStart,
@@ -396,6 +397,9 @@ export default function CreateCampaign() {
       console.log('Fundraising End:', new Date(Number(fundraisingEnd) * 1000).toISOString());
       console.log('Full input:', input);
       console.log('=====================================');
+      
+      // Store CID mapping in localStorage for retrieval (bytes32 can't hold full CID)
+      saveCampaignCID(campaignId, metadataCid);
       
       await submitCampaign(input);
       

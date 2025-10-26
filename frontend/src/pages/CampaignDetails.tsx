@@ -8,6 +8,7 @@ import StakingProgressModal from '../components/staking/StakingProgressModal';
 import { CONTRACT_ADDRESSES, MOCK_WETH, MOCK_USDC } from '../config/contracts';
 import GiveVault4626ABIJson from '../abis/GiveVault4626.json';
 import campaignRegistryABI from '../abis/CampaignRegistry.json';
+import { hexToCid, fetchMetadataFromIPFS, getIPFSUrl } from '../services/ipfs';
 
 const GiveVault4626ABI = (GiveVault4626ABIJson as any).abi || GiveVault4626ABIJson;
 
@@ -31,6 +32,8 @@ export default function CampaignDetails() {
   const [isStakeError, setIsStakeError] = useState(false);
   const [currentTxHash, setCurrentTxHash] = useState<string | undefined>();
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  const [metadata, setMetadata] = useState<any>(null);
+  const [isLoadingMetadata, setIsLoadingMetadata] = useState(false);
   
   // Campaign data - using the hook instead of direct contract call
   const { data: campaignData } = useReadContract({
@@ -40,6 +43,51 @@ export default function CampaignDetails() {
     args: campaignId ? [campaignId as `0x${string}`] : undefined,
     query: { enabled: !!campaignId }
   });
+  
+  // Fetch IPFS metadata when campaign data loads
+  useEffect(() => {
+    const loadMetadata = async () => {
+      if (!campaignData) return;
+      
+      const campaign = campaignData as any;
+      const metadataHash = campaign.metadataHash;
+      
+      if (!metadataHash || metadataHash === '0x0000000000000000000000000000000000000000000000000000000000000000') {
+        console.warn('No metadata hash found for campaign');
+        return;
+      }
+      
+      setIsLoadingMetadata(true);
+      console.log('Loading campaign metadata from hash:', metadataHash);
+      
+      try {
+        // Convert bytes32 to CID (pass campaignId to check localStorage or event logs)
+        const cid = await hexToCid(metadataHash, campaignId || undefined);
+        
+        if (!cid) {
+          console.warn('Could not convert metadata hash to CID');
+          console.warn('Campaign may have been created before event logging was implemented');
+          return;
+        }
+        
+        console.log('Fetching metadata from IPFS CID:', cid);
+        const data = await fetchMetadataFromIPFS(cid);
+        
+        if (data) {
+          console.log('Campaign metadata loaded:', data);
+          setMetadata(data);
+        } else {
+          console.warn('Failed to load campaign metadata from IPFS');
+        }
+      } catch (error) {
+        console.error('Error loading campaign metadata:', error);
+      } finally {
+        setIsLoadingMetadata(false);
+      }
+    };
+    
+    loadMetadata();
+  }, [campaignData, campaignId]);
   
   // Token addresses
   const tokenAddress = selectedToken === 'ETH' ? undefined : 
@@ -60,12 +108,14 @@ export default function CampaignDetails() {
     token: USDC_ADDRESS as `0x${string}`,
   });
   
-  // Mock images for carousel
-  const campaignImages = [
-    '/src/assets/IMG_4241.jpg',
-    '/src/assets/IMG_5543.jpg',
-    '/src/assets/IMG_5550.jpg'
-  ];
+  // Campaign images - use metadata if available, fallback to mock images
+  const campaignImages = metadata?.images?.length > 0 
+    ? metadata.images.map((hash: string) => getIPFSUrl(hash))
+    : [
+        '/src/assets/IMG_4241.jpg',
+        '/src/assets/IMG_5543.jpg',
+        '/src/assets/IMG_5550.jpg'
+      ];
   
   // Image carousel navigation
   const nextImage = () => {
@@ -244,7 +294,7 @@ export default function CampaignDetails() {
               
               {/* Image Indicators */}
               <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 flex space-x-2">
-                {campaignImages.map((_, index) => (
+                {campaignImages.map((_: string, index: number) => (
                   <button
                     key={index}
                     onClick={() => setCurrentImageIndex(index)}
@@ -274,7 +324,9 @@ export default function CampaignDetails() {
         <div className="absolute bottom-6 left-6 text-white">
           <div className="flex items-center space-x-3 mb-4">
             <div>
-              <h1 className="text-3xl font-bold font-unbounded mb-2">Test Campaign</h1>
+              <h1 className="text-3xl font-bold font-unbounded mb-2">
+                {metadata?.name || 'Loading Campaign...'}
+              </h1>
               <div className="flex items-center space-x-2">
                 <span className="bg-emerald-100 text-emerald-800 px-2 py-1 rounded-full text-xs font-medium flex items-center">
                   <svg className="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 20 20">
@@ -282,10 +334,17 @@ export default function CampaignDetails() {
                   </svg>
                   Verified Campaign
                 </span>
+                {metadata?.category && (
+                  <span className="bg-cyan-100 text-cyan-800 px-2 py-1 rounded-full text-xs font-medium">
+                    {metadata.category}
+                  </span>
+                )}
               </div>
             </div>
           </div>
-          <p className="text-xl opacity-90 max-w-2xl font-medium">Supporting sustainable impact through no-loss giving</p>
+          <p className="text-xl opacity-90 max-w-2xl font-medium">
+            {metadata?.mission || 'Supporting sustainable impact through no-loss giving'}
+          </p>
         </div>
       </div>
       
@@ -346,22 +405,57 @@ export default function CampaignDetails() {
                   <div className="space-y-6">
                     <div>
                       <h3 className="text-lg font-semibold text-gray-900 mb-3 font-unbounded">About This Campaign</h3>
-                      <p className="text-gray-700 leading-relaxed mb-4 font-medium">
-                        This campaign is dedicated to creating sustainable impact through no-loss giving. Donors deposit principal into yield-generating vaults, and the generated returns stream to this campaign without touching the principal.
-                      </p>
+                      {isLoadingMetadata ? (
+                        <div className="flex items-center justify-center py-8">
+                          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-500"></div>
+                        </div>
+                      ) : (
+                        <p className="text-gray-700 leading-relaxed mb-4 font-medium">
+                          {metadata?.description || 'This campaign is dedicated to creating sustainable impact through no-loss giving. Donors deposit principal into yield-generating vaults, and the generated returns stream to this campaign without touching the principal.'}
+                        </p>
+                      )}
                     </div>
                     
-                    <div>
-                      <h3 className="text-lg font-semibold text-gray-900 mb-3 font-unbounded">Focus Areas</h3>
-                      <div className="flex flex-wrap gap-2">
-                        <span className="bg-gradient-to-r from-emerald-100 to-teal-100 text-emerald-800 px-3 py-1 rounded-full text-sm font-medium">
-                          Climate Action
-                        </span>
-                        <span className="bg-gradient-to-r from-emerald-100 to-teal-100 text-emerald-800 px-3 py-1 rounded-full text-sm font-medium">
-                          Sustainability
-                        </span>
+                    {metadata?.teamMembers && metadata.teamMembers.length > 0 && (
+                      <div>
+                        <h3 className="text-lg font-semibold text-gray-900 mb-3 font-unbounded">Team Members</h3>
+                        <div className="space-y-3">
+                          {metadata.teamMembers.map((member: any, idx: number) => (
+                            <div key={idx} className="bg-gray-50 rounded-lg p-4">
+                              <div className="font-semibold text-gray-900">{member.name}</div>
+                              <div className="text-sm text-emerald-600 mb-2">{member.role}</div>
+                              {member.bio && <div className="text-sm text-gray-600">{member.bio}</div>}
+                            </div>
+                          ))}
+                        </div>
                       </div>
-                    </div>
+                    )}
+                    
+                    {metadata?.impactMetrics && metadata.impactMetrics.length > 0 && (
+                      <div>
+                        <h3 className="text-lg font-semibold text-gray-900 mb-3 font-unbounded">Impact Goals</h3>
+                        <div className="space-y-3">
+                          {metadata.impactMetrics.map((metric: any, idx: number) => (
+                            <div key={idx} className="bg-gradient-to-r from-emerald-50 to-teal-50 rounded-lg p-4">
+                              <div className="font-semibold text-gray-900">{metric.name}</div>
+                              <div className="text-sm text-emerald-700 font-medium">Target: {metric.target}</div>
+                              {metric.description && <div className="text-sm text-gray-600 mt-1">{metric.description}</div>}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    
+                    {metadata?.category && (
+                      <div>
+                        <h3 className="text-lg font-semibold text-gray-900 mb-3 font-unbounded">Focus Areas</h3>
+                        <div className="flex flex-wrap gap-2">
+                          <span className="bg-gradient-to-r from-emerald-100 to-teal-100 text-emerald-800 px-3 py-1 rounded-full text-sm font-medium">
+                            {metadata.category}
+                          </span>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
                 

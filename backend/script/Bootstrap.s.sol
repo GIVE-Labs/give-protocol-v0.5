@@ -552,6 +552,7 @@ contract Bootstrap is Script {
                     payoutRecipient: cfg.protocolTreasury,
                     strategyId: strategyId,
                     metadataHash: keccak256("campaign.primary.metadata"),
+                    metadataCID: "bafybeigdyrzt5sfp7udm7hu76uh7y26nf3efuylqabf3oclgtqy55fbzdi",
                     targetStake: cfg.riskMaxDeposit,
                     minStake: cfg.riskMaxDeposit / 10,
                     fundraisingStart: uint64(block.timestamp),

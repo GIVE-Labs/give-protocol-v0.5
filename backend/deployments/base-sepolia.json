@@ -3,12 +3,14 @@
   "chainId": 84532,
   "deployed": true,
   "timestamp": "2025-01-06",
+  "lastUpgrade": "2025-10-26",
   "contracts": {
     "aclManager": "0xd85BdcdaE4db1FAEB8eF93331525FE68D7C8B3f0",
     "protocolCore": "0x18d59CE2692A4495ed9B7df3f2BF36F47C41aCB5",
     "payoutRouter": "0x2CfFF1c8Df8CE2BA6CBa19699CCBa6F381734938",
     "strategyRegistry": "0x0539913313f5a138e3b602d5e731BD9a86722F9E",
     "campaignRegistry": "0xdad56314AbA81676e2d5826fb72B2168141c0A60",
+    "campaignRegistryImpl": "0xbD5f7231d22cAf23909d85aB8e1112d960A0E129",
     "vaultFactory": "0x3857b6c6f162fDA9BD591D4CCDEF8C00093cC357",
     "wethVault": "0x89c88ED20d4b742185185f77017182247671eE3b",
     "aaveAdapter": "0x5e4d9F27bdE402360EEB8A4CeDA98Bb9d11848A4",
@@ -23,5 +25,8 @@
     "campaignId": "0x4708e817030c86d9a2b71a96cd8bf7507ef81ea96949d7cf65702b0876b7656f",
     "vaultId": "0x2d2cad568ce40fb16e99c022b3521e99709be3aaf1e1da660b42d9794545fdf1"
   },
-  "explorer": "https://sepolia.basescan.org"
+  "explorer": "https://sepolia.basescan.org",
+  "notes": {
+    "campaignRegistry": "Upgraded to v2 on 2025-10-26: Added metadataCID string to CampaignSubmitted event for scalable IPFS metadata retrieval"
+  }
 }

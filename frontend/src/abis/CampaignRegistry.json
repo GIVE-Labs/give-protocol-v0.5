@@ -753,6 +753,11 @@
             "internalType": "bytes32"
           },
           {
+            "name": "metadataCID",
+            "type": "string",
+            "internalType": "string"
+          },
+          {
             "name": "targetStake",
             "type": "uint256",
             "internalType": "uint256"
@@ -925,6 +930,12 @@
         "type": "bytes32",
         "indexed": false,
         "internalType": "bytes32"
+      },
+      {
+        "name": "metadataCID",
+        "type": "string",
+        "indexed": false,
+        "internalType": "string"
       }
     ],
     "anonymous": false

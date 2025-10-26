@@ -37,7 +37,8 @@ pnpm install && pnpm dev
 |----------|---------|---------|
 | **ACLManager** | `0xC6454Ec62f53823692f426F1fb4Daa57c184A36A` | Role-based access control |
 | **GiveProtocolCore** | `0xB73B90207D6Fe0e44A090002bf4e2e9aA37564D9` | Protocol orchestrator |
-| **CampaignRegistry** | `0x51929ec1C089463fBeF6148B86F34117D9CCF816` | Campaign lifecycle |
+| **CampaignRegistry** (Proxy) | `0x51929ec1C089463fBeF6148B86F34117D9CCF816` | Campaign lifecycle |
+| **CampaignRegistry** (Impl) | `0xbD5f7231d22cAf23909d85aB8e1112d960A0E129` | Implementation v2 (w/ event CID) |
 | **PayoutRouter** | `0xe1BD0BA2e0891c95Bd02eA248f8115E7c7DC37c5` | Yield distribution |
 | **GIVE WETH Vault** | `0x28ac6D6505E2875FFF9E13d1B788A8d4740a7278` | Main deposit vault |
 
@@ -252,4 +253,8 @@ Contract addresses configured in `apps/web/src/config/addresses.ts`
 
 ---
 
-*Last Updated: October 24, 2025 | Version: 0.5.0 | Network: Base Sepolia*
+---
+
+*Last Updated: October 26, 2025 | Version: 0.5.0 | Network: Base Sepolia | Latest: CampaignRegistry v2 (IPFS CID in events)*
+
+````

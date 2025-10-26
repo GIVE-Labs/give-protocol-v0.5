@@ -38,6 +38,7 @@ contract RegisterTestCampaign is Script {
                 payoutRecipient: recipientAddress,
                 strategyId: strategyId,
                 metadataHash: metadataHash,
+                metadataCID: "bafybeigdyrzt5sfp7udm7hu76uh7y26nf3efuylqabf3oclgtqy55fbzdi",
                 targetStake: 10 ether, // Target fundraising goal
                 minStake: 0.01 ether, // Minimum stake per donor
                 fundraisingStart: uint64(block.timestamp),

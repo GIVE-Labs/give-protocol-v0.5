@@ -9,6 +9,7 @@ import { motion } from 'framer-motion';
 import { Heart, MapPin, Users } from 'lucide-react';
 import { useCampaignRegistry } from '../../hooks/v05';
 import { useNavigate } from 'react-router-dom';
+import { hexToCid, fetchMetadataFromIPFS, getIPFSUrl } from '../../services/ipfs';
 
 interface CampaignCardProps {
   campaignId: `0x${string}`;
@@ -18,6 +19,7 @@ interface CampaignCardProps {
 interface CampaignMetadata {
   name?: string;
   description?: string;
+  mission?: string;
   category?: string;
   image?: string;
   images?: string[];
@@ -46,61 +48,24 @@ export default function CampaignCard({ campaignId, index = 0 }: CampaignCardProp
       }
 
       try {
-        // Try to decode as UTF-8 string (for IPFS CID stored as string)
-        const hashBytes = metadataHash.replace('0x', '');
-        let hashString = '';
+        // Convert bytes32 to CID using our helper function (pass campaignId for localStorage or event log lookup)
+        const cid = await hexToCid(metadataHash, campaignId);
         
-        for (let i = 0; i < hashBytes.length; i += 2) {
-          const byte = parseInt(hashBytes.substr(i, 2), 16);
-          if (byte === 0) break; // Stop at null terminator
-          // Only include printable ASCII/UTF-8 characters
-          if (byte >= 32 && byte <= 126) {
-            hashString += String.fromCharCode(byte);
-          }
+        if (!cid) {
+          console.warn('Could not convert metadata hash to CID');
+          console.warn('Campaign may have been created before event logging was implemented');
+          return;
         }
         
-        console.log('Decoded hash string:', hashString);
+        console.log('Fetching metadata from IPFS CID:', cid);
+        const data = await fetchMetadataFromIPFS(cid);
         
-        // Check if it looks like a valid IPFS CID (starts with Qm or b)
-        if (!hashString || (!hashString.startsWith('Qm') && !hashString.startsWith('b'))) {
-          console.log('Hash does not look like IPFS CID, trying as raw bytes32');
-          // If not a string CID, use the full hash as-is (might be CIDv1 bytes)
-          hashString = metadataHash;
+        if (data) {
+          console.log('✅ Metadata fetched successfully:', data);
+          setMetadata(data);
+        } else {
+          console.warn('Failed to fetch metadata from IPFS');
         }
-        
-        // Get Pinata gateway from env
-        const pinataGateway = import.meta.env.VITE_PINATA_GATEWAY || 'gateway.pinata.cloud';
-        
-        // Try IPFS gateways (use your Pinata gateway first!)
-        const gateways = [
-          `https://${pinataGateway}/ipfs/${hashString}`,
-          `https://gateway.pinata.cloud/ipfs/${hashString}`,
-          `https://ipfs.io/ipfs/${hashString}`
-        ];
-        
-        for (const url of gateways) {
-          console.log('Trying IPFS gateway:', url);
-          try {
-            const response = await fetch(url, { 
-              method: 'GET',
-              headers: { 'Accept': 'application/json' }
-            });
-            
-            if (response.ok) {
-              const data = await response.json();
-              console.log('✅ Metadata fetched successfully:', data);
-              setMetadata(data);
-              return;
-            } else {
-              console.log('❌ Gateway failed:', response.status, response.statusText);
-            }
-          } catch (err) {
-            console.log('❌ Gateway error:', err);
-            continue;
-          }
-        }
-        
-        console.error('❌ All IPFS gateways failed for hash:', hashString);
       } catch (error) {
         console.error('Failed to fetch campaign metadata:', error);
       }
@@ -146,10 +111,19 @@ export default function CampaignCard({ campaignId, index = 0 }: CampaignCardProp
   ];
 
   // Use metadata or fallback to defaults
-  const campaignName = metadata?.name || 'Test Campaign';
-  const campaignDescription = metadata?.description || 'Supporting sustainable impact through no-loss giving';
-  const campaignCategory = metadata?.category || 'Climate Action';
-  const campaignImage = metadata?.image || metadata?.images?.[0] || defaultImages[index % defaultImages.length];
+  const campaignName = metadata?.name || 'Loading...';
+  const campaignDescription = metadata?.mission || metadata?.description || 'Supporting sustainable impact through no-loss giving';
+  const campaignCategory = metadata?.category || 'Social Impact';
+  
+  // Get image URL from IPFS if available
+  let campaignImage = defaultImages[index % defaultImages.length];
+  if (metadata?.images && metadata.images.length > 0) {
+    try {
+      campaignImage = getIPFSUrl(metadata.images[0]);
+    } catch (error) {
+      console.warn('Failed to get IPFS image URL:', error);
+    }
+  }
 
   const handleClick = () => {
     navigate(`/campaigns/${campaignId}`);

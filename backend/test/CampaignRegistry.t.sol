@@ -69,6 +69,7 @@ contract CampaignRegistryTest is Test {
                 payoutRecipient: makeAddr("payout"),
                 strategyId: strategyId,
                 metadataHash: keccak256("campaign.metadata"),
+                metadataCID: "bafybeigdyrzt5sfp7udm7hu76uh7y26nf3efuylqabf3oclgtqy55fbzdi",
                 targetStake: 10_000 ether,
                 minStake: 1_000 ether,
                 fundraisingStart: uint64(block.timestamp),

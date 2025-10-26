@@ -30,6 +30,7 @@ contract CampaignRegistry is Initializable, UUPSUpgradeable {
         address payoutRecipient;
         bytes32 strategyId;
         bytes32 metadataHash;
+        string metadataCID;
         uint256 targetStake;
         uint256 minStake;
         uint64 fundraisingStart;
@@ -46,7 +47,8 @@ contract CampaignRegistry is Initializable, UUPSUpgradeable {
     event CampaignSubmitted(
         bytes32 indexed id,
         address indexed proposer,
-        bytes32 metadataHash
+        bytes32 metadataHash,
+        string metadataCID
     );
     event CampaignApproved(bytes32 indexed id, address indexed curator);
     event CampaignStatusChanged(
@@ -170,7 +172,7 @@ contract CampaignRegistry is Initializable, UUPSUpgradeable {
 
         _campaignIds.push(input.id);
 
-        emit CampaignSubmitted(input.id, msg.sender, input.metadataHash);
+        emit CampaignSubmitted(input.id, msg.sender, input.metadataHash, input.metadataCID);
     }
 
     function approveCampaign(
