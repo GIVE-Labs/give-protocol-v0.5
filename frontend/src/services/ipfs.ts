@@ -251,10 +251,18 @@ export async function createCampaignMetadata(
  */
 export function saveCampaignCID(campaignId: string, cid: string): void {
   try {
+    // Clean and validate CID before storing
+    const cleanCid = cid.trim().replace(/^[;:\s]+/, ''); // Remove leading semicolons, colons, whitespace
+    
+    if (!cleanCid || !isValidCID(cleanCid)) {
+      console.error('Invalid CID provided to saveCampaignCID:', cid);
+      return;
+    }
+    
     const mapping = getCampaignCIDMapping();
-    mapping[campaignId] = cid;
+    mapping[campaignId] = cleanCid;
     localStorage.setItem('give_campaign_cids', JSON.stringify(mapping));
-    console.log('Saved campaign CID mapping:', campaignId, '→', cid);
+    console.log('✅ Saved campaign CID mapping:', campaignId.slice(0, 10) + '...', '→', cleanCid);
   } catch (error) {
     console.error('Failed to save campaign CID mapping:', error);
   }

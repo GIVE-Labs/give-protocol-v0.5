@@ -72,7 +72,10 @@ interface CampaignEvent {
 function decodeHexString(hex: string): string {
   const hexWithoutPrefix = hex.startsWith('0x') ? hex.slice(2) : hex;
   const bytes = hexWithoutPrefix.match(/.{1,2}/g) || [];
-  return bytes.map(byte => String.fromCharCode(parseInt(byte, 16))).join('');
+  const decoded = bytes.map(byte => String.fromCharCode(parseInt(byte, 16))).join('');
+  
+  // Clean up the string: remove null bytes, semicolons, and trim
+  return decoded.replace(/[\x00;]/g, '').trim();
 }
 
 /**
