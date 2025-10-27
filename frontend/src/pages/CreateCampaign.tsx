@@ -1,334 +1,419 @@
-import { useState, useEffect } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
-import { ArrowLeft, ArrowRight, Upload, X, Check, Camera, AlertCircle } from 'lucide-react'
-import { Link, useNavigate } from 'react-router-dom'
-import { createNGOMetadata, validateImages } from '../services/ipfs'
-import { useAccount } from 'wagmi'
-import { useNGORegistry, useNGOApprovalStatus } from '../hooks/useContracts'
-import { keccak256, toBytes } from 'viem'
-import { DotLottieReact } from '@lottiefiles/dotlottie-react'
+/**
+ * CreateCampaign Page
+ * Multi-step form to submit new campaigns to the registry
+ * Design: Glass-card style with emerald/cyan gradients and step progression
+ */
+
+import { useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { ArrowLeft, ArrowRight, Upload, X, Check, Camera, AlertCircle } from 'lucide-react';
+import { Link, useNavigate } from 'react-router-dom';
+import { useAccount, useWaitForTransactionReceipt, useReadContract } from 'wagmi';
+import { useCampaignRegistry } from '../hooks/v05';
+import { parseEther, keccak256, toBytes } from 'viem';
+import { DotLottieReact } from '@lottiefiles/dotlottie-react';
+import ACLManagerABI from '../abis/ACLManager.json';
+import { CONTRACT_ADDRESSES } from '../config/contracts';
+import { createCampaignMetadata, cidToBytes32, saveCampaignCID } from '../services/ipfs';
 
 interface FormData {
   // Basic Info
-  ngoAddress: string
-  ngoName: string
-  missionStatement: string
-  category: string
-  detailedDescription: string
+  campaignAddress: string;
+  campaignName: string;
+  missionStatement: string;
+  category: string;
+  detailedDescription: string;
   
   // Funding
-  fundingGoal: string
-  fundingDuration: string
+  targetAmount: string;
+  minStake: string;
+  fundraisingDuration: string;
   
   // Media
-  images: File[]
-  videos: string[]
+  images: File[];
+  videos: string[];
   
   // Team
   teamMembers: Array<{
-    name: string
-    role: string
-    bio: string
-  }>
+    name: string;
+    role: string;
+    bio: string;
+  }>;
   
-  // Donation Tiers
-  donationTiers: Array<{
-    name: string
-    amount: string
-    description: string
-    benefits: string[]
-  }>
+  // Impact Metrics
+  impactMetrics: Array<{
+    name: string;
+    target: string;
+    description: string;
+  }>;
 }
 
 const CATEGORIES = [
-  'Education',
-  'Healthcare', 
-  'Environment',
-  'Poverty Alleviation',
-  'Human Rights',
-  'Community Development'
-]
+  '🌍 Climate Action',
+  '📚 Education',
+  '❤️ Health & Wellness',
+  '🤝 Poverty Relief',
+  '💧 Clean Water',
+  '⚡ Renewable Energy'
+];
 
 const STEPS = [
-  { id: 1, name: 'Basic Info', description: 'NGO details and mission' },
-  { id: 2, name: 'Funding', description: 'Goal and duration' },
+  { id: 1, name: 'Basic Info', description: 'Campaign details and mission' },
+  { id: 2, name: 'Funding', description: 'Goals and duration' },
   { id: 3, name: 'Media', description: 'Images and videos' },
   { id: 4, name: 'Team', description: 'Team members' },
-  { id: 5, name: 'Donation Tiers', description: 'Donation options' },
+  { id: 5, name: 'Impact', description: 'Impact metrics' },
   { id: 6, name: 'Review', description: 'Final review' }
-]
+];
 
 export default function CreateCampaign() {
-  const [currentStep, setCurrentStep] = useState(1)
+  const [currentStep, setCurrentStep] = useState(1);
+  const { address, isConnected } = useAccount();
+  const { submitCampaign, isPending, isSuccess, error, hash } = useCampaignRegistry();
+  const navigate = useNavigate();
+
+  // Check if user has ROLE_CAMPAIGN_CREATOR (matches ACLManager.sol)
+  const CAMPAIGN_CREATOR_ROLE = keccak256(toBytes('ROLE_CAMPAIGN_CREATOR'));
+  const { data: hasCreatorRole, isLoading: isCheckingRole } = useReadContract({
+    address: (CONTRACT_ADDRESSES as any).ACL_MANAGER as `0x${string}`,
+    abi: ACLManagerABI,
+    functionName: 'hasRole',
+    args: [CAMPAIGN_CREATOR_ROLE, address || '0x0000000000000000000000000000000000000000'],
+    query: { enabled: !!address }
+  });
+
+  // Monitor transaction receipt for revert reasons
+  const { 
+    data: receipt, 
+    isLoading: isConfirming, 
+    isSuccess: isConfirmed,
+    error: receiptError 
+  } = useWaitForTransactionReceipt({
+    hash: hash as `0x${string}` | undefined,
+  });
+
+  // Form state
   const [formData, setFormData] = useState<FormData>({
-    ngoAddress: '',
-    ngoName: '',
+    campaignAddress: '',
+    campaignName: '',
     missionStatement: '',
     category: '',
     detailedDescription: '',
-    fundingGoal: '',
-    fundingDuration: '',
+    targetAmount: '',
+    minStake: '0.01',
+    fundraisingDuration: '90',
     images: [],
     videos: [],
     teamMembers: [{ name: '', role: '', bio: '' }],
-    donationTiers: [
-      { name: 'Basic Supporter', amount: '10', description: '', benefits: [''] },
-      { name: 'Active Contributor', amount: '50', description: '', benefits: [''] },
-      { name: 'Major Donor', amount: '100', description: '', benefits: [''] }
+    impactMetrics: [
+      { name: 'Beneficiaries Reached', target: '1000', description: '' },
+      { name: 'Funds Deployed', target: '10000', description: '' }
     ]
-  })
-  const [isSubmitting, setIsSubmitting] = useState(false)
-  const [submitError, setSubmitError] = useState<string | null>(null)
-  const [validationErrors, setValidationErrors] = useState<string[]>([])
-  const [showFailureModal, setShowFailureModal] = useState(false)
-  
-  const navigate = useNavigate()
-  const { address } = useAccount()
-  const { registerNGO, isPending: isRegistering, isConfirming, isConfirmed, error: registrationError } = useNGORegistry()
-  const { isApproved: isNGOApproved, isLoading: isCheckingApproval } = useNGOApprovalStatus(formData.ngoAddress as `0x${string}`)
+  });
+
+  // Submission state
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+  const [validationErrors, setValidationErrors] = useState<string[]>([]);
+  const [showFailureModal, setShowFailureModal] = useState(false);
 
   // Handle transaction confirmation
   useEffect(() => {
     if (isConfirmed) {
-      console.log('NGO registered successfully')
-      setIsSubmitting(false)
-      navigate('/ngo')
+      console.log('Campaign submitted successfully, receipt:', receipt);
+      setIsSubmitting(false);
+      navigate('/campaigns');
     }
-  }, [isConfirmed, navigate])
+  }, [isConfirmed, receipt, navigate]);
 
-  // Handle registration errors
+  // Handle submission errors
   useEffect(() => {
-    if (registrationError) {
-      console.error('Registration error:', registrationError)
+    if (error) {
+      console.error('Transaction submission error:', error);
       
-      // Extract user-friendly error message
-      let errorMessage = 'Failed to register NGO'
-      const fullError = registrationError.message || ''
+      let errorMessage = 'Failed to submit campaign';
+      const fullError = error.message || '';
       
+      // Parse common error types
       if (fullError.includes('User rejected') || fullError.includes('User denied')) {
-        errorMessage = 'Transaction was rejected by user'
+        errorMessage = 'Transaction was rejected by user';
       } else if (fullError.includes('insufficient funds')) {
-        errorMessage = 'Insufficient funds for transaction'
-      } else if (fullError.includes('network')) {
-        errorMessage = 'Network connection error'
+        errorMessage = 'Insufficient funds for gas fee';
+      } else if (fullError.includes('nonce')) {
+        errorMessage = 'Transaction nonce error - please try again';
+      } else if (fullError.includes('gas required exceeds')) {
+        errorMessage = 'Transaction will fail - check your inputs';
+      } else {
+        // Try to extract revert reason
+        const revertMatch = fullError.match(/reverted with reason string '([^']+)'/);
+        if (revertMatch) {
+          errorMessage = `Contract error: ${revertMatch[1]}`;
+        } else if (fullError.includes('execution reverted')) {
+          errorMessage = 'Transaction reverted - check campaign parameters';
+        }
       }
       
-      setSubmitError(errorMessage)
-      setIsSubmitting(false)
-      setShowFailureModal(true)
+      console.error('Parsed error:', errorMessage);
+      setSubmitError(errorMessage);
+      setIsSubmitting(false);
+      setShowFailureModal(true);
     }
-  }, [registrationError])
+  }, [error]);
+
+  // Handle receipt errors (transaction confirmed but reverted)
+  useEffect(() => {
+    if (receiptError) {
+      console.error('Transaction receipt error:', receiptError);
+      
+      let errorMessage = 'Transaction failed on-chain';
+      const fullError = receiptError.message || '';
+      
+      // Try to extract revert reason from receipt
+      if (fullError.includes('reverted')) {
+        errorMessage = 'Transaction was reverted by the contract';
+      }
+      
+      setSubmitError(errorMessage);
+      setIsSubmitting(false);
+      setShowFailureModal(true);
+    }
+  }, [receiptError]);
 
   const updateFormData = (field: keyof FormData, value: any) => {
-    setFormData(prev => ({ ...prev, [field]: value }))
-  }
+    setFormData(prev => ({ ...prev, [field]: value }));
+  };
 
-  const nextStep = async () => {
-    // Validate step 1 (NGO address) before proceeding
+  const nextStep = () => {
+    // Basic validation before proceeding
     if (currentStep === 1) {
-      // Clear any previous errors
-      setSubmitError(null)
-      setValidationErrors([])
+      setSubmitError(null);
+      setValidationErrors([]);
       
-      // Basic validation for step 1
-      const errors: string[] = []
-      if (!formData.ngoAddress.trim()) {
-        errors.push('NGO address is required')
-      } else if (!/^0x[a-fA-F0-9]{40}$/.test(formData.ngoAddress)) {
-        errors.push('NGO address must be a valid Ethereum address')
+      const errors: string[] = [];
+      if (!formData.campaignAddress.trim()) {
+        errors.push('Campaign recipient address is required');
+      } else if (!/^0x[a-fA-F0-9]{40}$/.test(formData.campaignAddress)) {
+        errors.push('Recipient address must be a valid Ethereum address');
+      }
+      
+      if (!formData.campaignName.trim()) {
+        errors.push('Campaign name is required');
+      } else if (formData.campaignName.length > 31) {
+        errors.push('Campaign name must be 31 characters or less (bytes32 limit)');
       }
       
       if (errors.length > 0) {
-        setValidationErrors(errors)
-        return
-      }
-      
-      // Check if NGO is already approved
-      if (isNGOApproved) {
-        setSubmitError('This NGO address is already approved and registered. Please use a different address.')
-        return
-      }
-      
-      // Don't proceed if we're still checking approval status
-      if (isCheckingApproval) {
-        return
+        setValidationErrors(errors);
+        return;
       }
     }
     
-    // Proceed to next step
     if (currentStep < STEPS.length) {
-      setCurrentStep(currentStep + 1)
+      setCurrentStep(currentStep + 1);
     }
-  }
+  };
 
   const prevStep = () => {
     if (currentStep > 1) {
-      setCurrentStep(currentStep - 1)
+      setCurrentStep(currentStep - 1);
     }
-  }
+  };
 
   const handleImageUpload = (files: FileList | null) => {
     if (files) {
-      const newImages = Array.from(files).slice(0, 3 - formData.images.length)
-      const allImages = [...formData.images, ...newImages]
+      const newImages = Array.from(files).slice(0, 3 - formData.images.length);
+      const allImages = [...formData.images, ...newImages];
       
-      // Validate images
-      const validation = validateImages(allImages)
-      if (validation.valid) {
-        updateFormData('images', allImages)
-        setValidationErrors([])
+      // Basic validation
+      const errors: string[] = [];
+      allImages.forEach(img => {
+        if (img.size > 5 * 1024 * 1024) { // 5MB limit
+          errors.push(`Image ${img.name} is too large (max 5MB)`);
+        }
+      });
+      
+      if (errors.length === 0) {
+        updateFormData('images', allImages);
+        setValidationErrors([]);
       } else {
-        setValidationErrors(validation.errors)
+        setValidationErrors(errors);
       }
     }
-  }
+  };
 
   const removeImage = (index: number) => {
-    const newImages = formData.images.filter((_, i) => i !== index)
-    updateFormData('images', newImages)
-  }
+    const newImages = formData.images.filter((_, i) => i !== index);
+    updateFormData('images', newImages);
+  };
 
   const addTeamMember = () => {
-    updateFormData('teamMembers', [...formData.teamMembers, { name: '', role: '', bio: '' }])
-  }
+    updateFormData('teamMembers', [...formData.teamMembers, { name: '', role: '', bio: '' }]);
+  };
 
   const updateTeamMember = (index: number, field: string, value: string) => {
     const newTeamMembers = formData.teamMembers.map((member, i) => 
       i === index ? { ...member, [field]: value } : member
-    )
-    updateFormData('teamMembers', newTeamMembers)
-  }
+    );
+    updateFormData('teamMembers', newTeamMembers);
+  };
 
   const removeTeamMember = (index: number) => {
     if (formData.teamMembers.length > 1) {
-      const newTeamMembers = formData.teamMembers.filter((_, i) => i !== index)
-      updateFormData('teamMembers', newTeamMembers)
+      const newTeamMembers = formData.teamMembers.filter((_, i) => i !== index);
+      updateFormData('teamMembers', newTeamMembers);
     }
-  }
+  };
 
-  const updateDonationTier = (index: number, field: string, value: string | string[]) => {
-    const newTiers = formData.donationTiers.map((tier, i) => 
-      i === index ? { ...tier, [field]: value } : tier
-    )
-    updateFormData('donationTiers', newTiers)
-  }
+  const updateImpactMetric = (index: number, field: string, value: string) => {
+    const newMetrics = formData.impactMetrics.map((metric, i) => 
+      i === index ? { ...metric, [field]: value } : metric
+    );
+    updateFormData('impactMetrics', newMetrics);
+  };
 
-  const addBenefit = (tierIndex: number) => {
-    const newTiers = formData.donationTiers.map((tier, i) => 
-      i === tierIndex ? { ...tier, benefits: [...tier.benefits, ''] } : tier
-    )
-    updateFormData('donationTiers', newTiers)
-  }
+  const addImpactMetric = () => {
+    updateFormData('impactMetrics', [...formData.impactMetrics, { name: '', target: '', description: '' }]);
+  };
 
-  const updateBenefit = (tierIndex: number, benefitIndex: number, value: string) => {
-    const newTiers = formData.donationTiers.map((tier, i) => 
-      i === tierIndex ? {
-        ...tier,
-        benefits: tier.benefits.map((benefit, j) => j === benefitIndex ? value : benefit)
-      } : tier
-    )
-    updateFormData('donationTiers', newTiers)
-  }
+  const removeImpactMetric = (index: number) => {
+    if (formData.impactMetrics.length > 1) {
+      const newMetrics = formData.impactMetrics.filter((_, i) => i !== index);
+      updateFormData('impactMetrics', newMetrics);
+    }
+  };
 
-  const removeBenefit = (tierIndex: number, benefitIndex: number) => {
-    const newTiers = formData.donationTiers.map((tier, i) => 
-      i === tierIndex ? {
-        ...tier,
-        benefits: tier.benefits.filter((_, j) => j !== benefitIndex)
-      } : tier
-    )
-    updateFormData('donationTiers', newTiers)
-  }
+  const uploadToIPFS = async () => {
+    try {
+      // Use the proper IPFS service function like the NGO creation page
+      console.log('📤 Uploading campaign metadata to IPFS...');
+      
+      const { metadataHash, imageHashes } = await createCampaignMetadata(formData);
+      
+      console.log('✅ Metadata uploaded to IPFS:', metadataHash);
+      console.log('✅ Images uploaded:', imageHashes);
+      console.log('🔗 View at:', `https://${import.meta.env.VITE_PINATA_GATEWAY}/ipfs/${metadataHash}`);
+      
+      return metadataHash;
+    } catch (err) {
+      console.error('IPFS upload failed:', err);
+      throw new Error(`Failed to upload metadata to IPFS: ${err instanceof Error ? err.message : 'Unknown error'}`);
+    }
+  };
 
   const validateForm = (): boolean => {
-    const errors: string[] = []
+    const errors: string[] = [];
     
-    // Basic validation
-    if (!formData.ngoAddress.trim()) {
-      errors.push('NGO address is required')
-    } else if (!/^0x[a-fA-F0-9]{40}$/.test(formData.ngoAddress)) {
-      errors.push('NGO address must be a valid Ethereum address')
+    if (!formData.campaignAddress.trim()) {
+      errors.push('Campaign recipient address is required');
+    } else if (!/^0x[a-fA-F0-9]{40}$/.test(formData.campaignAddress)) {
+      errors.push('Recipient address must be a valid Ethereum address');
     }
-    if (!formData.ngoName.trim()) errors.push('NGO name is required')
-    if (!formData.missionStatement.trim()) errors.push('Mission statement is required')
-    if (!formData.category) errors.push('Category is required')
-    if (!formData.detailedDescription.trim()) errors.push('Detailed description is required')
-    if (!formData.fundingGoal || parseFloat(formData.fundingGoal) <= 0) errors.push('Valid funding goal is required')
-    if (!formData.fundingDuration || parseInt(formData.fundingDuration) <= 0) errors.push('Valid funding duration is required')
-    
-    // Image validation
-    const imageValidation = validateImages(formData.images)
-    if (!imageValidation.valid) {
-      errors.push(...imageValidation.errors)
+    if (!formData.campaignName.trim()) errors.push('Campaign name is required');
+    if (!formData.missionStatement.trim()) errors.push('Mission statement is required');
+    if (!formData.category) errors.push('Category is required');
+    if (!formData.detailedDescription.trim()) errors.push('Detailed description is required');
+    if (!formData.targetAmount || parseFloat(formData.targetAmount) <= 0) {
+      errors.push('Valid target amount is required');
+    }
+    if (!formData.fundraisingDuration || parseInt(formData.fundraisingDuration) <= 0) {
+      errors.push('Valid fundraising duration is required');
     }
     
-    // Team validation
-    const validTeamMembers = formData.teamMembers.filter(member => member.name.trim())
+    const validTeamMembers = formData.teamMembers.filter(member => member.name.trim());
     if (validTeamMembers.length === 0) {
-      errors.push('At least one team member is required')
+      errors.push('At least one team member is required');
     }
     
-    setValidationErrors(errors)
-    return errors.length === 0
-  }
+    setValidationErrors(errors);
+    return errors.length === 0;
+  };
 
   const handleSubmit = async () => {
-    if (!address) {
-      setSubmitError('Please connect your wallet first')
-      return
+    if (!address || !isConnected) {
+      setSubmitError('Please connect your wallet first');
+      return;
     }
 
     if (!validateForm()) {
-      setSubmitError('Please fix the validation errors before submitting')
-      return
+      setSubmitError('Please fix the validation errors before submitting');
+      return;
     }
 
-    // Check if NGO is already approved
-    if (isNGOApproved) {
-      setSubmitError('This NGO address is already approved and registered. Please use a different address or contact support if this is an error.')
-      return
-    }
-
-    setIsSubmitting(true)
-    setSubmitError(null)
+    setIsSubmitting(true);
+    setSubmitError(null);
     
     try {
-      // Upload to IPFS
-      console.log('Creating NGO metadata...')
-      const { metadataHash } = await createNGOMetadata(formData)
-      console.log('Metadata uploaded to IPFS:', metadataHash)
+      // Step 1: Upload to IPFS (images + metadata)
+      console.log('Creating campaign metadata...');
+      const metadataCid = await uploadToIPFS();
+      console.log('Metadata CID from IPFS:', metadataCid);
       
-      // Register NGO on blockchain
-      console.log('Registering NGO on blockchain...')
-      const kycHash = keccak256(toBytes('mock-kyc-hash')) // Mock KYC hash for development
-      await registerNGO(formData.ngoAddress as `0x${string}`, metadataHash, kycHash, address)
+      // Step 2: Generate unique campaign ID (hash of name + timestamp + creator address)
+      // This prevents collisions from campaigns with the same name
+      const uniqueString = `${formData.campaignName}-${Date.now()}-${address}`;
+      const campaignIdHash = keccak256(toBytes(uniqueString));
+      const campaignId = campaignIdHash as `0x${string}`;
+
+      // Step 3: Convert IPFS CID to bytes32 for contract storage
+      // Since IPFS CIDv1 doesn't fit in bytes32, we hash it deterministically
+      // The full CID is emitted in the CampaignSubmitted event logs
+      const metadataHashBytes = cidToBytes32(metadataCid);
       
-      // Wait for transaction confirmation
-      console.log('Waiting for transaction confirmation...')
-      // The hook will handle the confirmation state, we'll check it in useEffect
+      console.log('Full IPFS CID:', metadataCid);
+      console.log('Hashed for contract (bytes32):', metadataHashBytes);
+
+      // Step 4: Prepare amounts and timestamps
+      const targetStake = parseEther(formData.targetAmount || '10');
+      const minStake = parseEther(formData.minStake || '0.01');
+      const fundraisingStart = BigInt(Math.floor(Date.now() / 1000));
+      const fundraisingDuration = BigInt(parseInt(formData.fundraisingDuration) * 24 * 60 * 60);
+      const fundraisingEnd = fundraisingStart + fundraisingDuration;
+
+      // Default strategy ID (TODO: let user select)
+      const defaultStrategyId = '0x79861c7f93db9d6c9c5c46da4760ee78aef494b26e84a8b82a4cdfbf4dbdc848' as `0x${string}`;
+
+      const input = {
+        id: campaignId,
+        payoutRecipient: formData.campaignAddress as `0x${string}`,
+        strategyId: defaultStrategyId,
+        metadataHash: metadataHashBytes,
+        metadataCID: metadataCid,
+        targetStake,
+        minStake,
+        fundraisingStart,
+        fundraisingEnd,
+      };
+
+      console.log('=== Campaign Submission Details ===');
+      console.log('Campaign ID:', campaignId);
+      console.log('IPFS CID:', metadataCid);
+      
+      // Store CID mapping in localStorage for retrieval (bytes32 can't hold full CID)
+      saveCampaignCID(campaignId, metadataCid);
+      
+      await submitCampaign(input);
       
     } catch (error) {
-      console.error('Error creating campaign:', error)
+      console.error('Error creating campaign:', error);
       
-      // Extract user-friendly error message
-      let errorMessage = 'Failed to create campaign'
-      const fullError = error instanceof Error ? error.message : ''
+      let errorMessage = 'Failed to create campaign';
+      const fullError = error instanceof Error ? error.message : '';
       
       if (fullError.includes('User rejected') || fullError.includes('User denied')) {
-        errorMessage = 'Transaction was rejected by user'
+        errorMessage = 'Transaction was rejected by user';
       } else if (fullError.includes('insufficient funds')) {
-        errorMessage = 'Insufficient funds for transaction'
+        errorMessage = 'Insufficient funds for transaction';
       } else if (fullError.includes('network')) {
-        errorMessage = 'Network connection error'
+        errorMessage = 'Network connection error';
       } else if (fullError.includes('IPFS')) {
-        errorMessage = 'Failed to upload campaign data'
+        errorMessage = 'Failed to upload campaign data';
       }
       
-      setSubmitError(errorMessage)
-      setIsSubmitting(false)
-      setShowFailureModal(true)
+      setSubmitError(errorMessage);
+      setIsSubmitting(false);
+      setShowFailureModal(true);
     }
-  }
+  };
 
   const renderStepContent = () => {
     switch (currentStep) {
@@ -343,18 +428,16 @@ export default function CreateCampaign() {
             <div className="space-y-4">
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-2 font-unbounded">
-                  NGO Address *
+                  Recipient Address *
                 </label>
                 <div className="relative">
                   <input
                     type="text"
-                    value={formData.ngoAddress}
-                    onChange={(e) => updateFormData('ngoAddress', e.target.value)}
-                    placeholder="0x... (Ethereum address of the NGO)"
+                    value={formData.campaignAddress}
+                    onChange={(e) => updateFormData('campaignAddress', e.target.value)}
+                    placeholder="0x... (Ethereum address to receive yield)"
                     className={`w-full px-4 py-3 pr-32 border rounded-xl focus:ring-2 transition-colors font-mono text-sm ${
-                      formData.ngoAddress && !/^0x[a-fA-F0-9]{40}$/.test(formData.ngoAddress)
-                        ? 'border-red-300 focus:ring-red-500 focus:border-red-500'
-                        : isNGOApproved
+                      formData.campaignAddress && !/^0x[a-fA-F0-9]{40}$/.test(formData.campaignAddress)
                         ? 'border-red-300 focus:ring-red-500 focus:border-red-500'
                         : 'border-gray-300 focus:ring-emerald-500 focus:border-emerald-500'
                     }`}
@@ -363,38 +446,28 @@ export default function CreateCampaign() {
                   {address && (
                     <button
                       type="button"
-                      onClick={() => updateFormData('ngoAddress', address)}
+                      onClick={() => updateFormData('campaignAddress', address)}
                       className="absolute right-2 top-1/2 transform -translate-y-1/2 px-3 py-1 text-xs bg-emerald-100 text-emerald-700 rounded-lg hover:bg-emerald-200 transition-colors"
                     >
                       Use Wallet
                     </button>
                   )}
                 </div>
-                  <div className="mt-1 space-y-1">
+                <div className="mt-1 space-y-1">
                   <p className="text-xs text-gray-500 font-medium">
-                    The Ethereum address that will be registered as the NGO. This can be different from your connected wallet.
-                  </p>                  {/* Real-time validation feedback */}
-                  {formData.ngoAddress && (
+                    The Ethereum address that will receive the yield payouts from this campaign.
+                  </p>
+                  {formData.campaignAddress && (
                     <div className="flex items-center space-x-2">
-                      {!/^0x[a-fA-F0-9]{40}$/.test(formData.ngoAddress) ? (
+                      {!/^0x[a-fA-F0-9]{40}$/.test(formData.campaignAddress) ? (
                         <div className="flex items-center text-red-600 text-xs">
                           <X className="w-3 h-3 mr-1" />
                           Invalid Ethereum address format
                         </div>
-                      ) : isCheckingApproval ? (
-                        <div className="flex items-center text-blue-600 text-xs">
-                          <div className="animate-spin rounded-full h-3 w-3 border-b border-blue-600 mr-1" />
-                          Checking if address is available...
-                        </div>
-                      ) : isNGOApproved ? (
-                        <div className="flex items-center text-red-600 text-xs">
-                          <X className="w-3 h-3 mr-1" />
-                          This address is already registered
-                        </div>
                       ) : (
                         <div className="flex items-center text-green-600 text-xs">
                           <Check className="w-3 h-3 mr-1" />
-                          Address is available
+                          Address is valid
                         </div>
                       )}
                     </div>
@@ -404,16 +477,23 @@ export default function CreateCampaign() {
 
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-2 font-unbounded">
-                  NGO Name / Project Title *
+                  Campaign Name / Project Title *
+                  <span className="ml-2 text-xs font-normal text-gray-500">
+                    ({formData.campaignName.length}/31 characters)
+                  </span>
                 </label>
                 <input
                   type="text"
-                  value={formData.ngoName}
-                  onChange={(e) => updateFormData('ngoName', e.target.value)}
-                  placeholder="Enter your NGO or project name"
+                  value={formData.campaignName}
+                  onChange={(e) => updateFormData('campaignName', e.target.value)}
+                  placeholder="Enter your campaign or project name"
+                  maxLength={31}
                   className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-colors"
                   required
                 />
+                <p className="mt-1 text-xs text-gray-500">
+                  Keep it short and memorable (max 31 characters for blockchain storage)
+                </p>
               </div>
 
               <div>
@@ -462,7 +542,7 @@ export default function CreateCampaign() {
               </div>
             </div>
           </motion.div>
-        )
+        );
 
       case 2:
         return (
@@ -475,13 +555,14 @@ export default function CreateCampaign() {
             <div className="space-y-4">
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-2 font-unbounded">
-                  Funding Goal (USD) *
+                  Target Amount (ETH) *
                 </label>
                 <input
                   type="number"
-                  value={formData.fundingGoal}
-                  onChange={(e) => updateFormData('fundingGoal', e.target.value)}
-                  placeholder="10000"
+                  value={formData.targetAmount}
+                  onChange={(e) => updateFormData('targetAmount', e.target.value)}
+                  placeholder="10"
+                  step="0.01"
                   className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-colors"
                   required
                 />
@@ -489,20 +570,35 @@ export default function CreateCampaign() {
 
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-2 font-unbounded">
-                  Campaign Duration (days) *
+                  Minimum Stake (ETH) *
                 </label>
                 <input
                   type="number"
-                  value={formData.fundingDuration}
-                  onChange={(e) => updateFormData('fundingDuration', e.target.value)}
-                  placeholder="30"
+                  value={formData.minStake}
+                  onChange={(e) => updateFormData('minStake', e.target.value)}
+                  placeholder="0.01"
+                  step="0.001"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-colors"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2 font-unbounded">
+                  Fundraising Duration (days) *
+                </label>
+                <input
+                  type="number"
+                  value={formData.fundraisingDuration}
+                  onChange={(e) => updateFormData('fundraisingDuration', e.target.value)}
+                  placeholder="90"
                   className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-colors"
                   required
                 />
               </div>
             </div>
           </motion.div>
-        )
+        );
 
       case 3:
         return (
@@ -526,6 +622,7 @@ export default function CreateCampaign() {
                       className="w-full h-32 object-cover rounded-xl border-2 border-gray-200"
                     />
                     <button
+                      type="button"
                       onClick={() => removeImage(index)}
                       className="absolute top-2 right-2 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
                     >
@@ -550,7 +647,7 @@ export default function CreateCampaign() {
               </div>
               
               <p className="text-sm text-gray-500 font-medium">
-                Upload 1-3 high-quality images that represent your campaign. Recommended size: 1200x800px
+                Upload 1-3 high-quality images that represent your campaign. Max 5MB each.
               </p>
             </div>
 
@@ -565,7 +662,7 @@ export default function CreateCampaign() {
               />
             </div>
           </motion.div>
-        )
+        );
 
       case 4:
         return (
@@ -578,6 +675,7 @@ export default function CreateCampaign() {
             <div className="flex justify-between items-center">
               <h3 className="text-lg font-bold text-gray-900 font-unbounded">Team Members</h3>
               <button
+                type="button"
                 onClick={addTeamMember}
                 className="bg-emerald-500 text-white px-4 py-2 rounded-lg hover:bg-emerald-600 transition-colors font-semibold font-unbounded"
               >
@@ -591,6 +689,7 @@ export default function CreateCampaign() {
                   <h4 className="font-semibold text-gray-900 font-unbounded">Team Member {index + 1}</h4>
                   {formData.teamMembers.length > 1 && (
                     <button
+                      type="button"
                       onClick={() => removeTeamMember(index)}
                       className="text-red-500 hover:text-red-700"
                     >
@@ -626,7 +725,7 @@ export default function CreateCampaign() {
               </div>
             ))}
           </motion.div>
-        )
+        );
 
       case 5:
         return (
@@ -636,70 +735,60 @@ export default function CreateCampaign() {
             exit={{ opacity: 0, x: -20 }}
             className="space-y-6"
           >
-            <h3 className="text-lg font-bold text-gray-900 font-unbounded">Donation Tiers</h3>
+            <div className="flex justify-between items-center">
+              <h3 className="text-lg font-bold text-gray-900 font-unbounded">Impact Metrics</h3>
+              <button
+                type="button"
+                onClick={addImpactMetric}
+                className="bg-emerald-500 text-white px-4 py-2 rounded-lg hover:bg-emerald-600 transition-colors font-semibold font-unbounded"
+              >
+                Add Metric
+              </button>
+            </div>
             
-            {formData.donationTiers.map((tier, tierIndex) => (
-              <div key={tierIndex} className="border border-gray-200 rounded-xl p-4 space-y-4">
+            {formData.impactMetrics.map((metric, index) => (
+              <div key={index} className="border border-gray-200 rounded-xl p-4 space-y-4">
+                <div className="flex justify-between items-center">
+                  <h4 className="font-semibold text-gray-900 font-unbounded">Metric {index + 1}</h4>
+                  {formData.impactMetrics.length > 1 && (
+                    <button
+                      type="button"
+                      onClick={() => removeImpactMetric(index)}
+                      className="text-red-500 hover:text-red-700"
+                    >
+                      <X className="w-5 h-5" />
+                    </button>
+                  )}
+                </div>
+                
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <input
                     type="text"
-                    value={tier.name}
-                    onChange={(e) => updateDonationTier(tierIndex, 'name', e.target.value)}
-                    placeholder="Tier Name"
+                    value={metric.name}
+                    onChange={(e) => updateImpactMetric(index, 'name', e.target.value)}
+                    placeholder="Metric Name"
                     className="px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-colors"
                   />
                   <input
-                    type="number"
-                    value={tier.amount}
-                    onChange={(e) => updateDonationTier(tierIndex, 'amount', e.target.value)}
-                    placeholder="Amount (USD)"
+                    type="text"
+                    value={metric.target}
+                    onChange={(e) => updateImpactMetric(index, 'target', e.target.value)}
+                    placeholder="Target Value"
                     className="px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-colors"
                   />
                 </div>
                 
                 <textarea
-                  value={tier.description}
-                  onChange={(e) => updateDonationTier(tierIndex, 'description', e.target.value)}
-                  placeholder="Tier description"
+                  value={metric.description}
+                  onChange={(e) => updateImpactMetric(index, 'description', e.target.value)}
+                  placeholder="Description of how this will be measured"
                   rows={2}
                   className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-colors resize-none"
                 />
-                
-                <div>
-                  <div className="flex justify-between items-center mb-2">
-                    <label className="text-sm font-semibold text-gray-700 font-unbounded">Benefits</label>
-                    <button
-                      onClick={() => addBenefit(tierIndex)}
-                      className="text-emerald-500 hover:text-emerald-700 text-sm font-medium"
-                    >
-                      + Add Benefit
-                    </button>
-                  </div>
-                  
-                  {tier.benefits.map((benefit, benefitIndex) => (
-                    <div key={benefitIndex} className="flex gap-2 mb-2">
-                      <input
-                        type="text"
-                        value={benefit}
-                        onChange={(e) => updateBenefit(tierIndex, benefitIndex, e.target.value)}
-                        placeholder="Benefit description"
-                        className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-colors"
-                      />
-                      {tier.benefits.length > 1 && (
-                        <button
-                          onClick={() => removeBenefit(tierIndex, benefitIndex)}
-                          className="text-red-500 hover:text-red-700"
-                        >
-                          <X className="w-5 h-5" />
-                        </button>
-                      )}
-                    </div>
-                  ))}
-                </div>
               </div>
             ))}
           </motion.div>
-        )
+        );
 
       case 6:
         return (
@@ -714,16 +803,17 @@ export default function CreateCampaign() {
             <div className="bg-gray-50 rounded-xl p-6 space-y-4">
               <div>
                 <h4 className="font-semibold text-gray-900 font-unbounded">Basic Information</h4>
-                <p className="text-gray-600 font-medium">NGO Address: <span className="font-mono text-sm">{formData.ngoAddress}</span></p>
-                <p className="text-gray-600 font-medium">Name: {formData.ngoName}</p>
+                <p className="text-gray-600 font-medium">Recipient: <span className="font-mono text-sm">{formData.campaignAddress}</span></p>
+                <p className="text-gray-600 font-medium">Name: {formData.campaignName}</p>
                 <p className="text-gray-600 font-medium">Category: {formData.category}</p>
                 <p className="text-gray-600 font-medium">Mission: {formData.missionStatement}</p>
               </div>
               
               <div>
                 <h4 className="font-semibold text-gray-900 font-unbounded">Funding</h4>
-                <p className="text-gray-600 font-medium">Goal: ${formData.fundingGoal}</p>
-                <p className="text-gray-600 font-medium">Duration: {formData.fundingDuration} days</p>
+                <p className="text-gray-600 font-medium">Target: {formData.targetAmount} ETH</p>
+                <p className="text-gray-600 font-medium">Min Stake: {formData.minStake} ETH</p>
+                <p className="text-gray-600 font-medium">Duration: {formData.fundraisingDuration} days</p>
               </div>
               
               <div>
@@ -733,7 +823,7 @@ export default function CreateCampaign() {
               
               <div>
                 <h4 className="font-semibold text-gray-900 font-unbounded">Team</h4>
-                <p className="text-gray-600 font-medium">{formData.teamMembers.length} team members</p>
+                <p className="text-gray-600 font-medium">{formData.teamMembers.filter(m => m.name.trim()).length} team members</p>
               </div>
             </div>
             
@@ -743,14 +833,14 @@ export default function CreateCampaign() {
               </p>
             </div>
           </motion.div>
-        )
+        );
 
       default:
-        return null
+        return null;
     }
-  }
+  };
 
-  const progress = (currentStep / STEPS.length) * 100
+  const progress = (currentStep / STEPS.length) * 100;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-emerald-50 via-cyan-50 to-teal-50 relative overflow-hidden">
@@ -803,23 +893,62 @@ export default function CreateCampaign() {
           transition={{ duration: 0.6, ease: "easeOut" }}
         >
           <Link
-            to="/"
+            to="/campaigns"
             className="inline-flex items-center text-emerald-600 hover:text-emerald-700 mb-6 font-semibold transition-colors font-unbounded"
           >
             <ArrowLeft className="w-5 h-5 mr-2" />
-            Back to Home
+            Back to Campaigns
           </Link>
           
           <div className="text-center">
-            <h1 className="text-5xl lg:text-6xl font-bold text-gray-900 mb-4 font-unbounded leading-tight">
-              <span className="text-gray-900">Create NGO</span>
+            <h1 className="text-4xl lg:text-5xl font-bold text-gray-900 mb-4 font-unbounded leading-tight">
+              <span className="text-gray-900">Create Campaign</span>
               <span className="block text-transparent bg-gradient-to-r from-emerald-600 via-cyan-600 to-teal-600 bg-clip-text pb-1">
-                Campaign
+                for Good.
               </span>
             </h1>
             <p className="text-xl lg:text-2xl text-gray-700 leading-relaxed font-medium font-unbounded max-w-3xl mx-auto">
               Launch your humanitarian project and connect with compassionate backers worldwide
             </p>
+            
+            {/* Permission Notice - only show warnings */}
+            {(!isConnected || isCheckingRole || !hasCreatorRole) && (
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.3 }}
+                className="mt-6 max-w-2xl mx-auto"
+              >
+                {!isConnected ? (
+                  <div className="bg-blue-50 border-l-4 border-blue-400 p-4 rounded-lg">
+                    <div className="flex items-start">
+                      <AlertCircle className="w-5 h-5 text-blue-600 mr-3 mt-0.5 flex-shrink-0" />
+                      <p className="text-sm text-gray-600 font-medium">
+                        Please connect your wallet first.
+                      </p>
+                    </div>
+                  </div>
+                ) : isCheckingRole ? (
+                  <div className="bg-gray-50 border-l-4 border-gray-400 p-4 rounded-lg">
+                    <div className="flex items-start">
+                      <div className="w-5 h-5 border-2 border-gray-400 border-t-transparent rounded-full animate-spin mr-3 mt-0.5" />
+                      <p className="text-sm text-gray-600 font-medium">
+                        Checking permissions...
+                      </p>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="bg-red-50 border-l-4 border-red-400 p-4 rounded-lg">
+                    <div className="flex items-start">
+                      <AlertCircle className="w-5 h-5 text-red-600 mr-3 mt-0.5 flex-shrink-0" />
+                      <p className="text-sm text-gray-600 font-medium">
+                        You are not authorized to create a campaign. Contact an admin to request the Campaign Creator role.
+                      </p>
+                    </div>
+                  </div>
+                )}
+              </motion.div>
+            )}
           </div>
         </motion.div>
 
@@ -890,7 +1019,7 @@ export default function CreateCampaign() {
           <div className="bg-white/80 backdrop-blur-xl rounded-3xl shadow-2xl border border-white/20 p-10 lg:p-12">
             {/* Success Message */}
             <AnimatePresence>
-              {isConfirmed && (
+              {isSuccess && (
                 <motion.div
                   initial={{ opacity: 0, y: -20, scale: 0.95 }}
                   animate={{ opacity: 1, y: 0, scale: 1 }}
@@ -903,7 +1032,7 @@ export default function CreateCampaign() {
                     </div>
                     <div>
                       <h3 className="text-emerald-800 font-bold text-lg mb-2 font-unbounded">Campaign Created Successfully!</h3>
-                      <p className="text-emerald-700 font-semibold">Your NGO has been registered on the blockchain. Redirecting to your dashboard...</p>
+                      <p className="text-emerald-700 font-semibold">Your campaign has been submitted. Redirecting to campaigns...</p>
                     </div>
                   </div>
                 </motion.div>
@@ -943,8 +1072,10 @@ export default function CreateCampaign() {
                 </motion.div>
               )}
             </AnimatePresence>
+
+            {/* Loading Status */}
             <AnimatePresence>
-              {(isSubmitting || isRegistering || isConfirming) && (
+              {(isSubmitting || isPending) && (
                 <motion.div
                   initial={{ opacity: 0, y: -20, scale: 0.95 }}
                   animate={{ opacity: 1, y: 0, scale: 1 }}
@@ -957,19 +1088,17 @@ export default function CreateCampaign() {
                     </div>
                     <div>
                       <h3 className="text-blue-800 font-bold text-lg mb-2 font-unbounded">
-                        {isSubmitting ? 'Uploading to IPFS...' : 
-                         isRegistering ? 'Waiting for Wallet...' : 
-                         'Confirming Transaction...'}
+                        {isSubmitting ? 'Uploading to IPFS...' : 'Waiting for Wallet...'}
                       </h3>
                     </div>
                   </div>
                 </motion.div>
               )}
             </AnimatePresence>
-            
+
             {/* Loading Overlay */}
             <AnimatePresence>
-              {(isSubmitting || isRegistering) && (
+              {(isSubmitting || isPending) && (
                 <motion.div
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
@@ -996,14 +1125,15 @@ export default function CreateCampaign() {
                       
                       {/* Loading Text */}
                       <h3 className="text-xl font-bold text-gray-900 mb-2 font-unbounded">
-                        {isSubmitting ? 'Submitting Campaign...' : 'Approving Transaction...'}
+                        {isPending ? 'Sign Transaction in Wallet...' : 
+                         isConfirming ? 'Confirming on Blockchain...' : 
+                         'Preparing Submission...'}
                       </h3>
-                      {/* <p className="text-gray-600 font-medium">
-                        {isSubmitting 
-                          ? 'Uploading your campaign data to decentralized storage...' 
-                          : 'Please confirm the transaction in your wallet to register your NGO.'
-                        }
-                      </p> */}
+                      <p className="text-sm text-gray-600">
+                        {isPending ? 'Please check your wallet and approve the transaction' :
+                         isConfirming ? 'Waiting for block confirmation...' :
+                         'Processing campaign data'}
+                      </p>
                       
                       {/* Progress Dots */}
                       <div className="flex justify-center mt-6 space-x-1">
@@ -1068,8 +1198,8 @@ export default function CreateCampaign() {
                       <div className="flex flex-col sm:flex-row gap-3">
                         <motion.button
                           onClick={() => {
-                            setShowFailureModal(false)
-                            setSubmitError(null)
+                            setShowFailureModal(false);
+                            setSubmitError(null);
                           }}
                           className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 px-6 py-3 rounded-xl font-semibold transition-colors font-unbounded"
                           whileHover={{ scale: 1.02 }}
@@ -1079,9 +1209,8 @@ export default function CreateCampaign() {
                         </motion.button>
                         <motion.button
                           onClick={() => {
-                            setShowFailureModal(false)
-                            setSubmitError(null)
-                            // Don't automatically retry - let user manually try again from the form
+                            setShowFailureModal(false);
+                            setSubmitError(null);
                           }}
                           className="flex-1 bg-gradient-to-r from-emerald-500 to-cyan-500 hover:from-emerald-600 hover:to-cyan-600 text-white px-6 py-3 rounded-xl font-semibold transition-all font-unbounded"
                           whileHover={{ scale: 1.02 }}
@@ -1104,7 +1233,7 @@ export default function CreateCampaign() {
             <div className="flex justify-between mt-12 pt-8 border-t border-gray-200/50">
               <motion.button
                 onClick={prevStep}
-                disabled={currentStep === 1 || isSubmitting || isRegistering}
+                disabled={currentStep === 1 || isSubmitting || isPending}
                 className="flex items-center px-8 py-4 border-2 border-gray-300/50 rounded-2xl text-gray-700 hover:bg-gray-50/80 hover:border-gray-400/50 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300 shadow-lg hover:shadow-xl font-semibold font-unbounded backdrop-blur-sm"
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}
@@ -1116,15 +1245,15 @@ export default function CreateCampaign() {
               {currentStep === STEPS.length ? (
                 <motion.button
                   onClick={handleSubmit}
-                  disabled={isSubmitting || isRegistering || isCheckingApproval}
+                  disabled={isSubmitting || isPending}
                   className="flex items-center px-10 py-4 bg-gradient-to-r from-emerald-600 via-cyan-600 to-teal-600 text-white rounded-2xl hover:from-emerald-700 hover:via-cyan-700 hover:to-teal-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300 shadow-xl hover:shadow-2xl font-bold font-unbounded"
                   whileHover={{ scale: 1.02 }}
                   whileTap={{ scale: 0.98 }}
                 >
-                  {(isSubmitting || isRegistering || isCheckingApproval) ? (
+                  {(isSubmitting || isPending) ? (
                     <>
                       <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-white mr-3" />
-                      {isCheckingApproval ? 'Checking NGO Status...' : isSubmitting ? 'Uploading to IPFS...' : 'Registering on Blockchain...'}
+                      {isSubmitting ? 'Uploading to IPFS...' : 'Registering on Blockchain...'}
                     </>
                   ) : (
                     <>
@@ -1136,22 +1265,13 @@ export default function CreateCampaign() {
               ) : (
                 <motion.button
                   onClick={nextStep}
-                  disabled={isSubmitting || isRegistering || isConfirming || isCheckingApproval}
+                  disabled={isSubmitting || isPending}
                   className="flex items-center px-8 py-4 bg-gradient-to-r from-emerald-600 via-cyan-600 to-teal-600 text-white rounded-2xl hover:from-emerald-700 hover:via-cyan-700 hover:to-teal-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300 shadow-xl hover:shadow-2xl font-bold font-unbounded"
                   whileHover={{ scale: 1.02 }}
                   whileTap={{ scale: 0.98 }}
                 >
-                  {(currentStep === 1 && isCheckingApproval) ? (
-                    <>
-                      <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-3" />
-                      Checking Address...
-                    </>
-                  ) : (
-                    <>
-                      Next
-                      <ArrowRight className="w-5 h-5 ml-3" />
-                    </>
-                  )}
+                  Next
+                  <ArrowRight className="w-5 h-5 ml-3" />
                 </motion.button>
               )}
             </div>
@@ -1159,5 +1279,5 @@ export default function CreateCampaign() {
         </motion.div>
       </div>
     </div>
-  )
+  );
 }

@@ -1,5 +1,6 @@
 import { LOCAL_CONTRACT_ADDRESSES } from './local';
 import { SEPOLIA_CONTRACT_ADDRESSES } from './sepolia';
+import { BASE_SEPOLIA_ADDRESSES } from './baseSepolia';
 
 // Network configuration
 export const NETWORK_CONFIG = {
@@ -12,21 +13,31 @@ export const NETWORK_CONFIG = {
     chainId: 11155111,
     name: 'Sepolia Testnet',
     contracts: SEPOLIA_CONTRACT_ADDRESSES
+  },
+  BASE_SEPOLIA: {
+    chainId: 84532,
+    name: 'Base Sepolia',
+    contracts: BASE_SEPOLIA_ADDRESSES
   }
 } as const;
 
 // Environment-based contract addresses
-// Default to Sepolia unless explicitly set to use local
+// Priority: Base Sepolia (default) > Local (if VITE_USE_LOCAL=true) > Sepolia (legacy fallback)
 const useLocal = import.meta.env.VITE_USE_LOCAL === 'true';
+const useBaseSepolia = import.meta.env.VITE_USE_BASE_SEPOLIA !== 'false'; // Default to true
 
 export const CONTRACT_ADDRESSES = useLocal
   ? LOCAL_CONTRACT_ADDRESSES
-  : SEPOLIA_CONTRACT_ADDRESSES;
+  : useBaseSepolia
+    ? BASE_SEPOLIA_ADDRESSES
+    : SEPOLIA_CONTRACT_ADDRESSES;
 
 // Export current network config
 export const CURRENT_NETWORK = useLocal
   ? NETWORK_CONFIG.LOCAL
-  : NETWORK_CONFIG.SEPOLIA;
+  : useBaseSepolia
+    ? NETWORK_CONFIG.BASE_SEPOLIA
+    : NETWORK_CONFIG.SEPOLIA;
 
 // Export SEPOLIA for chain configuration
 export const SEPOLIA = SEPOLIA_CONTRACT_ADDRESSES;

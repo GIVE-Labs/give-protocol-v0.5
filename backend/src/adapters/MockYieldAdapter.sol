@@ -3,15 +3,15 @@ pragma solidity ^0.8.20;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import "@openzeppelin/contracts/access/AccessControl.sol";
 import "../interfaces/IYieldAdapter.sol";
+import "../utils/ACLShim.sol";
 
 /**
  * @title MockYieldAdapter
  * @dev Mock yield adapter for testing purposes
  * @notice Simulates yield generation for local testing
  */
-contract MockYieldAdapter is IYieldAdapter, AccessControl {
+contract MockYieldAdapter is IYieldAdapter, ACLShim {
     using SafeERC20 for IERC20;
 
     bytes32 public constant VAULT_ROLE = keccak256("VAULT_ROLE");
@@ -72,7 +72,16 @@ contract MockYieldAdapter is IYieldAdapter, AccessControl {
     function invest(uint256 assets) external override onlyRole(VAULT_ROLE) {
         require(assets > 0, "MockYieldAdapter: Cannot invest zero assets");
 
-        _asset.safeTransferFrom(_vault, address(this), assets);
+        uint256 requiredBalance = _totalAssets + assets;
+        uint256 preBalance = _asset.balanceOf(address(this));
+
+        if (preBalance < requiredBalance) {
+            _asset.safeTransferFrom(_vault, address(this), assets);
+            preBalance = _asset.balanceOf(address(this));
+        }
+
+        require(preBalance >= requiredBalance, "MockYieldAdapter: Insufficient deposit");
+
         _totalAssets += assets;
 
         emit Invested(assets);
@@ -105,25 +114,26 @@ contract MockYieldAdapter is IYieldAdapter, AccessControl {
             return (0, 0);
         }
 
+        uint256 balance = _asset.balanceOf(address(this));
+
         if (_simulateLoss) {
-            // Simulate loss
-            loss = (_totalAssets * _lossRate) / 10000;
-            if (loss > _totalAssets) {
-                loss = _totalAssets;
+            loss = (balance * _lossRate) / 10_000;
+            if (loss > balance) {
+                loss = balance;
             }
-            _totalAssets -= loss;
+            _totalAssets = balance - loss;
             profit = 0;
         } else {
-            // Simulate profit
-            profit = (_totalAssets * _yieldRate) / 10000;
-            _totalAssets += profit;
             loss = 0;
-
-            // Mint profit tokens to simulate yield
-            if (profit > 0) {
-                // In a real adapter, this would come from the protocol
-                // For mock, we assume the asset can be minted or we have reserves
-                // Here we just increase totalAssets - in practice you'd need actual tokens
+            if (balance > _totalAssets) {
+                profit = balance - _totalAssets;
+                _totalAssets = balance - profit;
+                if (profit > 0) {
+                    _asset.safeTransfer(_vault, profit);
+                }
+            } else {
+                _totalAssets = balance;
+                profit = 0;
             }
         }
 

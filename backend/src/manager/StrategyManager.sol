@@ -1,22 +1,26 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import "@openzeppelin/contracts/access/AccessControl.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/utils/Pausable.sol";
 import "../vault/GiveVault4626.sol";
 import "../interfaces/IYieldAdapter.sol";
-import "../utils/Errors.sol";
+import "../registry/StrategyRegistry.sol";
+import "../registry/CampaignRegistry.sol";
+import "../types/GiveTypes.sol";
+import "../utils/GiveErrors.sol";
+import "../utils/ACLShim.sol";
 
 /**
  * @title StrategyManager
  * @dev Manages strategy configuration and adapter parameters for GiveVault4626
  * @notice Provides a centralized configuration surface for vault operations
  */
-contract StrategyManager is AccessControl, ReentrancyGuard, Pausable {
+contract StrategyManager is ACLShim, ReentrancyGuard, Pausable {
     // === Roles ===
     bytes32 public constant STRATEGY_MANAGER_ROLE = keccak256("STRATEGY_MANAGER_ROLE");
     bytes32 public constant EMERGENCY_ROLE = keccak256("EMERGENCY_ROLE");
+    bytes32 public constant STRATEGY_ADMIN_ROLE = keccak256("STRATEGY_ADMIN_ROLE");
 
     // === Constants ===
     uint256 public constant BASIS_POINTS = 10000;
@@ -26,6 +30,8 @@ contract StrategyManager is AccessControl, ReentrancyGuard, Pausable {
 
     // === State Variables ===
     GiveVault4626 public immutable vault;
+    StrategyRegistry public strategyRegistry;
+    CampaignRegistry public campaignRegistry;
 
     mapping(address => bool) public approvedAdapters;
     address[] public adapterList;
@@ -48,16 +54,19 @@ contract StrategyManager is AccessControl, ReentrancyGuard, Pausable {
     event ParametersUpdated(uint256 cashBufferBps, uint256 slippageBps, uint256 maxLossBps);
 
     // === Constructor ===
-    constructor(address _vault, address _admin) {
+    constructor(address _vault, address _admin, address _strategyRegistry, address _campaignRegistry) {
         if (_vault == address(0) || _admin == address(0)) {
-            revert Errors.ZeroAddress();
+            revert GiveErrors.ZeroAddress();
         }
 
         vault = GiveVault4626(payable(_vault));
+        strategyRegistry = StrategyRegistry(_strategyRegistry);
+        campaignRegistry = CampaignRegistry(_campaignRegistry);
 
         _grantRole(DEFAULT_ADMIN_ROLE, _admin);
         _grantRole(STRATEGY_MANAGER_ROLE, _admin);
         _grantRole(EMERGENCY_ROLE, _admin);
+        _grantRole(STRATEGY_ADMIN_ROLE, _admin);
 
         lastRebalanceTime = block.timestamp;
     }
@@ -70,14 +79,14 @@ contract StrategyManager is AccessControl, ReentrancyGuard, Pausable {
      * @param approved Whether to approve the adapter
      */
     function setAdapterApproval(address adapter, bool approved) external onlyRole(STRATEGY_MANAGER_ROLE) {
-        if (adapter == address(0)) revert Errors.ZeroAddress();
+        if (adapter == address(0)) revert GiveErrors.ZeroAddress();
 
         bool wasApproved = approvedAdapters[adapter];
         approvedAdapters[adapter] = approved;
 
         if (approved && !wasApproved) {
             if (adapterList.length >= MAX_ADAPTERS) {
-                revert Errors.ParameterOutOfRange();
+                revert GiveErrors.ParameterOutOfRange();
             }
             adapterList.push(adapter);
         } else if (!approved && wasApproved) {
@@ -92,10 +101,10 @@ contract StrategyManager is AccessControl, ReentrancyGuard, Pausable {
      * @param adapter The adapter to activate
      */
     function setActiveAdapter(address adapter) external onlyRole(STRATEGY_MANAGER_ROLE) whenNotPaused {
-        if (adapter != address(0) && !approvedAdapters[adapter]) {
-            revert Errors.InvalidAdapter();
+        if (adapter != address(0)) {
+            if (!approvedAdapters[adapter]) revert GiveErrors.InvalidAdapter();
+            _assertAdapterMatchesCampaign(adapter);
         }
-
         vault.setActiveAdapter(IYieldAdapter(adapter));
         lastRebalanceTime = block.timestamp;
 
@@ -137,7 +146,7 @@ contract StrategyManager is AccessControl, ReentrancyGuard, Pausable {
      */
     function setRebalanceInterval(uint256 interval) external onlyRole(STRATEGY_MANAGER_ROLE) {
         if (interval < MIN_REBALANCE_INTERVAL || interval > MAX_REBALANCE_INTERVAL) {
-            revert Errors.ParameterOutOfRange();
+            revert GiveErrors.ParameterOutOfRange();
         }
 
         uint256 oldInterval = rebalanceInterval;
@@ -179,7 +188,7 @@ contract StrategyManager is AccessControl, ReentrancyGuard, Pausable {
      * @param threshold Loss threshold in basis points
      */
     function setEmergencyExitThreshold(uint256 threshold) external onlyRole(STRATEGY_MANAGER_ROLE) {
-        if (threshold > 5000) revert Errors.ParameterOutOfRange(); // Max 50%
+        if (threshold > 5000) revert GiveErrors.ParameterOutOfRange(); // Max 50%
 
         uint256 oldThreshold = emergencyExitThreshold;
         emergencyExitThreshold = threshold;
@@ -273,6 +282,22 @@ contract StrategyManager is AccessControl, ReentrancyGuard, Pausable {
         }
 
         return bestAdapter;
+    }
+
+    /**
+     * @dev Validates adapter matches campaign's strategy
+     * @param adapter The adapter address to validate
+     */
+    function _assertAdapterMatchesCampaign(address adapter) internal view {
+        bytes32 campaignId = StorageLib.getVaultCampaign(address(vault));
+        if (campaignId == bytes32(0)) return; // No campaign assigned yet
+
+        GiveTypes.CampaignConfig memory campaign = campaignRegistry.getCampaign(campaignId);
+        GiveTypes.StrategyConfig memory strategy = strategyRegistry.getStrategy(campaign.strategyId);
+
+        if (strategy.adapter != adapter) {
+            revert GiveErrors.InvalidStrategy();
+        }
     }
 
     /**

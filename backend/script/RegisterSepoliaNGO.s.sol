@@ -50,7 +50,7 @@ contract RegisterSepoliaNGO is Script {
         console.log("KYC Hash:", vm.toString(kycHash));
 
         // Verify the NGO was registered
-        console.log("Verification - Is Approved:", registry.isNGOApproved(ngoAddress));
+        console.log("Verification - Is Approved:", registry.isApproved(ngoAddress));
 
         vm.stopBroadcast();
     }

@@ -41,6 +41,8 @@ contract HelperConfig is Script {
     constructor() {
         if (block.chainid == 11155111) {
             activeNetworkConfig = getSepoliaEthConfig();
+        } else if (block.chainid == 84532) {
+            activeNetworkConfig = getBaseSepoliaConfig();
         } else {
             activeNetworkConfig = getOrCreateAnvilEthConfig();
         }
@@ -54,6 +56,20 @@ contract HelperConfig is Script {
             wbtc: 0x29f2D40B0605204364af54EC677bD022dA425d03, // Sepolia WBTC (mock)
             usdc: 0x94a9D9AC8a22534E3FaCa9F4e7F2E2cf85d5E4C8, // Sepolia USDC (Aave pool)
             aavePool: 0x6Ae43d3271ff6888e7Fc43Fd7321a503ff738951, // Sepolia Aave Pool
+            deployerKey: 0 // Not used when using --account flag
+        });
+    }
+
+    function getBaseSepoliaConfig() public pure returns (NetworkConfig memory baseSepoliaNetworkConfig) {
+        // Base Sepolia testnet configuration - Chain ID: 84532
+        // Addresses verified from Aave V3 address book: https://github.com/bgd-labs/aave-address-book
+        baseSepoliaNetworkConfig = NetworkConfig({
+            wethUsdPriceFeed: address(0), // TODO: Add Chainlink price feed if needed
+            wbtcUsdPriceFeed: address(0), // Not needed for WETH-only deployment
+            weth: 0x4200000000000000000000000000000000000006, // Canonical Base WETH
+            wbtc: address(0), // Skip for initial deployment
+            usdc: address(0), // Skip for initial deployment
+            aavePool: 0x8bAB6d1b75f19e9eD9fCe8b9BD338844fF79aE27, // Aave V3 Pool (verified from address book)
             deployerKey: 0 // Not used when using --account flag
         });
     }

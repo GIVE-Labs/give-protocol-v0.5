@@ -8,8 +8,8 @@
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview",
-    "sync-abis": "cd ../backend && forge inspect NGORegistry abi --json > ../frontend/src/abis/NGORegistry.json && forge inspect DonationRouter abi --json > ../frontend/src/abis/DonationRouter.json && forge inspect AaveAdapter abi --json > ../frontend/src/abis/AaveAdapter.json && forge inspect GiveVault4626 abi --json > ../frontend/src/abis/GiveVault4626.json && forge inspect StrategyManager abi --json > ../frontend/src/abis/StrategyManager.json",
-    "build:contracts": "cd ../backend && forge build && pnpm sync-abis"
+    "sync-abis": "bash scripts/sync-abis.sh",
+    "build:contracts": "cd ../backend && forge build && cd ../frontend && pnpm sync-abis"
   },
   "dependencies": {
     "@lottiefiles/dotlottie-react": "^0.16.1",

@@ -2,9 +2,12 @@ import { Link } from 'react-router-dom'
 import { DotLottieReact } from '@lottiefiles/dotlottie-react'
 import { ArrowRight, Heart, Sparkles } from 'lucide-react'
 import { motion } from 'framer-motion'
-import FeaturedNGO from '../components/FeaturedNGO'
+import FeaturedCampaign from '../components/campaign/FeaturedCampaign'
+import { useProtocolMetrics } from '../hooks/useProtocolMetrics'
 
 export default function Home() {
+  const { tvlUSD, activeCampaignsCount, totalSupporters, isLoading } = useProtocolMetrics()
+  
   const containerVariants = {
     hidden: { opacity: 0 },
     visible: {
@@ -161,7 +164,7 @@ export default function Home() {
                 whileTap={{ scale: 0.95 }}
               >
                 <Link
-                  to="/ngo"
+                  to="/campaigns"
                   className="group relative bg-gradient-to-r from-emerald-600 via-cyan-600 to-teal-600 text-white px-10 py-5 rounded-2xl font-bold text-xl hover:from-emerald-700 hover:via-cyan-700 hover:to-teal-700 transition-all duration-300 flex items-center justify-center space-x-3 shadow-2xl hover:shadow-emerald-500/25 overflow-hidden"
                 >
                   <div className="absolute inset-0 bg-gradient-to-r from-white/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
@@ -176,7 +179,7 @@ export default function Home() {
                 whileTap={{ scale: 0.95 }}
               >
                 <Link
-                  to="/create-campaign"
+                  to="/campaigns/create"
                   className="group border-3 border-emerald-600 text-emerald-700 px-10 py-5 rounded-2xl font-bold text-xl hover:bg-emerald-600 hover:text-white transition-all duration-300 flex items-center justify-center space-x-3 shadow-lg hover:shadow-xl bg-white/80 backdrop-blur-sm"
                 >
                   <Heart className="w-6 h-6" />
@@ -188,15 +191,15 @@ export default function Home() {
             {/* Stats */}
             <div className="grid grid-cols-3 gap-8 pt-10 border-t border-emerald-200/50">
               {[
-                { value: "$50K+", label: "Yield Generated", color: "text-emerald-600" },
-                { value: "25+", label: "NGOs Supported", color: "text-cyan-600" },
-                { value: "100%", label: "Principal Safe", color: "text-teal-600" }
+                { value: tvlUSD, label: "Total Value Locked", color: "text-emerald-600" },
+                { value: activeCampaignsCount.toString(), label: "Active Campaigns", color: "text-cyan-600" },
+                { value: totalSupporters.toString(), label: "Total Supporters", color: "text-teal-600" }
               ].map((stat) => (
                 <div 
                   key={stat.label}
                   className="text-center group"
                 >
-                  <div className={`text-3xl lg:text-4xl font-bold ${stat.color} mb-2`}>
+                  <div className={`text-3xl lg:text-4xl font-bold ${stat.color} mb-2 ${isLoading ? 'animate-pulse' : ''}`}>
                     {stat.value}
                   </div>
                   <div className="text-sm font-medium text-gray-600 group-hover:text-gray-800 transition-colors">
@@ -209,8 +212,8 @@ export default function Home() {
         </div>
       </motion.div>
 
-      {/* Featured NGO Section */}
-      <FeaturedNGO />
+      {/* Featured Campaign Section */}
+      <FeaturedCampaign />
 
       {/* How It Works Section */}
       <motion.div 
@@ -383,7 +386,7 @@ export default function Home() {
               whileTap={{ scale: 0.95 }}
             >
               <Link
-                to="/ngo"
+                to="/campaigns"
                 className="group inline-flex items-center space-x-3 bg-gradient-to-r from-emerald-600 to-cyan-600 text-white px-8 py-4 rounded-2xl font-bold text-lg hover:from-emerald-700 hover:to-cyan-700 transition-all duration-300 shadow-xl hover:shadow-2xl"
               >
                 <Heart className="w-6 h-6" />
