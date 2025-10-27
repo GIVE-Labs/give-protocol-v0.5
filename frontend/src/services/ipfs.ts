@@ -369,31 +369,24 @@ export async function hexToCid(_hexString: string, campaignId?: string): Promise
     return null;
   }
 
-  console.log(`🔎 Looking up CID for campaign: ${campaignId.slice(0, 10)}...`);
-
   // 1. Try hardcoded mapping first (fastest, always works)
   const { getCampaignCID: getHardcodedCID } = await import('../config/campaignCIDs');
   const hardcodedCid = getHardcodedCID(campaignId);
   if (hardcodedCid) {
-    console.log(`✅ Found CID in hardcoded mapping: ${hardcodedCid}`);
     return hardcodedCid;
   }
-  console.log('⏭️ Not in hardcoded mapping, checking localStorage...');
 
   // 2. Try localStorage cache
   const storedCid = getCampaignCID(campaignId);
   if (storedCid) {
-    console.log(`✅ Found CID in localStorage cache: ${storedCid}`);
     return storedCid;
   }
-  console.log('⏭️ Not in localStorage, querying Etherscan API v2...');
 
   // 3. Try Etherscan API v2 (automatic indexing, unified multichain API)
   try {
     const { getCampaignCID: getEtherscanCID } = await import('./etherscanIndexer');
     const etherscanCid = await getEtherscanCID(campaignId);
     if (etherscanCid) {
-      console.log(`✅ Found CID from Etherscan, caching: ${etherscanCid}`);
       // Cache for next time
       saveCampaignCID(campaignId, etherscanCid);
       return etherscanCid;
@@ -402,7 +395,6 @@ export async function hexToCid(_hexString: string, campaignId?: string): Promise
     console.error('❌ Etherscan API v2 fetch failed:', error);
   }
   
-  console.error('❌ CID not found anywhere for campaign:', campaignId.slice(0, 10));
   return null;
 }
 

@@ -183,8 +183,6 @@ export async function fetchCampaignEvents(
   
   let currentStart = startBlock;
   
-  console.log(`Indexing campaigns from block ${startBlock} to ${latestBlock}...`);
-  
   while (currentStart <= latestBlock) {
     const currentEnd = Math.min(currentStart + chunkSize - 1, latestBlock);
     
@@ -210,16 +208,9 @@ export async function fetchCampaignEvents(
           .filter((e: CampaignEvent | null): e is CampaignEvent => e !== null);
         
         allEvents.push(...events);
-        if (events.length > 0) {
-          console.log(`✓ Blocks ${currentStart}-${currentEnd}: ${events.length} campaigns`);
-        }
-      } else if (data.status === '0' && data.message === 'No records found') {
-        // Silent - expected for many chunks
       } else if (data.message?.includes('deprecated V1 endpoint')) {
         console.error('❌ API v1 is deprecated! Please update to v2.');
         throw new Error('Etherscan API v1 deprecated - update required');
-      } else {
-        console.warn('Etherscan API warning:', data.message || data.result);
       }
 
       // Rate limiting: 5 calls/sec (free tier) = 200ms between calls
@@ -231,7 +222,6 @@ export async function fetchCampaignEvents(
     currentStart = currentEnd + 1;
   }
 
-  console.log(`✓ Indexing complete: ${allEvents.length} total campaigns`);
   return allEvents;
 }
 
@@ -254,7 +244,6 @@ export async function buildCampaignCIDMapping(): Promise<Record<string, string>>
     }
   }
 
-  console.log(`Built mapping for ${Object.keys(mapping).length} campaigns`);
   return mapping;
 }
 
@@ -268,8 +257,6 @@ export async function buildCampaignCIDMapping(): Promise<Record<string, string>>
  */
 export async function getCampaignCID(campaignId: string): Promise<string | null> {
   try {
-    console.log(`🔍 Querying Etherscan API v2 for campaign: ${campaignId.slice(0, 10)}...`);
-    
     const url = new URL(ETHERSCAN_V2_API_URL);
     url.searchParams.append('chainid', BASE_SEPOLIA_CHAIN_ID);
     url.searchParams.append('module', 'logs');
@@ -281,30 +268,16 @@ export async function getCampaignCID(campaignId: string): Promise<string | null>
     url.searchParams.append('toBlock', 'latest');
     url.searchParams.append('apikey', ETHERSCAN_API_KEY);
 
-    console.log('📡 Etherscan request:', url.toString().replace(ETHERSCAN_API_KEY, 'API_KEY'));
-
     const response = await fetch(url.toString());
     const data = await response.json();
-
-    console.log('📥 Etherscan response:', data);
-    console.log('📊 Response details:', {
-      status: data.status,
-      message: data.message,
-      resultLength: Array.isArray(data.result) ? data.result.length : 'not array',
-      firstResult: Array.isArray(data.result) && data.result.length > 0 ? data.result[0] : null
-    });
 
     if (data.status === '1' && Array.isArray(data.result) && data.result.length > 0) {
       const event = parseCampaignSubmittedLog(data.result[0]);
       if (event?.metadataCID) {
-        console.log(`✅ Found CID from Etherscan: ${event.metadataCID}`);
         return event.metadataCID;
-      } else {
-        console.warn('⚠️ Event parsed but no CID:', event);
       }
     }
 
-    console.warn('⚠️ No CID found in Etherscan response for campaign:', campaignId.slice(0, 10));
     return null;
   } catch (error) {
     console.error('❌ Error fetching campaign CID from Etherscan:', error);
