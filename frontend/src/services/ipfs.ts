@@ -327,7 +327,6 @@ export function getIPFSUrl(cid: string): string {
   const gateway = PINATA_GATEWAY || 'gateway.pinata.cloud';
   const baseGateway = gateway.startsWith('http') ? gateway : `https://${gateway}`;
   const url = `${baseGateway}/ipfs/${cid}`;
-  console.log('Generated IPFS URL:', url);
   return url;
 }
 
@@ -363,7 +362,6 @@ export async function hexToCid(_hexString: string, campaignId?: string): Promise
   if (campaignId) {
     const storedCid = getCampaignCID(campaignId);
     if (storedCid) {
-      console.log('✅ Found CID in localStorage:', storedCid);
       return storedCid;
     }
     
@@ -372,7 +370,6 @@ export async function hexToCid(_hexString: string, campaignId?: string): Promise
       const { getCampaignCIDFromLogs } = await import('./campaignEvents');
       const cidFromLogs = await getCampaignCIDFromLogs(campaignId as `0x${string}`);
       if (cidFromLogs) {
-        console.log('✅ Found CID in event logs:', cidFromLogs);
         // Cache it for next time
         saveCampaignCID(campaignId, cidFromLogs);
         return cidFromLogs;
@@ -382,10 +379,6 @@ export async function hexToCid(_hexString: string, campaignId?: string): Promise
     }
   }
   
-  console.warn('⚠️ CID not found in localStorage or event logs');
-  console.warn('⚠️ Cannot recover original CID from bytes32 hash');
-  console.warn('⚠️ The metadataHash is just a hash placeholder, not the actual CID');
-  
   return null;
 }
 
@@ -394,8 +387,6 @@ export async function hexToCid(_hexString: string, campaignId?: string): Promise
  */
 export async function fetchMetadataFromIPFS(cid: string): Promise<any | null> {
   try {
-    console.log('Fetching metadata from IPFS with CID:', cid);
-    
     // Validate CID before making request
     if (!isValidCID(cid)) {
       console.error('Invalid CID provided to fetchMetadataFromIPFS:', cid);
@@ -404,7 +395,6 @@ export async function fetchMetadataFromIPFS(cid: string): Promise<any | null> {
     
     // Use Pinata gateway URL directly
     const url = getIPFSUrl(cid);
-    console.log('Fetching from URL:', url);
     
     const response = await fetch(url, {
       method: 'GET',
@@ -419,7 +409,7 @@ export async function fetchMetadataFromIPFS(cid: string): Promise<any | null> {
     }
     
     const data = await response.json();
-    console.log('Successfully fetched metadata from IPFS:', data);
+    console.log('✅ Metadata loaded from CID:', cid);
     
     return data;
   } catch (error) {

@@ -97,6 +97,12 @@ export default function CampaignCard({ campaignId, index = 0 }: CampaignCardProp
   // Type the campaign data properly
   const campaignData = campaign as any; // TODO: Add proper type definition
 
+  // Hide cancelled campaigns (status 6)
+  // Status enum: 0=Unknown, 1=Submitted, 2=Approved, 3=Active, 4=Paused, 5=Completed, 6=Cancelled
+  if (campaignData.status === 6) {
+    return null; // Don't render cancelled campaigns
+  }
+
   // Calculate progress
   const targetAmount = Number(campaignData?.targetStake || 0) / 1e18;
   const totalStaked = Number(campaignData?.totalStaked || 0) / 1e18;

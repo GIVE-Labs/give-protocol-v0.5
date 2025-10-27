@@ -185,6 +185,20 @@ export function useCampaignRegistry() {
     });
   };
 
+  /**
+   * Set campaign status (admin only)
+   * @param campaignId Campaign ID
+   * @param newStatus Status enum value (0=Unknown, 1=Submitted, 2=Approved, 3=Active, 4=Paused, 5=Completed, 6=Cancelled)
+   */
+  const setCampaignStatus = async (campaignId: `0x${string}`, newStatus: number) => {
+    return writeContract({
+      address: BASE_SEPOLIA_ADDRESSES.CAMPAIGN_REGISTRY as `0x${string}`,
+      abi: CampaignRegistryABI,
+      functionName: 'setCampaignStatus',
+      args: [campaignId, newStatus],
+    });
+  };
+
   return {
     // Read data
     campaignCount: activeCampaigns ? activeCampaigns.length : 0,
@@ -205,6 +219,7 @@ export function useCampaignRegistry() {
     finalizeCheckpoint,
     pauseCampaign,
     resumeCampaign,
+    setCampaignStatus,
     
     // Transaction state
     isPending,

@@ -386,17 +386,7 @@ export default function CreateCampaign() {
 
       console.log('=== Campaign Submission Details ===');
       console.log('Campaign ID:', campaignId);
-      console.log('Campaign Name:', formData.campaignName);
-      console.log('Payout Recipient:', formData.campaignAddress);
-      console.log('Strategy ID:', defaultStrategyId);
       console.log('IPFS CID:', metadataCid);
-      console.log('Metadata Hash (bytes32):', metadataHashBytes);
-      console.log('Target Stake:', targetStake.toString(), 'wei (', formData.targetAmount, 'ETH)');
-      console.log('Min Stake:', minStake.toString(), 'wei (', formData.minStake, 'ETH)');
-      console.log('Fundraising Start:', new Date(Number(fundraisingStart) * 1000).toISOString());
-      console.log('Fundraising End:', new Date(Number(fundraisingEnd) * 1000).toISOString());
-      console.log('Full input:', input);
-      console.log('=====================================');
       
       // Store CID mapping in localStorage for retrieval (bytes32 can't hold full CID)
       saveCampaignCID(campaignId, metadataCid);
