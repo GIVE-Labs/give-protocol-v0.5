@@ -358,14 +358,24 @@ function isValidCID(cid: string): boolean {
  * Get campaign CID from localStorage, event logs, or try to decode from hex
  */
 export async function hexToCid(_hexString: string, campaignId?: string): Promise<string | null> {
-  // First try localStorage if campaignId is provided
+  // Try hardcoded campaign CID mapping first (production workaround)
+  if (campaignId) {
+    const { getCampaignCID: getHardcodedCID } = await import('../config/campaignCIDs');
+    const hardcodedCid = getHardcodedCID(campaignId);
+    if (hardcodedCid) {
+      console.log(`Found CID from hardcoded mapping for campaign ${campaignId}: ${hardcodedCid}`);
+      return hardcodedCid;
+    }
+  }
+  
+  // Fallback: Try localStorage if campaignId is provided
   if (campaignId) {
     const storedCid = getCampaignCID(campaignId);
     if (storedCid) {
       return storedCid;
     }
     
-    // Fallback: Try fetching from event logs
+    // Last resort: Try fetching from event logs (disabled on Alchemy free tier)
     try {
       const { getCampaignCIDFromLogs } = await import('./campaignEvents');
       const cidFromLogs = await getCampaignCIDFromLogs(campaignId as `0x${string}`);
