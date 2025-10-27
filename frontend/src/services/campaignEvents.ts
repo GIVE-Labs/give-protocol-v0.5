@@ -25,6 +25,13 @@ export async function getCampaignCIDFromLogs(
   try {
     console.log('Fetching CID from event logs for campaign:', campaignId);
 
+    // Get current block first
+    const currentBlock = await publicClient.getBlockNumber();
+    
+    // Alchemy free tier: limit to last 10,000 blocks to avoid RPC errors
+    // For production, use a subgraph indexer or upgrade to paid RPC plan
+    const fromBlock = currentBlock > 10000n ? currentBlock - 10000n : 0n;
+
     // Query CampaignSubmitted events
     const logs = await publicClient.getLogs({
       address: CAMPAIGN_REGISTRY_ADDRESS,
@@ -32,12 +39,12 @@ export async function getCampaignCIDFromLogs(
       args: {
         id: campaignId,
       },
-      fromBlock: 0n, // Search from genesis - you may want to optimize this
+      fromBlock,
       toBlock: 'latest',
     });
 
     if (logs.length === 0) {
-      console.warn('No CampaignSubmitted event found for campaign:', campaignId);
+      console.warn('No CampaignSubmitted event found for campaign:', campaignId, '(searched last 10K blocks)');
       return null;
     }
 
@@ -66,10 +73,16 @@ export async function buildCampaignCIDMapping(): Promise<Record<string, string>>
   try {
     console.log('Building campaign CID mapping from event logs...');
 
+    // Get current block first
+    const currentBlock = await publicClient.getBlockNumber();
+    
+    // Alchemy free tier: limit to last 10,000 blocks
+    const fromBlock = currentBlock > 10000n ? currentBlock - 10000n : 0n;
+
     const logs = await publicClient.getLogs({
       address: CAMPAIGN_REGISTRY_ADDRESS,
       event: parseAbiItem('event CampaignSubmitted(bytes32 indexed id, address indexed proposer, bytes32 metadataHash, string metadataCID)'),
-      fromBlock: 0n,
+      fromBlock,
       toBlock: 'latest',
     });
 
@@ -81,7 +94,7 @@ export async function buildCampaignCIDMapping(): Promise<Record<string, string>>
       }
     }
 
-    console.log(`Built mapping for ${Object.keys(mapping).length} campaigns`);
+    console.log(`Built mapping for ${Object.keys(mapping).length} campaigns (last 10K blocks)`);
     return mapping;
   } catch (error) {
     console.error('Error building campaign CID mapping:', error);
