@@ -28,11 +28,11 @@ const CAMPAIGN_REGISTRY_ADDRESS = '0x51929ec1C089463fBeF6148B86F34117D9CCF816';
 const DEPLOYMENT_BLOCK = 32800000; // Adjusted to capture all campaigns
 
 /**
- * CampaignSubmitted event signature (NEW version with string metadataCID)
- * event CampaignSubmitted(bytes32 indexed id, address indexed proposer, bytes32 metadataHash, string metadataCID)
- * Topic0 hash: keccak256("CampaignSubmitted(bytes32,address,bytes32,string)")
+ * CampaignSubmitted event signature (with depositAmount)
+ * event CampaignSubmitted(bytes32 indexed id, address indexed proposer, bytes32 metadataHash, string metadataCID, uint256 depositAmount)
+ * Topic0 hash: keccak256("CampaignSubmitted(bytes32,address,bytes32,string,uint256)")
  */
-const CAMPAIGN_SUBMITTED_TOPIC = '0x43fde2ce62068a5dc2d63487bd765a1f9587a18a0cdaf98403375d1a1ddd931c';
+const CAMPAIGN_SUBMITTED_TOPIC = '0xec35897c23ef8a8c61114241544e78c2124dfda3a294e6c94088a2b69b3267b4';
 
 // ============================================================================
 // Type Definitions
@@ -78,9 +78,9 @@ function decodeHexString(hex: string): string {
 /**
  * Parse CampaignSubmitted event log
  * 
- * Event: CampaignSubmitted(bytes32 indexed id, address indexed proposer, bytes32 metadataHash, string metadataCID)
+ * Event: CampaignSubmitted(bytes32 indexed id, address indexed proposer, bytes32 metadataHash, string metadataCID, uint256 depositAmount)
  * Topics: [event signature, campaignId (indexed), proposer (indexed)]
- * Data: [metadataHash (32 bytes), string offset (32 bytes), string length (32 bytes), string data (variable)]
+ * Data: [metadataHash (32 bytes), string offset (32 bytes), string length (32 bytes), string data (variable), depositAmount (32 bytes)]
  */
 function parseCampaignSubmittedLog(log: EtherscanLog): CampaignEvent | null {
   try {
@@ -92,11 +92,12 @@ function parseCampaignSubmittedLog(log: EtherscanLog): CampaignEvent | null {
     const campaignId = log.topics[1];
     const proposer = '0x' + log.topics[2].slice(26); // Remove padding, keep last 20 bytes
 
-    // Data layout for dynamic string:
+    // Data layout for dynamic string with trailing uint256:
     // [0-64]: metadataHash (32 bytes)
     // [64-128]: offset to string (32 bytes) - always 0x40 (64 in decimal)
     // [128-192]: string length (32 bytes)
-    // [192+]: string data
+    // [192+]: string data (variable)
+    // [end-64 to end]: depositAmount (32 bytes) - but we don't need to parse it for indexing
     const data = log.data.slice(2); // Remove 0x prefix
     const metadataHashHex = '0x' + data.slice(0, 64);
     

@@ -82,10 +82,11 @@ export default function CampaignCard({ campaignId, index = 0 }: CampaignCardProp
   // Type the campaign data properly
   const campaignData = campaign as any; // TODO: Add proper type definition
 
-  // Hide cancelled campaigns (status 6)
+  // PUBLIC VIEW: Only show Active campaigns (status 3)
   // Status enum: 0=Unknown, 1=Submitted, 2=Approved, 3=Active, 4=Paused, 5=Completed, 6=Cancelled
-  if (campaignData.status === 6) {
-    return null; // Don't render cancelled campaigns
+  // Admin can see all via CampaignAdminControls component
+  if (campaignData.status !== 3) {
+    return null; // Only show Active campaigns in public view
   }
 
   // Calculate progress

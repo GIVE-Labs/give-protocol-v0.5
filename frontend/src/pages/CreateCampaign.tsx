@@ -8,12 +8,10 @@ import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowLeft, ArrowRight, Upload, X, Check, Camera, AlertCircle } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
-import { useAccount, useWaitForTransactionReceipt, useReadContract } from 'wagmi';
+import { useAccount, useWaitForTransactionReceipt } from 'wagmi';
 import { useCampaignRegistry } from '../hooks/v05';
 import { parseEther, keccak256, toBytes } from 'viem';
 import { DotLottieReact } from '@lottiefiles/dotlottie-react';
-import ACLManagerABI from '../abis/ACLManager.json';
-import { CONTRACT_ADDRESSES } from '../config/contracts';
 import { createCampaignMetadata, cidToBytes32, saveCampaignCID } from '../services/ipfs';
 
 interface FormData {
@@ -71,16 +69,6 @@ export default function CreateCampaign() {
   const { address, isConnected } = useAccount();
   const { submitCampaign, isPending, isSuccess, error, hash } = useCampaignRegistry();
   const navigate = useNavigate();
-
-  // Check if user has ROLE_CAMPAIGN_CREATOR (matches ACLManager.sol)
-  const CAMPAIGN_CREATOR_ROLE = keccak256(toBytes('ROLE_CAMPAIGN_CREATOR'));
-  const { data: hasCreatorRole, isLoading: isCheckingRole } = useReadContract({
-    address: (CONTRACT_ADDRESSES as any).ACL_MANAGER as `0x${string}`,
-    abi: ACLManagerABI,
-    functionName: 'hasRole',
-    args: [CAMPAIGN_CREATOR_ROLE, address || '0x0000000000000000000000000000000000000000'],
-    query: { enabled: !!address }
-  });
 
   // Monitor transaction receipt for revert reasons
   const { 
@@ -827,9 +815,12 @@ export default function CreateCampaign() {
               </div>
             </div>
             
-            <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-4">
+            <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-4 space-y-3">
               <p className="text-yellow-800 text-sm font-medium">
-                <strong className="font-unbounded">Note:</strong> Once submitted, your campaign will be uploaded to IPFS and registered on the blockchain.
+                <strong className="font-unbounded">Submission Process:</strong> Your campaign will be submitted for admin review. Once approved by an admin, it will be activated and visible to supporters.
+              </p>
+              <p className="text-yellow-800 text-sm font-medium">
+                <strong className="font-unbounded">Anti-Spam Deposit:</strong> A one-time deposit of <span className="font-mono bg-yellow-100 px-2 py-0.5 rounded">0.005 ETH</span> is required to submit your campaign. This helps prevent spam and becomes part of your campaign's initial funds.
               </p>
             </div>
           </motion.div>
@@ -911,42 +902,27 @@ export default function CreateCampaign() {
               Launch your humanitarian project and connect with compassionate backers worldwide
             </p>
             
-            {/* Permission Notice - only show warnings */}
-            {(!isConnected || isCheckingRole || !hasCreatorRole) && (
+            {/* Info Notice */}
+            {!isConnected && (
               <motion.div
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.3 }}
                 className="mt-6 max-w-2xl mx-auto"
               >
-                {!isConnected ? (
-                  <div className="bg-blue-50 border-l-4 border-blue-400 p-4 rounded-lg">
-                    <div className="flex items-start">
-                      <AlertCircle className="w-5 h-5 text-blue-600 mr-3 mt-0.5 flex-shrink-0" />
+                <div className="bg-blue-50 border-l-4 border-blue-400 p-4 rounded-lg">
+                  <div className="flex items-start">
+                    <AlertCircle className="w-5 h-5 text-blue-600 mr-3 mt-0.5 flex-shrink-0" />
+                    <div>
                       <p className="text-sm text-gray-600 font-medium">
-                        Please connect your wallet first.
+                        Please connect your wallet to submit a campaign.
+                      </p>
+                      <p className="text-xs text-gray-500 mt-1">
+                        Submitting a campaign requires a one-time deposit of <span className="font-mono font-semibold">0.005 ETH</span> to prevent spam. This deposit becomes part of your campaign's initial funds.
                       </p>
                     </div>
                   </div>
-                ) : isCheckingRole ? (
-                  <div className="bg-gray-50 border-l-4 border-gray-400 p-4 rounded-lg">
-                    <div className="flex items-start">
-                      <div className="w-5 h-5 border-2 border-gray-400 border-t-transparent rounded-full animate-spin mr-3 mt-0.5" />
-                      <p className="text-sm text-gray-600 font-medium">
-                        Checking permissions...
-                      </p>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="bg-red-50 border-l-4 border-red-400 p-4 rounded-lg">
-                    <div className="flex items-start">
-                      <AlertCircle className="w-5 h-5 text-red-600 mr-3 mt-0.5 flex-shrink-0" />
-                      <p className="text-sm text-gray-600 font-medium">
-                        You are not authorized to create a campaign. Contact an admin to request the Campaign Creator role.
-                      </p>
-                    </div>
-                  </div>
-                )}
+                </div>
               </motion.div>
             )}
           </div>

@@ -14,6 +14,19 @@
   },
   {
     "type": "function",
+    "name": "MIN_SUBMISSION_DEPOSIT",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
     "name": "ROLE_UPGRADER",
     "inputs": [],
     "outputs": [
@@ -182,6 +195,11 @@
             "internalType": "uint256"
           },
           {
+            "name": "initialDeposit",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
             "name": "fundraisingStart",
             "type": "uint64",
             "internalType": "uint64"
@@ -238,8 +256,8 @@
           },
           {
             "name": "__gap",
-            "type": "uint256[50]",
-            "internalType": "uint256[50]"
+            "type": "uint256[49]",
+            "internalType": "uint256[49]"
           }
         ]
       }
@@ -318,6 +336,11 @@
             "internalType": "uint256"
           },
           {
+            "name": "initialDeposit",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
             "name": "fundraisingStart",
             "type": "uint64",
             "internalType": "uint64"
@@ -374,8 +397,8 @@
           },
           {
             "name": "__gap",
-            "type": "uint256[50]",
-            "internalType": "uint256[50]"
+            "type": "uint256[49]",
+            "internalType": "uint256[49]"
           }
         ]
       }
@@ -781,7 +804,7 @@
       }
     ],
     "outputs": [],
-    "stateMutability": "nonpayable"
+    "stateMutability": "payable"
   },
   {
     "type": "function",
@@ -936,6 +959,12 @@
         "type": "string",
         "indexed": false,
         "internalType": "string"
+      },
+      {
+        "name": "depositAmount",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
       }
     ],
     "anonymous": false
@@ -1332,6 +1361,22 @@
     "type": "error",
     "name": "FailedCall",
     "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "InsufficientSubmissionDeposit",
+    "inputs": [
+      {
+        "name": "required",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "provided",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ]
   },
   {
     "type": "error",

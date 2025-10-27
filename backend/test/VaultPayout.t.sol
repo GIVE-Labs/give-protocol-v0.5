@@ -58,7 +58,11 @@ contract VaultPayoutTest is Test {
         vm.prank(admin);
         router.setAuthorizedCaller(address(vault), true);
         vm.prank(admin);
-        campaignRegistry.setCampaignVault(campaignId, address(vault), keccak256("lock"));
+        campaignRegistry.setCampaignVault(
+            campaignId,
+            address(vault),
+            keccak256("lock")
+        );
 
         vm.prank(manager);
         vault.setDonationRouter(address(router));
@@ -80,7 +84,7 @@ contract VaultPayoutTest is Test {
         adapter.setPendingProfit(100 ether);
 
         vm.prank(manager);
-        (uint256 profit,) = vault.harvest();
+        (uint256 profit, ) = vault.harvest();
         assertEq(profit, 100 ether);
 
         uint256 protocolFee = (profit * router.PROTOCOL_FEE_BPS()) / 10_000;
@@ -106,8 +110,9 @@ contract VaultPayoutTest is Test {
             })
         );
 
+        vm.deal(admin, 1 ether);
         vm.prank(admin);
-        campaignRegistry.submitCampaign(
+        campaignRegistry.submitCampaign{value: 0.005 ether}(
             CampaignRegistry.CampaignInput({
                 id: campaignId,
                 payoutRecipient: campaignRecipient,
@@ -127,31 +132,53 @@ contract VaultPayoutTest is Test {
 
     function _deployACL() internal returns (ACLManager) {
         ACLManager impl = new ACLManager();
-        ERC1967Proxy proxy = new ERC1967Proxy(address(impl), abi.encodeCall(ACLManager.initialize, (admin, admin)));
+        ERC1967Proxy proxy = new ERC1967Proxy(
+            address(impl),
+            abi.encodeCall(ACLManager.initialize, (admin, admin))
+        );
         return ACLManager(address(proxy));
     }
 
-    function _deployStrategyRegistry(ACLManager acl) internal returns (StrategyRegistry) {
+    function _deployStrategyRegistry(
+        ACLManager acl
+    ) internal returns (StrategyRegistry) {
         StrategyRegistry impl = new StrategyRegistry();
-        ERC1967Proxy proxy =
-            new ERC1967Proxy(address(impl), abi.encodeCall(StrategyRegistry.initialize, (address(acl))));
+        ERC1967Proxy proxy = new ERC1967Proxy(
+            address(impl),
+            abi.encodeCall(StrategyRegistry.initialize, (address(acl)))
+        );
         return StrategyRegistry(address(proxy));
     }
 
-    function _deployCampaignRegistry(ACLManager acl) internal returns (CampaignRegistry) {
+    function _deployCampaignRegistry(
+        ACLManager acl
+    ) internal returns (CampaignRegistry) {
         CampaignRegistry impl = new CampaignRegistry();
         ERC1967Proxy proxy = new ERC1967Proxy(
-            address(impl), abi.encodeCall(CampaignRegistry.initialize, (address(acl), address(strategyRegistry)))
+            address(impl),
+            abi.encodeCall(
+                CampaignRegistry.initialize,
+                (address(acl), address(strategyRegistry))
+            )
         );
         return CampaignRegistry(address(proxy));
     }
 
-    function _deployPayoutRouter(ACLManager acl) internal returns (PayoutRouter) {
+    function _deployPayoutRouter(
+        ACLManager acl
+    ) internal returns (PayoutRouter) {
         PayoutRouter impl = new PayoutRouter();
         ERC1967Proxy proxy = new ERC1967Proxy(
             address(impl),
             abi.encodeCall(
-                PayoutRouter.initialize, (address(acl), address(campaignRegistry), admin, protocolTreasury, 250)
+                PayoutRouter.initialize,
+                (
+                    address(acl),
+                    address(campaignRegistry),
+                    admin,
+                    protocolTreasury,
+                    250
+                )
             )
         );
         return PayoutRouter(payable(address(proxy)));
@@ -189,7 +216,9 @@ contract MockAdapter is IYieldAdapter {
         emit Invested(assets);
     }
 
-    function divest(uint256 assets) external override returns (uint256 returned) {
+    function divest(
+        uint256 assets
+    ) external override returns (uint256 returned) {
         require(msg.sender == vault, "only vault");
         uint256 bal = asset.balanceOf(address(this));
         returned = assets > bal ? bal : assets;
@@ -199,7 +228,11 @@ contract MockAdapter is IYieldAdapter {
         emit Divested(assets, returned);
     }
 
-    function harvest() external override returns (uint256 profit, uint256 loss) {
+    function harvest()
+        external
+        override
+        returns (uint256 profit, uint256 loss)
+    {
         require(msg.sender == vault, "only vault");
         profit = pendingProfit;
         if (profit > 0) {

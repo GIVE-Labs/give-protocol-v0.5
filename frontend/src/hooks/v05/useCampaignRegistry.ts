@@ -90,6 +90,7 @@ export function useCampaignRegistry() {
       functionName: 'submitCampaign',
       args: [input],
       account: connectedAddress,
+      value: BigInt('5000000000000000'), // 0.005 ETH in wei
     });
   };
 

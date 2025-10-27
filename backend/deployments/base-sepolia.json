@@ -3,14 +3,14 @@
   "chainId": 84532,
   "deployed": true,
   "timestamp": "2025-01-06",
-  "lastUpgrade": "2025-10-26",
+  "lastUpgrade": "2025-10-27",
   "contracts": {
     "aclManager": "0xd85BdcdaE4db1FAEB8eF93331525FE68D7C8B3f0",
     "protocolCore": "0x18d59CE2692A4495ed9B7df3f2BF36F47C41aCB5",
     "payoutRouter": "0x2CfFF1c8Df8CE2BA6CBa19699CCBa6F381734938",
     "strategyRegistry": "0x0539913313f5a138e3b602d5e731BD9a86722F9E",
-    "campaignRegistry": "0xdad56314AbA81676e2d5826fb72B2168141c0A60",
-    "campaignRegistryImpl": "0xbD5f7231d22cAf23909d85aB8e1112d960A0E129",
+    "campaignRegistry": "0x51929ec1C089463fBeF6148B86F34117D9CCF816",
+    "campaignRegistryImpl": "0x9482D1b8B22e967D7820f89dAaD9fA6a3725b270",
     "vaultFactory": "0x3857b6c6f162fDA9BD591D4CCDEF8C00093cC357",
     "wethVault": "0x89c88ED20d4b742185185f77017182247671eE3b",
     "aaveAdapter": "0x5e4d9F27bdE402360EEB8A4CeDA98Bb9d11848A4",
@@ -26,7 +26,32 @@
     "vaultId": "0x2d2cad568ce40fb16e99c022b3521e99709be3aaf1e1da660b42d9794545fdf1"
   },
   "explorer": "https://sepolia.basescan.org",
+  "upgrades": [
+    {
+      "date": "2025-10-26",
+      "contract": "CampaignRegistry",
+      "version": "v2",
+      "changes": "Added metadataCID string to CampaignSubmitted event for scalable IPFS metadata retrieval"
+    },
+    {
+      "date": "2025-10-27",
+      "contract": "CampaignRegistry",
+      "version": "v3",
+      "implementation": "0x9482D1b8B22e967D7820f89dAaD9fA6a3725b270",
+      "changes": [
+        "Added MIN_SUBMISSION_DEPOSIT = 0.005 ETH anti-spam requirement",
+        "Made submitCampaign() payable and permissionless (removed role check)",
+        "Added CampaignConfig.initialDeposit field to track deposit",
+        "Updated CampaignSubmitted event to include depositAmount parameter",
+        "Event signature: CampaignSubmitted(bytes32 indexed id, address indexed proposer, bytes32 metadataHash, string metadataCID, uint256 depositAmount)"
+      ],
+      "verified": true,
+      "verificationUrl": "https://sepolia.basescan.org/address/0x9482d1b8b22e967d7820f89daad9fa6a3725b270#code"
+    }
+  ],
   "notes": {
-    "campaignRegistry": "Upgraded to v2 on 2025-10-26: Added metadataCID string to CampaignSubmitted event for scalable IPFS metadata retrieval"
+    "proxyPattern": "UUPS - proxy address never changes, only implementation updates",
+    "campaignRegistry": "Proxy: 0x51929ec1C089463fBeF6148B86F34117D9CCF816 (unchanging)",
+    "storageLayout": "All campaign data preserved across upgrades via proxy pattern"
   }
 }
