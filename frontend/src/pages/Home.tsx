@@ -2,7 +2,7 @@ import { Link } from 'react-router-dom'
 import { DotLottieReact } from '@lottiefiles/dotlottie-react'
 import { ArrowRight, Heart, Sparkles } from 'lucide-react'
 import { motion } from 'framer-motion'
-import CampaignList from '../components/campaign/CampaignList'
+import FeaturedCampaign from '../components/campaign/FeaturedCampaign'
 
 export default function Home() {
   const containerVariants = {
@@ -209,10 +209,8 @@ export default function Home() {
         </div>
       </motion.div>
 
-      {/* Campaign List Section */}
-      <div className="container mx-auto px-4 py-16">
-        <CampaignList />
-      </div>
+      {/* Featured Campaign Section */}
+      <FeaturedCampaign />
 
       {/* How It Works Section */}
       <motion.div 
