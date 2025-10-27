@@ -106,7 +106,8 @@ export default function CampaignCard({ campaignId, index = 0 }: CampaignCardProp
     navigate(`/campaigns/${campaignId}`);
   };
 
-  const isActive = campaignData?.status === 2;
+  // Status: 0=Unknown, 1=Submitted, 2=Approved, 3=Active, 4=Paused, 5=Completed, 6=Cancelled
+  const isActive = campaignData?.status === 3;
 
   return (
     <motion.div 
