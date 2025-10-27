@@ -39,32 +39,17 @@ export default function CampaignCard({ campaignId, index = 0 }: CampaignCardProp
       const campaignData = campaign as any;
       const metadataHash = campaignData?.metadataHash;
       
-      console.log('Campaign ID:', campaignId);
-      console.log('Raw metadata hash:', metadataHash);
-      
       if (!metadataHash || metadataHash === '0x' + '0'.repeat(64)) {
-        console.log('No metadata hash found');
         return; // No metadata
       }
 
       try {
-        // Convert bytes32 to CID using our helper function (pass campaignId for localStorage or event log lookup)
         const cid = await hexToCid(metadataHash, campaignId);
+        if (!cid) return;
         
-        if (!cid) {
-          console.warn('Could not convert metadata hash to CID');
-          console.warn('Campaign may have been created before event logging was implemented');
-          return;
-        }
-        
-        console.log('Fetching metadata from IPFS CID:', cid);
         const data = await fetchMetadataFromIPFS(cid);
-        
         if (data) {
-          console.log('✅ Metadata fetched successfully:', data);
           setMetadata(data);
-        } else {
-          console.warn('Failed to fetch metadata from IPFS');
         }
       } catch (error) {
         console.error('Failed to fetch campaign metadata:', error);

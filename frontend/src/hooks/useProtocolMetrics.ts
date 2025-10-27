@@ -59,7 +59,6 @@ export function useProtocolMetrics() {
       setIsLoading(true)
       
       try {
-        // Get ETH price from CoinGecko
         const ethPrice = await getEthereumPrice()
         
         if (!ethPrice) {
@@ -67,7 +66,6 @@ export function useProtocolMetrics() {
           return
         }
 
-        // Calculate vault assets value
         let totalValueUSD = 0
         
         if (vaultAssets) {
@@ -87,30 +85,22 @@ export function useProtocolMetrics() {
     calculateTVL()
   }, [vaultAssets, blockNumber])
 
-  // Count active campaigns - REAL DATA from blockchain
-  // Count campaigns with status = Approved (2) or Active (3)
-  // Exclude: Submitted (1), Paused (4), Completed (5), Cancelled (6)
+  // Count active campaigns (Approved or Active status)
   useEffect(() => {
     if (!campaignResults || campaignResults.length === 0) {
       setActiveCampaignsCount(0)
       return
     }
 
-    // Filter for Approved or Active status (campaigns ready for deposits)
     const activeCount = campaignResults.filter((result) => {
       if (result.status === 'success' && result.result !== undefined) {
-        // getCampaign returns a struct - status is at index 15
         const campaign = result.result as any
         const status = Number(campaign.status)
-        console.log('Campaign status:', status, 'isApproved:', status === CAMPAIGN_STATUS_APPROVED, 'isActive:', status === CAMPAIGN_STATUS_ACTIVE)
         return status === CAMPAIGN_STATUS_APPROVED || status === CAMPAIGN_STATUS_ACTIVE
       }
       return false
     }).length
 
-    console.log('📊 Total Campaigns:', campaignResults.length)
-    console.log('✅ Active/Approved Campaigns:', activeCount)
-    console.log('Campaign results:', campaignResults)
     setActiveCampaignsCount(activeCount)
   }, [campaignResults])
 

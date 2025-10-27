@@ -358,24 +358,20 @@ function isValidCID(cid: string): boolean {
  * Get campaign CID from localStorage, event logs, or try to decode from hex
  */
 export async function hexToCid(_hexString: string, campaignId?: string): Promise<string | null> {
-  // First try localStorage if campaignId is provided
+  // Try hardcoded campaign CID mapping first (production workaround)
+  if (campaignId) {
+    const { getCampaignCID: getHardcodedCID } = await import('../config/campaignCIDs');
+    const hardcodedCid = getHardcodedCID(campaignId);
+    if (hardcodedCid) {
+      return hardcodedCid;
+    }
+  }
+  
+  // Fallback: Try localStorage
   if (campaignId) {
     const storedCid = getCampaignCID(campaignId);
     if (storedCid) {
       return storedCid;
-    }
-    
-    // Fallback: Try fetching from event logs
-    try {
-      const { getCampaignCIDFromLogs } = await import('./campaignEvents');
-      const cidFromLogs = await getCampaignCIDFromLogs(campaignId as `0x${string}`);
-      if (cidFromLogs) {
-        // Cache it for next time
-        saveCampaignCID(campaignId, cidFromLogs);
-        return cidFromLogs;
-      }
-    } catch (error) {
-      console.error('Error fetching from event logs:', error);
     }
   }
   
@@ -404,14 +400,10 @@ export async function fetchMetadataFromIPFS(cid: string): Promise<any | null> {
     });
     
     if (!response.ok) {
-      console.error('Failed to fetch metadata:', response.status, response.statusText);
       return null;
     }
     
-    const data = await response.json();
-    console.log('✅ Metadata loaded from CID:', cid);
-    
-    return data;
+    return await response.json();
   } catch (error) {
     console.error('Error fetching metadata from IPFS:', error);
     return null;
