@@ -47,8 +47,9 @@ contract SecurityIntegrationTest is BaseProtocolTest {
         );
 
         // Submit and approve campaign
+        vm.deal(admin, 1 ether);
         vm.prank(admin);
-        campaignRegistry.submitCampaign(
+        campaignRegistry.submitCampaign{value: 0.005 ether}(
             CampaignRegistry.CampaignInput({
                 id: campaignId,
                 payoutRecipient: campaignRecipient,
@@ -66,10 +67,17 @@ contract SecurityIntegrationTest is BaseProtocolTest {
         campaignRegistry.approveCampaign(campaignId, admin);
 
         vm.prank(admin);
-        campaignRegistry.setCampaignStatus(campaignId, GiveTypes.CampaignStatus.Active);
+        campaignRegistry.setCampaignStatus(
+            campaignId,
+            GiveTypes.CampaignStatus.Active
+        );
 
         vm.prank(admin);
-        campaignRegistry.setCampaignVault(campaignId, address(vault), keccak256("lock.default"));
+        campaignRegistry.setCampaignVault(
+            campaignId,
+            address(vault),
+            keccak256("lock.default")
+        );
 
         vm.prank(admin);
         router.registerCampaignVault(address(vault), campaignId);
@@ -108,7 +116,11 @@ contract SecurityIntegrationTest is BaseProtocolTest {
 
         // Update checkpoint status to Voting
         vm.prank(admin);
-        campaignRegistry.updateCheckpointStatus(campaignId, checkpointIndex, GiveTypes.CheckpointStatus.Voting);
+        campaignRegistry.updateCheckpointStatus(
+            campaignId,
+            checkpointIndex,
+            GiveTypes.CheckpointStatus.Voting
+        );
 
         // User votes using snapshot (after voting window starts)
         vm.warp(block.timestamp + 1 days + 1);
@@ -124,7 +136,11 @@ contract SecurityIntegrationTest is BaseProtocolTest {
         vm.prank(user1);
         vault.withdraw(500 ether, user1, user1);
 
-        assertEq(asset.balanceOf(user1), 500 ether, "Should withdraw during grace period");
+        assertEq(
+            asset.balanceOf(user1),
+            500 ether,
+            "Should withdraw during grace period"
+        );
 
         // After grace period: must use emergency withdrawal
         vm.warp(block.timestamp + 13 hours);
@@ -132,7 +148,11 @@ contract SecurityIntegrationTest is BaseProtocolTest {
         uint256 remainingShares = vault.balanceOf(user1);
         vault.emergencyWithdrawUser(remainingShares, user1, user1);
 
-        assertGt(asset.balanceOf(user1), 500 ether, "Should emergency withdraw after grace period");
+        assertGt(
+            asset.balanceOf(user1),
+            500 ether,
+            "Should emergency withdraw after grace period"
+        );
         assertEq(vault.balanceOf(user1), 0, "All shares should be burned");
     }
 
@@ -148,7 +168,8 @@ contract SecurityIntegrationTest is BaseProtocolTest {
         router.proposeFeeChange(admin, 500);
 
         // Verify pending change exists
-        (uint256 newFee,, uint256 effectiveTime, bool exists) = router.getPendingFeeChange(0);
+        (uint256 newFee, , uint256 effectiveTime, bool exists) = router
+            .getPendingFeeChange(0);
         assertTrue(exists, "Fee change should be pending");
         assertEq(newFee, 500, "Pending fee should be 500");
 
@@ -192,12 +213,27 @@ contract SecurityIntegrationTest is BaseProtocolTest {
 
         // Update checkpoint status to Voting
         vm.prank(admin);
-        campaignRegistry.updateCheckpointStatus(campaignId, checkpointIndex, GiveTypes.CheckpointStatus.Voting);
+        campaignRegistry.updateCheckpointStatus(
+            campaignId,
+            checkpointIndex,
+            GiveTypes.CheckpointStatus.Voting
+        );
 
         // Verify checkpoint was scheduled successfully
-        (uint64 ws,,,, GiveTypes.CheckpointStatus status,) = campaignRegistry.getCheckpoint(campaignId, checkpointIndex);
+        (
+            uint64 ws,
+            ,
+            ,
+            ,
+            GiveTypes.CheckpointStatus status,
+
+        ) = campaignRegistry.getCheckpoint(campaignId, checkpointIndex);
         assertGt(ws, 0, "Checkpoint should exist");
-        assertEq(uint256(status), uint256(GiveTypes.CheckpointStatus.Voting), "Should be in voting status");
+        assertEq(
+            uint256(status),
+            uint256(GiveTypes.CheckpointStatus.Voting),
+            "Should be in voting status"
+        );
 
         // User increases stake AFTER snapshot
         vm.warp(block.timestamp + 12 hours);
@@ -213,7 +249,11 @@ contract SecurityIntegrationTest is BaseProtocolTest {
 
         // Record additional stake
         vm.prank(admin);
-        campaignRegistry.recordStakeDeposit(campaignId, user1, currentShares - shares);
+        campaignRegistry.recordStakeDeposit(
+            campaignId,
+            user1,
+            currentShares - shares
+        );
 
         // Vote using ORIGINAL snapshot (should use first 1000, not 2000)
         vm.warp(block.timestamp + 13 hours);
@@ -221,11 +261,20 @@ contract SecurityIntegrationTest is BaseProtocolTest {
         campaignRegistry.voteOnCheckpoint(campaignId, checkpointIndex, true);
 
         // Verify checkpoint still in voting (user voted successfully)
-        (,,,, GiveTypes.CheckpointStatus statusAfterVote,) = campaignRegistry.getCheckpoint(campaignId, checkpointIndex);
+        (
+            ,
+            ,
+            ,
+            ,
+            GiveTypes.CheckpointStatus statusAfterVote,
+
+        ) = campaignRegistry.getCheckpoint(campaignId, checkpointIndex);
 
         // Should still be Voting status (not enough quorum with just one vote)
         assertEq(
-            uint256(statusAfterVote), uint256(GiveTypes.CheckpointStatus.Voting), "Should be voting after single vote"
+            uint256(statusAfterVote),
+            uint256(GiveTypes.CheckpointStatus.Voting),
+            "Should be voting after single vote"
         );
     }
 
@@ -245,7 +294,11 @@ contract SecurityIntegrationTest is BaseProtocolTest {
 
         // Setup users with deposits
         for (uint256 i = 0; i < 3; i++) {
-            address user = i == 0 ? user1 : i == 1 ? user2 : user3;
+            address user = i == 0
+                ? user1
+                : i == 1
+                    ? user2
+                    : user3;
             deal(address(asset), user, 10000 ether);
 
             vm.startPrank(user);
@@ -275,14 +328,19 @@ contract SecurityIntegrationTest is BaseProtocolTest {
 
         // Update checkpoint status to Voting
         vm.prank(admin);
-        campaignRegistry.updateCheckpointStatus(campaignId, checkpointIndex, GiveTypes.CheckpointStatus.Voting);
+        campaignRegistry.updateCheckpointStatus(
+            campaignId,
+            checkpointIndex,
+            GiveTypes.CheckpointStatus.Voting
+        );
 
         // Propose fee change
         vm.prank(admin);
         router.proposeFeeChange(admin, 500);
 
         // Verify pending fee change
-        (,, uint256 feeEffectiveTime, bool feeExists) = router.getPendingFeeChange(0);
+        (, , uint256 feeEffectiveTime, bool feeExists) = router
+            .getPendingFeeChange(0);
         assertTrue(feeExists, "Fee change should be pending");
 
         // Users vote after voting window opens
@@ -307,7 +365,7 @@ contract SecurityIntegrationTest is BaseProtocolTest {
         asset.mint(address(adapter), 100 ether);
 
         vm.prank(admin);
-        (uint256 profit,) = vault.harvest();
+        (uint256 profit, ) = vault.harvest();
         assertGt(profit, 0, "Should generate profit from harvest");
 
         // Emergency pause triggered after harvest
@@ -319,7 +377,11 @@ contract SecurityIntegrationTest is BaseProtocolTest {
 
         vm.prank(user1);
         vault.withdraw(5000 ether, user1, user1);
-        assertEq(asset.balanceOf(user1), 5000 ether, "User1 should withdraw during grace");
+        assertEq(
+            asset.balanceOf(user1),
+            5000 ether,
+            "User1 should withdraw during grace"
+        );
 
         // Fee change executes (past timelock)
         vm.warp(feeEffectiveTime + 1);
@@ -355,7 +417,8 @@ contract SecurityIntegrationTest is BaseProtocolTest {
         router.proposeFeeChange(admin, 500);
 
         // Verify pending change exists
-        (uint256 pendingFee,, uint256 effectiveTime, bool exists) = router.getPendingFeeChange(0);
+        (uint256 pendingFee, , uint256 effectiveTime, bool exists) = router
+            .getPendingFeeChange(0);
         assertTrue(exists, "Pending change should exist");
         assertEq(pendingFee, 500, "Pending fee should be 500");
 
@@ -366,16 +429,20 @@ contract SecurityIntegrationTest is BaseProtocolTest {
         vm.warp(effectiveTime + 1);
 
         // Verify pending change still exists after "upgrade"
-        (pendingFee,, effectiveTime, exists) = router.getPendingFeeChange(0);
+        (pendingFee, , effectiveTime, exists) = router.getPendingFeeChange(0);
         assertTrue(exists, "Pending change should survive upgrade");
 
         // Execute after upgrade
         router.executeFeeChange(0);
 
-        assertEq(router.feeBps(), 500, "Fee should update to 500 after upgrade");
+        assertEq(
+            router.feeBps(),
+            500,
+            "Fee should update to 500 after upgrade"
+        );
 
         // Verify pending change cleaned up
-        (,,, exists) = router.getPendingFeeChange(0);
+        (, , , exists) = router.getPendingFeeChange(0);
         assertFalse(exists, "Pending change should be removed after execution");
     }
 
@@ -402,7 +469,7 @@ contract SecurityIntegrationTest is BaseProtocolTest {
         assertEq(router.feeBps(), 250, "Fee should decrease immediately");
 
         // Verify no pending change exists
-        (,,, bool exists) = router.getPendingFeeChange(1);
+        (, , , bool exists) = router.getPendingFeeChange(1);
         assertFalse(exists, "No pending change for decrease");
     }
 
@@ -439,7 +506,11 @@ contract SecurityIntegrationTest is BaseProtocolTest {
 
         // Update checkpoint status to Voting
         vm.prank(admin);
-        campaignRegistry.updateCheckpointStatus(campaignId, checkpointIndex, GiveTypes.CheckpointStatus.Voting);
+        campaignRegistry.updateCheckpointStatus(
+            campaignId,
+            checkpointIndex,
+            GiveTypes.CheckpointStatus.Voting
+        );
 
         // Propose fee increase
         vm.prank(admin);
@@ -457,15 +528,24 @@ contract SecurityIntegrationTest is BaseProtocolTest {
         campaignRegistry.voteOnCheckpoint(campaignId, checkpointIndex, true);
 
         // Verify vote succeeded (checkpoint status should still be Voting)
-        (,,,, GiveTypes.CheckpointStatus voteStatus,) = campaignRegistry.getCheckpoint(campaignId, checkpointIndex);
-        assertEq(uint256(voteStatus), uint256(GiveTypes.CheckpointStatus.Voting), "Should be voting");
+        (, , , , GiveTypes.CheckpointStatus voteStatus, ) = campaignRegistry
+            .getCheckpoint(campaignId, checkpointIndex);
+        assertEq(
+            uint256(voteStatus),
+            uint256(GiveTypes.CheckpointStatus.Voting),
+            "Should be voting"
+        );
 
         // User can emergency withdraw
         vm.prank(user1);
         uint256 userShares = vault.balanceOf(user1);
         vault.emergencyWithdrawUser(userShares, user1, user1);
 
-        assertGt(asset.balanceOf(user1), 4000 ether, "User should receive most funds back");
+        assertGt(
+            asset.balanceOf(user1),
+            4000 ether,
+            "User should receive most funds back"
+        );
 
         // Fee change can still execute (wait full timelock from proposal)
         vm.warp(block.timestamp + 8 days); // Extra day to ensure timelock passed

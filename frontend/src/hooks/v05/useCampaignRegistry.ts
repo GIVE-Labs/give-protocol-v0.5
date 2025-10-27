@@ -76,6 +76,7 @@ export function useCampaignRegistry() {
     payoutRecipient: `0x${string}`;
     strategyId: `0x${string}`;
     metadataHash: `0x${string}`;
+    metadataCID: string;
     targetStake: bigint;
     minStake: bigint;
     fundraisingStart: bigint;
@@ -90,6 +91,7 @@ export function useCampaignRegistry() {
       functionName: 'submitCampaign',
       args: [input],
       account: connectedAddress,
+      value: BigInt('5000000000000000'), // 0.005 ETH deposit
     });
   };
 

@@ -8,8 +8,14 @@ import {UUPSUpgradeable} from "@openzeppelin/contracts/proxy/utils/UUPSUpgradeab
 
 /**
  * @title UpgradeCampaignRegistry
- * @notice Upgrades the CampaignRegistry implementation to add metadataCID to events
+ * @notice Upgrades CampaignRegistry to add 0.005 ETH anti-spam deposit requirement
  * @dev Uses UUPS upgrade pattern - proxy address stays the same
+ *
+ * Changes in this upgrade:
+ * - MIN_SUBMISSION_DEPOSIT: 0.005 ETH requirement added
+ * - submitCampaign() now payable and permissionless (no role check)
+ * - CampaignConfig.initialDeposit field added to track deposit
+ * - CampaignSubmitted event now includes depositAmount parameter
  */
 contract UpgradeCampaignRegistry is Script {
     function run() external {
@@ -27,7 +33,10 @@ contract UpgradeCampaignRegistry is Script {
         // Deploy new implementation
         console.log("\n1. Deploying new CampaignRegistry implementation...");
         CampaignRegistry newImplementation = new CampaignRegistry();
-        console.log("New implementation deployed at:", address(newImplementation));
+        console.log(
+            "New implementation deployed at:",
+            address(newImplementation)
+        );
 
         // Upgrade the proxy
         console.log("\n2. Upgrading proxy to new implementation...");
@@ -40,16 +49,30 @@ contract UpgradeCampaignRegistry is Script {
         console.log("Proxy address (unchanged):", proxyAddress);
         console.log("New implementation:", address(newImplementation));
 
+        console.log("\n=== New Features ===");
+        console.log("- MIN_SUBMISSION_DEPOSIT: 0.005 ETH");
+        console.log("- Permissionless campaign submission");
+        console.log("- Deposit tracked in CampaignConfig.initialDeposit");
+        console.log(
+            "- Event signature: CampaignSubmitted(..., uint256 depositAmount)"
+        );
+
         vm.stopBroadcast();
 
         // Verify the upgrade worked
         CampaignRegistry registry = CampaignRegistry(proxyAddress);
         console.log("\n=== Verification ===");
         console.log("Registry responds:", address(registry) == proxyAddress);
+        console.log(
+            "MIN_SUBMISSION_DEPOSIT:",
+            registry.MIN_SUBMISSION_DEPOSIT()
+        );
+        console.log("Expected: 5000000000000000 wei (0.005 ETH)");
 
         // Try to read existing campaign IDs to verify storage is intact
         try registry.listCampaignIds() returns (bytes32[] memory ids) {
             console.log("Existing campaigns preserved:", ids.length);
+            console.log("Storage intact - all campaign data preserved");
         } catch {
             console.log("No existing campaigns (fresh deployment)");
         }

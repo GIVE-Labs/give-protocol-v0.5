@@ -535,7 +535,7 @@ export default function CampaignDetails() {
             <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-xl border border-white/20">
               <div className="border-b border-gray-200">
                 <nav className="flex space-x-8 px-6">
-                  {['overview', 'updates', 'comments', 'backers'].map((tab) => (
+                  {['overview', 'team', 'milestones', 'updates', 'backers'].map((tab) => (
                     <button
                       key={tab}
                       onClick={() => setActiveTab(tab)}
@@ -546,7 +546,6 @@ export default function CampaignDetails() {
                       }`}
                     >
                       {tab}
-                      {tab === 'comments' && ' (0)'}
                     </button>
                   ))}
                 </nav>
@@ -568,36 +567,6 @@ export default function CampaignDetails() {
                       )}
                     </div>
                     
-                    {metadata?.teamMembers && metadata.teamMembers.length > 0 && (
-                      <div>
-                        <h3 className="text-lg font-semibold text-gray-900 mb-3 font-unbounded">Team Members</h3>
-                        <div className="space-y-3">
-                          {metadata.teamMembers.map((member: any, idx: number) => (
-                            <div key={idx} className="bg-gray-50 rounded-lg p-4">
-                              <div className="font-semibold text-gray-900">{member.name}</div>
-                              <div className="text-sm text-emerald-600 mb-2">{member.role}</div>
-                              {member.bio && <div className="text-sm text-gray-600">{member.bio}</div>}
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                    
-                    {metadata?.impactMetrics && metadata.impactMetrics.length > 0 && (
-                      <div>
-                        <h3 className="text-lg font-semibold text-gray-900 mb-3 font-unbounded">Impact Goals</h3>
-                        <div className="space-y-3">
-                          {metadata.impactMetrics.map((metric: any, idx: number) => (
-                            <div key={idx} className="bg-gradient-to-r from-emerald-50 to-teal-50 rounded-lg p-4">
-                              <div className="font-semibold text-gray-900">{metric.name}</div>
-                              <div className="text-sm text-emerald-700 font-medium">Target: {metric.target}</div>
-                              {metric.description && <div className="text-sm text-gray-600 mt-1">{metric.description}</div>}
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                    
                     {metadata?.category && (
                       <div>
                         <h3 className="text-lg font-semibold text-gray-900 mb-3 font-unbounded">Focus Areas</h3>
@@ -611,21 +580,113 @@ export default function CampaignDetails() {
                   </div>
                 )}
                 
-                {activeTab === 'updates' && (
-                  <div className="text-center py-8 text-gray-500">
-                    No updates available yet.
+                {activeTab === 'team' && (
+                  <div className="space-y-6">
+                    <h3 className="text-lg font-semibold text-gray-900 mb-4 font-unbounded">Team Members</h3>
+                    {isLoadingMetadata ? (
+                      <div className="flex items-center justify-center py-8">
+                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-500"></div>
+                      </div>
+                    ) : metadata?.teamMembers && metadata.teamMembers.length > 0 ? (
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {metadata.teamMembers.map((member: any, idx: number) => (
+                          <div key={idx} className="bg-gradient-to-br from-white to-gray-50 rounded-xl p-5 border border-gray-200 hover:shadow-lg transition-shadow">
+                            <div className="flex items-start gap-4">
+                              {/* Default Profile Picture */}
+                              <div className="flex-shrink-0">
+                                <div className="w-16 h-16 rounded-full bg-gradient-to-br from-emerald-400 to-teal-500 flex items-center justify-center text-white font-bold text-xl shadow-lg">
+                                  {member.name?.charAt(0)?.toUpperCase() || '?'}
+                                </div>
+                              </div>
+                              
+                              {/* Member Info */}
+                              <div className="flex-1 min-w-0">
+                                <div className="font-semibold text-gray-900 text-lg mb-1">{member.name}</div>
+                                <div className="text-sm text-emerald-600 font-medium mb-2">{member.role}</div>
+                                {member.bio && (
+                                  <div className="text-sm text-gray-600 leading-relaxed">{member.bio}</div>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="text-center py-12 text-gray-500">
+                        <div className="w-16 h-16 rounded-full bg-gray-100 flex items-center justify-center mx-auto mb-3">
+                          <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                          </svg>
+                        </div>
+                        <p className="font-medium">No team members listed yet</p>
+                      </div>
+                    )}
                   </div>
                 )}
                 
-                {activeTab === 'comments' && (
-                  <div className="text-center py-8 text-gray-500">
-                    Comments will be displayed here.
+                {activeTab === 'milestones' && (
+                  <div className="space-y-6">
+                    <h3 className="text-lg font-semibold text-gray-900 mb-4 font-unbounded">Impact Milestones</h3>
+                    {isLoadingMetadata ? (
+                      <div className="flex items-center justify-center py-8">
+                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-500"></div>
+                      </div>
+                    ) : metadata?.impactMetrics && metadata.impactMetrics.length > 0 ? (
+                      <div className="space-y-4">
+                        {metadata.impactMetrics.map((metric: any, idx: number) => (
+                          <div key={idx} className="bg-gradient-to-r from-emerald-50 to-teal-50 rounded-xl p-5 border border-emerald-200 hover:shadow-md transition-shadow">
+                            <div className="flex items-start gap-4">
+                              {/* Milestone Number */}
+                              <div className="flex-shrink-0">
+                                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center text-white font-bold shadow-md">
+                                  {idx + 1}
+                                </div>
+                              </div>
+                              
+                              {/* Milestone Info */}
+                              <div className="flex-1">
+                                <div className="font-semibold text-gray-900 text-lg mb-1">{metric.name}</div>
+                                <div className="text-sm text-emerald-700 font-medium mb-2">Target: {metric.target}</div>
+                                {metric.description && (
+                                  <div className="text-sm text-gray-600 leading-relaxed">{metric.description}</div>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="text-center py-12 text-gray-500">
+                        <div className="w-16 h-16 rounded-full bg-gray-100 flex items-center justify-center mx-auto mb-3">
+                          <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                          </svg>
+                        </div>
+                        <p className="font-medium">No milestones defined yet</p>
+                      </div>
+                    )}
+                  </div>
+                )}
+                
+                {activeTab === 'updates' && (
+                  <div className="text-center py-12 text-gray-500">
+                    <div className="w-16 h-16 rounded-full bg-gray-100 flex items-center justify-center mx-auto mb-3">
+                      <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                      </svg>
+                    </div>
+                    <p className="font-medium">No updates available yet</p>
                   </div>
                 )}
                 
                 {activeTab === 'backers' && (
-                  <div className="text-center py-8 text-gray-500">
-                    Backer information will be displayed here.
+                  <div className="text-center py-12 text-gray-500">
+                    <div className="w-16 h-16 rounded-full bg-gray-100 flex items-center justify-center mx-auto mb-3">
+                      <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+                      </svg>
+                    </div>
+                    <p className="font-medium">Backer information will be displayed here</p>
                   </div>
                 )}
               </div>
@@ -639,7 +700,7 @@ export default function CampaignDetails() {
               
               {/* Token Selection */}
               <div className="mb-6">
-                <label className="block text-sm font-medium text-gray-700 mb-2">Select token</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Stake asset</label>
                 <div className="grid grid-cols-3 gap-2">
                   {['ETH', 'WETH', 'USDC'].map((token) => (
                     <button
@@ -685,7 +746,7 @@ export default function CampaignDetails() {
               
               {/* Allocation */}
               <div className="mb-6">
-                <label className="block text-sm font-medium text-gray-700 mb-2">Yield allocation to campaign</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Set yield allocation</label>
                 <div className="grid grid-cols-3 gap-2">
                   {['50%', '75%', '100%'].map((ratio) => (
                     <button

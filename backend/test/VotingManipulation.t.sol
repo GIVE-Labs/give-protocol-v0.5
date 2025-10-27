@@ -34,8 +34,9 @@ contract VotingManipulationTest is BaseProtocolTest {
 
         // Submit and approve campaign
         campaignId = keccak256("campaign.manipulation.test");
+        vm.deal(admin, 1 ether);
         vm.prank(admin);
-        campaignRegistry.submitCampaign(
+        campaignRegistry.submitCampaign{value: 0.005 ether}(
             CampaignRegistry.CampaignInput({
                 id: campaignId,
                 payoutRecipient: makeAddr("ngo"),
@@ -53,7 +54,10 @@ contract VotingManipulationTest is BaseProtocolTest {
         campaignRegistry.approveCampaign(campaignId, admin);
 
         vm.prank(admin);
-        campaignRegistry.setCampaignStatus(campaignId, GiveTypes.CampaignStatus.Active);
+        campaignRegistry.setCampaignStatus(
+            campaignId,
+            GiveTypes.CampaignStatus.Active
+        );
     }
 
     /// @notice Test that flash loan attack FAILS due to MIN_STAKE_DURATION
@@ -61,24 +65,36 @@ contract VotingManipulationTest is BaseProtocolTest {
     function testFlashLoanAttackFails() public {
         // Legitimate supporter stakes and waits
         vm.prank(admin);
-        campaignRegistry.recordStakeDeposit(campaignId, legitSupporter, 1_000 ether);
+        campaignRegistry.recordStakeDeposit(
+            campaignId,
+            legitSupporter,
+            1_000 ether
+        );
 
         // Wait for MIN_STAKE_DURATION
         vm.warp(block.timestamp + 1 hours + 1);
 
         // Schedule checkpoint
-        CampaignRegistry.CheckpointInput memory input = CampaignRegistry.CheckpointInput({
-            windowStart: uint64(block.timestamp),
-            windowEnd: uint64(block.timestamp + 1 days),
-            executionDeadline: uint64(block.timestamp + 2 days),
-            quorumBps: 5_000
-        });
+        CampaignRegistry.CheckpointInput memory input = CampaignRegistry
+            .CheckpointInput({
+                windowStart: uint64(block.timestamp),
+                windowEnd: uint64(block.timestamp + 1 days),
+                executionDeadline: uint64(block.timestamp + 2 days),
+                quorumBps: 5_000
+            });
 
         vm.prank(admin);
-        uint256 checkpointId = campaignRegistry.scheduleCheckpoint(campaignId, input);
+        uint256 checkpointId = campaignRegistry.scheduleCheckpoint(
+            campaignId,
+            input
+        );
 
         vm.prank(admin);
-        campaignRegistry.updateCheckpointStatus(campaignId, checkpointId, GiveTypes.CheckpointStatus.Voting);
+        campaignRegistry.updateCheckpointStatus(
+            campaignId,
+            checkpointId,
+            GiveTypes.CheckpointStatus.Voting
+        );
 
         // FLASH LOAN ATTACK ATTEMPT:
         // Attacker stakes a huge amount in the same block and tries to vote immediately
@@ -88,7 +104,12 @@ contract VotingManipulationTest is BaseProtocolTest {
 
         // Attacker tries to vote immediately (flash loan scenario)
         vm.prank(attacker);
-        vm.expectRevert(abi.encodeWithSelector(CampaignRegistry.NoVotingPower.selector, attacker));
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                CampaignRegistry.NoVotingPower.selector,
+                attacker
+            )
+        );
         campaignRegistry.voteOnCheckpoint(campaignId, checkpointId, false);
 
         // ✅ Attack FAILED: Attacker cannot vote without waiting MIN_STAKE_DURATION
@@ -103,9 +124,12 @@ contract VotingManipulationTest is BaseProtocolTest {
         campaignRegistry.finalizeCheckpoint(campaignId, checkpointId);
 
         // Verify legitimate supporter's vote succeeded
-        (,,,, GiveTypes.CheckpointStatus status,) = campaignRegistry.getCheckpoint(campaignId, checkpointId);
+        (, , , , GiveTypes.CheckpointStatus status, ) = campaignRegistry
+            .getCheckpoint(campaignId, checkpointId);
         assertEq(
-            uint256(status), uint256(GiveTypes.CheckpointStatus.Succeeded), "Checkpoint should succeed with legit vote"
+            uint256(status),
+            uint256(GiveTypes.CheckpointStatus.Succeeded),
+            "Checkpoint should succeed with legit vote"
         );
     }
 
@@ -122,22 +146,35 @@ contract VotingManipulationTest is BaseProtocolTest {
         vm.warp(stakeTime + 1 hours - 1);
 
         // Schedule checkpoint
-        CampaignRegistry.CheckpointInput memory input = CampaignRegistry.CheckpointInput({
-            windowStart: uint64(block.timestamp),
-            windowEnd: uint64(block.timestamp + 1 days),
-            executionDeadline: uint64(block.timestamp + 2 days),
-            quorumBps: 5_000
-        });
+        CampaignRegistry.CheckpointInput memory input = CampaignRegistry
+            .CheckpointInput({
+                windowStart: uint64(block.timestamp),
+                windowEnd: uint64(block.timestamp + 1 days),
+                executionDeadline: uint64(block.timestamp + 2 days),
+                quorumBps: 5_000
+            });
 
         vm.prank(admin);
-        uint256 checkpointId = campaignRegistry.scheduleCheckpoint(campaignId, input);
+        uint256 checkpointId = campaignRegistry.scheduleCheckpoint(
+            campaignId,
+            input
+        );
 
         vm.prank(admin);
-        campaignRegistry.updateCheckpointStatus(campaignId, checkpointId, GiveTypes.CheckpointStatus.Voting);
+        campaignRegistry.updateCheckpointStatus(
+            campaignId,
+            checkpointId,
+            GiveTypes.CheckpointStatus.Voting
+        );
 
         // Try to vote before MIN_STAKE_DURATION - should FAIL
         vm.prank(attacker);
-        vm.expectRevert(abi.encodeWithSelector(CampaignRegistry.NoVotingPower.selector, attacker));
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                CampaignRegistry.NoVotingPower.selector,
+                attacker
+            )
+        );
         campaignRegistry.voteOnCheckpoint(campaignId, checkpointId, true);
 
         // Wait exactly MIN_STAKE_DURATION
@@ -148,7 +185,10 @@ contract VotingManipulationTest is BaseProtocolTest {
         campaignRegistry.voteOnCheckpoint(campaignId, checkpointId, true);
 
         // Verify vote was recorded
-        (,,,,, uint256 totalEligible) = campaignRegistry.getCheckpoint(campaignId, checkpointId);
+        (, , , , , uint256 totalEligible) = campaignRegistry.getCheckpoint(
+            campaignId,
+            checkpointId
+        );
         assertGt(totalEligible, 0, "Vote should be recorded after waiting");
     }
 
@@ -157,26 +197,38 @@ contract VotingManipulationTest is BaseProtocolTest {
     function testSnapshotBlockCapturedOnVotingStart() public {
         // Setup legitimate supporter
         vm.prank(admin);
-        campaignRegistry.recordStakeDeposit(campaignId, legitSupporter, 1_000 ether);
+        campaignRegistry.recordStakeDeposit(
+            campaignId,
+            legitSupporter,
+            1_000 ether
+        );
 
         vm.warp(block.timestamp + 1 hours + 1);
 
         // Schedule checkpoint
-        CampaignRegistry.CheckpointInput memory input = CampaignRegistry.CheckpointInput({
-            windowStart: uint64(block.timestamp),
-            windowEnd: uint64(block.timestamp + 1 days),
-            executionDeadline: uint64(block.timestamp + 2 days),
-            quorumBps: 5_000
-        });
+        CampaignRegistry.CheckpointInput memory input = CampaignRegistry
+            .CheckpointInput({
+                windowStart: uint64(block.timestamp),
+                windowEnd: uint64(block.timestamp + 1 days),
+                executionDeadline: uint64(block.timestamp + 2 days),
+                quorumBps: 5_000
+            });
 
         vm.prank(admin);
-        uint256 checkpointId = campaignRegistry.scheduleCheckpoint(campaignId, input);
+        uint256 checkpointId = campaignRegistry.scheduleCheckpoint(
+            campaignId,
+            input
+        );
 
         uint256 blockBeforeVoting = block.number;
 
         // Update to Voting status - this should capture snapshot block
         vm.prank(admin);
-        campaignRegistry.updateCheckpointStatus(campaignId, checkpointId, GiveTypes.CheckpointStatus.Voting);
+        campaignRegistry.updateCheckpointStatus(
+            campaignId,
+            checkpointId,
+            GiveTypes.CheckpointStatus.Voting
+        );
 
         // The snapshot block should be set (we can't directly read it due to mapping in struct,
         // but we can verify the voting works as expected)
@@ -189,8 +241,12 @@ contract VotingManipulationTest is BaseProtocolTest {
         vm.prank(admin);
         campaignRegistry.finalizeCheckpoint(campaignId, checkpointId);
 
-        (,,,, GiveTypes.CheckpointStatus status,) = campaignRegistry.getCheckpoint(campaignId, checkpointId);
-        assertEq(uint256(status), uint256(GiveTypes.CheckpointStatus.Succeeded));
+        (, , , , GiveTypes.CheckpointStatus status, ) = campaignRegistry
+            .getCheckpoint(campaignId, checkpointId);
+        assertEq(
+            uint256(status),
+            uint256(GiveTypes.CheckpointStatus.Succeeded)
+        );
     }
 
     /// @notice Test multiple attackers cannot coordinate flash loan attack
@@ -201,23 +257,35 @@ contract VotingManipulationTest is BaseProtocolTest {
 
         // Legitimate supporter stakes and waits
         vm.prank(admin);
-        campaignRegistry.recordStakeDeposit(campaignId, legitSupporter, 1_000 ether);
+        campaignRegistry.recordStakeDeposit(
+            campaignId,
+            legitSupporter,
+            1_000 ether
+        );
 
         vm.warp(block.timestamp + 1 hours + 1);
 
         // Schedule checkpoint
-        CampaignRegistry.CheckpointInput memory input = CampaignRegistry.CheckpointInput({
-            windowStart: uint64(block.timestamp),
-            windowEnd: uint64(block.timestamp + 1 days),
-            executionDeadline: uint64(block.timestamp + 2 days),
-            quorumBps: 5_000
-        });
+        CampaignRegistry.CheckpointInput memory input = CampaignRegistry
+            .CheckpointInput({
+                windowStart: uint64(block.timestamp),
+                windowEnd: uint64(block.timestamp + 1 days),
+                executionDeadline: uint64(block.timestamp + 2 days),
+                quorumBps: 5_000
+            });
 
         vm.prank(admin);
-        uint256 checkpointId = campaignRegistry.scheduleCheckpoint(campaignId, input);
+        uint256 checkpointId = campaignRegistry.scheduleCheckpoint(
+            campaignId,
+            input
+        );
 
         vm.prank(admin);
-        campaignRegistry.updateCheckpointStatus(campaignId, checkpointId, GiveTypes.CheckpointStatus.Voting);
+        campaignRegistry.updateCheckpointStatus(
+            campaignId,
+            checkpointId,
+            GiveTypes.CheckpointStatus.Voting
+        );
 
         // Multiple attackers try to stake and vote immediately (coordinated attack)
         vm.startPrank(admin);
@@ -228,15 +296,30 @@ contract VotingManipulationTest is BaseProtocolTest {
 
         // All attackers fail to vote
         vm.prank(attacker);
-        vm.expectRevert(abi.encodeWithSelector(CampaignRegistry.NoVotingPower.selector, attacker));
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                CampaignRegistry.NoVotingPower.selector,
+                attacker
+            )
+        );
         campaignRegistry.voteOnCheckpoint(campaignId, checkpointId, false);
 
         vm.prank(attacker2);
-        vm.expectRevert(abi.encodeWithSelector(CampaignRegistry.NoVotingPower.selector, attacker2));
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                CampaignRegistry.NoVotingPower.selector,
+                attacker2
+            )
+        );
         campaignRegistry.voteOnCheckpoint(campaignId, checkpointId, false);
 
         vm.prank(attacker3);
-        vm.expectRevert(abi.encodeWithSelector(CampaignRegistry.NoVotingPower.selector, attacker3));
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                CampaignRegistry.NoVotingPower.selector,
+                attacker3
+            )
+        );
         campaignRegistry.voteOnCheckpoint(campaignId, checkpointId, false);
 
         // ✅ All attacks FAILED
@@ -249,8 +332,12 @@ contract VotingManipulationTest is BaseProtocolTest {
         vm.prank(admin);
         campaignRegistry.finalizeCheckpoint(campaignId, checkpointId);
 
-        (,,,, GiveTypes.CheckpointStatus status,) = campaignRegistry.getCheckpoint(campaignId, checkpointId);
-        assertEq(uint256(status), uint256(GiveTypes.CheckpointStatus.Succeeded));
+        (, , , , GiveTypes.CheckpointStatus status, ) = campaignRegistry
+            .getCheckpoint(campaignId, checkpointId);
+        assertEq(
+            uint256(status),
+            uint256(GiveTypes.CheckpointStatus.Succeeded)
+        );
     }
 
     /// @notice Test that stakeTimestamp is immutable after initial deposit
@@ -272,18 +359,26 @@ contract VotingManipulationTest is BaseProtocolTest {
         // Schedule checkpoint
         vm.warp(block.timestamp + 35 minutes); // Total: 65 minutes from initial stake
 
-        CampaignRegistry.CheckpointInput memory input = CampaignRegistry.CheckpointInput({
-            windowStart: uint64(block.timestamp),
-            windowEnd: uint64(block.timestamp + 1 days),
-            executionDeadline: uint64(block.timestamp + 2 days),
-            quorumBps: 5_000
-        });
+        CampaignRegistry.CheckpointInput memory input = CampaignRegistry
+            .CheckpointInput({
+                windowStart: uint64(block.timestamp),
+                windowEnd: uint64(block.timestamp + 1 days),
+                executionDeadline: uint64(block.timestamp + 2 days),
+                quorumBps: 5_000
+            });
 
         vm.prank(admin);
-        uint256 checkpointId = campaignRegistry.scheduleCheckpoint(campaignId, input);
+        uint256 checkpointId = campaignRegistry.scheduleCheckpoint(
+            campaignId,
+            input
+        );
 
         vm.prank(admin);
-        campaignRegistry.updateCheckpointStatus(campaignId, checkpointId, GiveTypes.CheckpointStatus.Voting);
+        campaignRegistry.updateCheckpointStatus(
+            campaignId,
+            checkpointId,
+            GiveTypes.CheckpointStatus.Voting
+        );
 
         // Attacker should be able to vote (initial stake was >1 hour ago)
         vm.prank(attacker);

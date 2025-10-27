@@ -59,33 +59,19 @@ export default function CampaignCard({ campaignId, index = 0 }: CampaignCardProp
     fetchMetadata();
   }, [campaign, campaignId]);
 
+  // Don't render anything while loading
   if (!campaign) {
-    // Loading skeleton
-    return (
-      <motion.div 
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: index * 0.1 }}
-        className="bg-white rounded-xl shadow-sm border overflow-hidden animate-pulse"
-      >
-        <div className="h-48 bg-gray-200" />
-        <div className="p-6">
-          <div className="h-4 bg-gray-200 rounded mb-2" />
-          <div className="h-3 bg-gray-200 rounded mb-4" />
-          <div className="h-2 bg-gray-200 rounded mb-4" />
-          <div className="h-8 bg-gray-200 rounded" />
-        </div>
-      </motion.div>
-    );
+    return null;
   }
 
   // Type the campaign data properly
   const campaignData = campaign as any; // TODO: Add proper type definition
 
-  // Hide cancelled campaigns (status 6)
+  // PUBLIC VIEW: Only show Active campaigns (status 3)
   // Status enum: 0=Unknown, 1=Submitted, 2=Approved, 3=Active, 4=Paused, 5=Completed, 6=Cancelled
-  if (campaignData.status === 6) {
-    return null; // Don't render cancelled campaigns
+  // Admin can see all via CampaignAdminControls component
+  if (campaignData.status !== 3) {
+    return null; // Only show Active campaigns in public view
   }
 
   // Calculate progress
@@ -120,7 +106,8 @@ export default function CampaignCard({ campaignId, index = 0 }: CampaignCardProp
     navigate(`/campaigns/${campaignId}`);
   };
 
-  const isActive = campaignData?.status === 2;
+  // Status: 0=Unknown, 1=Submitted, 2=Approved, 3=Active, 4=Paused, 5=Completed, 6=Cancelled
+  const isActive = campaignData?.status === 3;
 
   return (
     <motion.div 

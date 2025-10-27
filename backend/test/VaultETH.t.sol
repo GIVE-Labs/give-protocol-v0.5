@@ -44,7 +44,12 @@ contract VaultETHTest is Test {
         router = _deployPayoutRouter(acl);
 
         weth = new MockWETH();
-        vault = new GiveVault4626(IERC20(address(weth)), "GIVE WETH", "gvWETH", admin);
+        vault = new GiveVault4626(
+            IERC20(address(weth)),
+            "GIVE WETH",
+            "gvWETH",
+            admin
+        );
         adapter = new MockAdapter(IERC20(address(weth)), address(vault));
 
         vm.startPrank(admin);
@@ -65,7 +70,11 @@ contract VaultETHTest is Test {
         vm.prank(admin);
         router.setAuthorizedCaller(address(vault), true);
         vm.prank(admin);
-        campaignRegistry.setCampaignVault(campaignId, address(vault), keccak256("lock"));
+        campaignRegistry.setCampaignVault(
+            campaignId,
+            address(vault),
+            keccak256("lock")
+        );
 
         vm.prank(manager);
         vault.setDonationRouter(address(router));
@@ -86,7 +95,7 @@ contract VaultETHTest is Test {
         assertEq(shares, vault.previewDeposit(amount));
         assertEq(vault.totalAssets(), amount);
 
-        (uint256 cashBuffer,,,,) = vault.getConfiguration();
+        (uint256 cashBuffer, , , , ) = vault.getConfiguration();
         uint256 buffer = (amount * cashBuffer) / 10_000;
         assertEq(weth.balanceOf(address(vault)), buffer);
         assertEq(adapter.investedAmount(), amount - buffer);
@@ -116,7 +125,7 @@ contract VaultETHTest is Test {
         adapter.setPendingProfit(2 ether);
 
         vm.prank(manager);
-        (uint256 profit,) = vault.harvest();
+        (uint256 profit, ) = vault.harvest();
         assertEq(profit, 2 ether);
 
         uint256 protocolFee = (profit * router.PROTOCOL_FEE_BPS()) / 10_000;
@@ -124,7 +133,10 @@ contract VaultETHTest is Test {
 
         assertEq(weth.balanceOf(protocolTreasury), protocolFee);
         assertEq(weth.balanceOf(campaignRecipient), (netYield * 50) / 100);
-        assertEq(weth.balanceOf(beneficiary), netYield - ((netYield * 50) / 100));
+        assertEq(
+            weth.balanceOf(beneficiary),
+            netYield - ((netYield * 50) / 100)
+        );
     }
 
     function _seedStrategyAndCampaign(address grantor) internal {
@@ -142,8 +154,9 @@ contract VaultETHTest is Test {
             })
         );
 
+        vm.deal(grantor, 1 ether);
         vm.prank(grantor);
-        campaignRegistry.submitCampaign(
+        campaignRegistry.submitCampaign{value: 0.005 ether}(
             CampaignRegistry.CampaignInput({
                 id: campaignId,
                 payoutRecipient: campaignRecipient,
@@ -163,31 +176,53 @@ contract VaultETHTest is Test {
 
     function _deployACL() internal returns (ACLManager) {
         ACLManager impl = new ACLManager();
-        ERC1967Proxy proxy = new ERC1967Proxy(address(impl), abi.encodeCall(ACLManager.initialize, (admin, admin)));
+        ERC1967Proxy proxy = new ERC1967Proxy(
+            address(impl),
+            abi.encodeCall(ACLManager.initialize, (admin, admin))
+        );
         return ACLManager(address(proxy));
     }
 
-    function _deployStrategyRegistry(ACLManager acl) internal returns (StrategyRegistry) {
+    function _deployStrategyRegistry(
+        ACLManager acl
+    ) internal returns (StrategyRegistry) {
         StrategyRegistry impl = new StrategyRegistry();
-        ERC1967Proxy proxy =
-            new ERC1967Proxy(address(impl), abi.encodeCall(StrategyRegistry.initialize, (address(acl))));
+        ERC1967Proxy proxy = new ERC1967Proxy(
+            address(impl),
+            abi.encodeCall(StrategyRegistry.initialize, (address(acl)))
+        );
         return StrategyRegistry(address(proxy));
     }
 
-    function _deployCampaignRegistry(ACLManager acl) internal returns (CampaignRegistry) {
+    function _deployCampaignRegistry(
+        ACLManager acl
+    ) internal returns (CampaignRegistry) {
         CampaignRegistry impl = new CampaignRegistry();
         ERC1967Proxy proxy = new ERC1967Proxy(
-            address(impl), abi.encodeCall(CampaignRegistry.initialize, (address(acl), address(strategyRegistry)))
+            address(impl),
+            abi.encodeCall(
+                CampaignRegistry.initialize,
+                (address(acl), address(strategyRegistry))
+            )
         );
         return CampaignRegistry(address(proxy));
     }
 
-    function _deployPayoutRouter(ACLManager acl) internal returns (PayoutRouter) {
+    function _deployPayoutRouter(
+        ACLManager acl
+    ) internal returns (PayoutRouter) {
         PayoutRouter impl = new PayoutRouter();
         ERC1967Proxy proxy = new ERC1967Proxy(
             address(impl),
             abi.encodeCall(
-                PayoutRouter.initialize, (address(acl), address(campaignRegistry), admin, protocolTreasury, 250)
+                PayoutRouter.initialize,
+                (
+                    address(acl),
+                    address(campaignRegistry),
+                    admin,
+                    protocolTreasury,
+                    250
+                )
             )
         );
         return PayoutRouter(payable(address(proxy)));
@@ -211,7 +246,7 @@ contract MockWETH is ERC20("Wrapped Ether", "WETH") {
 
     function withdraw(uint256 amount) external {
         _burn(msg.sender, amount);
-        (bool ok,) = payable(msg.sender).call{value: amount}("");
+        (bool ok, ) = payable(msg.sender).call{value: amount}("");
         require(ok, "ETH transfer failed");
     }
 }
@@ -237,7 +272,9 @@ contract MockAdapter is IYieldAdapter {
         emit Invested(assets);
     }
 
-    function divest(uint256 assets) external override returns (uint256 returned) {
+    function divest(
+        uint256 assets
+    ) external override returns (uint256 returned) {
         require(msg.sender == vault, "only vault");
         uint256 bal = asset.balanceOf(address(this));
         returned = assets > bal ? bal : assets;
@@ -248,12 +285,18 @@ contract MockAdapter is IYieldAdapter {
         emit Divested(assets, returned);
     }
 
-    function harvest() external override returns (uint256 profit, uint256 loss) {
+    function harvest()
+        external
+        override
+        returns (uint256 profit, uint256 loss)
+    {
         require(msg.sender == vault, "only vault");
         uint256 bal = asset.balanceOf(address(this));
         uint256 principal = invested;
         uint256 availableProfit = bal > principal ? bal - principal : 0;
-        profit = availableProfit > pendingProfit ? pendingProfit : availableProfit;
+        profit = availableProfit > pendingProfit
+            ? pendingProfit
+            : availableProfit;
         if (profit > 0) {
             asset.transfer(vault, profit);
             pendingProfit -= profit;

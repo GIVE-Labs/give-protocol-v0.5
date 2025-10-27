@@ -143,8 +143,8 @@ library GiveTypes {
         address[] memberList;
         mapping(address => bool) isMember;
         mapping(address => uint256) memberIndex; // index + 1 for swap-and-pop
-            // NOTE: Structs with mappings cannot have storage gaps due to Solidity restrictions.
-            // Future fields must be appended carefully, maintaining backward compatibility.
+        // NOTE: Structs with mappings cannot have storage gaps due to Solidity restrictions.
+        // Future fields must be appended carefully, maintaining backward compatibility.
     }
 
     struct UserPreference {
@@ -285,6 +285,7 @@ library GiveTypes {
         uint256 minStake;
         uint256 totalStaked;
         uint256 lockedStake;
+        uint256 initialDeposit;
         uint64 fundraisingStart;
         uint64 fundraisingEnd;
         uint64 createdAt;
@@ -296,8 +297,8 @@ library GiveTypes {
         uint64 checkpointVotingPeriod;
         bool exists;
         bool payoutsHalted;
-        // Storage gap: Reserve slots for future upgrades (50 slots = ~1600 bytes)
-        uint256[50] __gap;
+        // Storage gap: Reserve slots for future upgrades (49 slots remaining after initialDeposit)
+        uint256[49] __gap;
     }
 
     struct SupporterStake {

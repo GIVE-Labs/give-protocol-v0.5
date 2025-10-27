@@ -81,7 +81,12 @@ contract StrategyManagerAdvancedTest is Test {
         vault = new GiveVault4626(IERC20(address(token)), "GIVE", "gv", admin);
         adapter = new MockAdapter(IERC20(address(token)), address(vault));
 
-        manager = new StrategyManager(address(vault), admin, address(strategyRegistry), address(campaignRegistry));
+        manager = new StrategyManager(
+            address(vault),
+            admin,
+            address(strategyRegistry),
+            address(campaignRegistry)
+        );
 
         vm.startPrank(admin);
         // Create strategy manager roles if they don't exist
@@ -142,8 +147,9 @@ contract StrategyManagerAdvancedTest is Test {
             })
         );
 
+        vm.deal(admin, 1 ether);
         vm.prank(admin);
-        campaignRegistry.submitCampaign(
+        campaignRegistry.submitCampaign{value: 0.005 ether}(
             CampaignRegistry.CampaignInput({
                 id: campaignId,
                 payoutRecipient: campaignRecipient,
@@ -160,26 +166,39 @@ contract StrategyManagerAdvancedTest is Test {
         vm.prank(admin);
         campaignRegistry.approveCampaign(campaignId, admin);
         vm.prank(admin);
-        campaignRegistry.setCampaignVault(campaignId, address(vault), keccak256("lock"));
+        campaignRegistry.setCampaignVault(
+            campaignId,
+            address(vault),
+            keccak256("lock")
+        );
     }
 
     function _deployACL() internal returns (ACLManager) {
         ACLManager impl = new ACLManager();
-        ERC1967Proxy proxy = new ERC1967Proxy(address(impl), abi.encodeCall(ACLManager.initialize, (admin, admin)));
+        ERC1967Proxy proxy = new ERC1967Proxy(
+            address(impl),
+            abi.encodeCall(ACLManager.initialize, (admin, admin))
+        );
         return ACLManager(address(proxy));
     }
 
     function _deployStrategyRegistry() internal returns (StrategyRegistry) {
         StrategyRegistry impl = new StrategyRegistry();
-        ERC1967Proxy proxy =
-            new ERC1967Proxy(address(impl), abi.encodeCall(StrategyRegistry.initialize, (address(acl))));
+        ERC1967Proxy proxy = new ERC1967Proxy(
+            address(impl),
+            abi.encodeCall(StrategyRegistry.initialize, (address(acl)))
+        );
         return StrategyRegistry(address(proxy));
     }
 
     function _deployCampaignRegistry() internal returns (CampaignRegistry) {
         CampaignRegistry impl = new CampaignRegistry();
         ERC1967Proxy proxy = new ERC1967Proxy(
-            address(impl), abi.encodeCall(CampaignRegistry.initialize, (address(acl), address(strategyRegistry)))
+            address(impl),
+            abi.encodeCall(
+                CampaignRegistry.initialize,
+                (address(acl), address(strategyRegistry))
+            )
         );
         return CampaignRegistry(address(proxy));
     }
@@ -189,7 +208,14 @@ contract StrategyManagerAdvancedTest is Test {
         ERC1967Proxy proxy = new ERC1967Proxy(
             address(impl),
             abi.encodeCall(
-                PayoutRouter.initialize, (address(acl), address(campaignRegistry), admin, protocolTreasury, 0)
+                PayoutRouter.initialize,
+                (
+                    address(acl),
+                    address(campaignRegistry),
+                    admin,
+                    protocolTreasury,
+                    0
+                )
             )
         );
         return PayoutRouter(payable(address(proxy)));

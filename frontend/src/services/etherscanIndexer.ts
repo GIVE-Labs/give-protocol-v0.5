@@ -28,11 +28,11 @@ const CAMPAIGN_REGISTRY_ADDRESS = '0x51929ec1C089463fBeF6148B86F34117D9CCF816';
 const DEPLOYMENT_BLOCK = 32800000; // Adjusted to capture all campaigns
 
 /**
- * CampaignSubmitted event signature (NEW version with string metadataCID)
- * event CampaignSubmitted(bytes32 indexed id, address indexed proposer, bytes32 metadataHash, string metadataCID)
- * Topic0 hash: keccak256("CampaignSubmitted(bytes32,address,bytes32,string)")
+ * CampaignSubmitted event signature (with depositAmount)
+ * event CampaignSubmitted(bytes32 indexed id, address indexed proposer, bytes32 metadataHash, string metadataCID, uint256 depositAmount)
+ * Topic0 hash: keccak256("CampaignSubmitted(bytes32,address,bytes32,string,uint256)")
  */
-const CAMPAIGN_SUBMITTED_TOPIC = '0x43fde2ce62068a5dc2d63487bd765a1f9587a18a0cdaf98403375d1a1ddd931c';
+const CAMPAIGN_SUBMITTED_TOPIC = '0xec35897c23ef8a8c61114241544e78c2124dfda3a294e6c94088a2b69b3267b4';
 
 // ============================================================================
 // Type Definitions
@@ -72,15 +72,18 @@ interface CampaignEvent {
 function decodeHexString(hex: string): string {
   const hexWithoutPrefix = hex.startsWith('0x') ? hex.slice(2) : hex;
   const bytes = hexWithoutPrefix.match(/.{1,2}/g) || [];
-  return bytes.map(byte => String.fromCharCode(parseInt(byte, 16))).join('');
+  const decoded = bytes.map(byte => String.fromCharCode(parseInt(byte, 16))).join('');
+  
+  // Clean up the string: remove null bytes, semicolons, and trim
+  return decoded.replace(/[\x00;]/g, '').trim();
 }
 
 /**
  * Parse CampaignSubmitted event log
  * 
- * Event: CampaignSubmitted(bytes32 indexed id, address indexed proposer, bytes32 metadataHash, string metadataCID)
+ * Event: CampaignSubmitted(bytes32 indexed id, address indexed proposer, bytes32 metadataHash, string metadataCID, uint256 depositAmount)
  * Topics: [event signature, campaignId (indexed), proposer (indexed)]
- * Data: [metadataHash (32 bytes), string offset (32 bytes), string length (32 bytes), string data (variable)]
+ * Data: [metadataHash (32 bytes), string offset (32 bytes), string length (32 bytes), string data (variable), depositAmount (32 bytes)]
  */
 function parseCampaignSubmittedLog(log: EtherscanLog): CampaignEvent | null {
   try {
@@ -92,11 +95,12 @@ function parseCampaignSubmittedLog(log: EtherscanLog): CampaignEvent | null {
     const campaignId = log.topics[1];
     const proposer = '0x' + log.topics[2].slice(26); // Remove padding, keep last 20 bytes
 
-    // Data layout for dynamic string:
+    // Data layout for dynamic string with trailing uint256:
     // [0-64]: metadataHash (32 bytes)
     // [64-128]: offset to string (32 bytes) - always 0x40 (64 in decimal)
     // [128-192]: string length (32 bytes)
-    // [192+]: string data
+    // [192+]: string data (variable)
+    // [end-64 to end]: depositAmount (32 bytes) - but we don't need to parse it for indexing
     const data = log.data.slice(2); // Remove 0x prefix
     const metadataHashHex = '0x' + data.slice(0, 64);
     
@@ -183,8 +187,6 @@ export async function fetchCampaignEvents(
   
   let currentStart = startBlock;
   
-  console.log(`Indexing campaigns from block ${startBlock} to ${latestBlock}...`);
-  
   while (currentStart <= latestBlock) {
     const currentEnd = Math.min(currentStart + chunkSize - 1, latestBlock);
     
@@ -210,16 +212,9 @@ export async function fetchCampaignEvents(
           .filter((e: CampaignEvent | null): e is CampaignEvent => e !== null);
         
         allEvents.push(...events);
-        if (events.length > 0) {
-          console.log(`✓ Blocks ${currentStart}-${currentEnd}: ${events.length} campaigns`);
-        }
-      } else if (data.status === '0' && data.message === 'No records found') {
-        // Silent - expected for many chunks
       } else if (data.message?.includes('deprecated V1 endpoint')) {
         console.error('❌ API v1 is deprecated! Please update to v2.');
         throw new Error('Etherscan API v1 deprecated - update required');
-      } else {
-        console.warn('Etherscan API warning:', data.message || data.result);
       }
 
       // Rate limiting: 5 calls/sec (free tier) = 200ms between calls
@@ -231,7 +226,6 @@ export async function fetchCampaignEvents(
     currentStart = currentEnd + 1;
   }
 
-  console.log(`✓ Indexing complete: ${allEvents.length} total campaigns`);
   return allEvents;
 }
 
@@ -254,7 +248,6 @@ export async function buildCampaignCIDMapping(): Promise<Record<string, string>>
     }
   }
 
-  console.log(`Built mapping for ${Object.keys(mapping).length} campaigns`);
   return mapping;
 }
 
@@ -268,8 +261,6 @@ export async function buildCampaignCIDMapping(): Promise<Record<string, string>>
  */
 export async function getCampaignCID(campaignId: string): Promise<string | null> {
   try {
-    console.log(`🔍 Querying Etherscan API v2 for campaign: ${campaignId.slice(0, 10)}...`);
-    
     const url = new URL(ETHERSCAN_V2_API_URL);
     url.searchParams.append('chainid', BASE_SEPOLIA_CHAIN_ID);
     url.searchParams.append('module', 'logs');
@@ -281,30 +272,16 @@ export async function getCampaignCID(campaignId: string): Promise<string | null>
     url.searchParams.append('toBlock', 'latest');
     url.searchParams.append('apikey', ETHERSCAN_API_KEY);
 
-    console.log('📡 Etherscan request:', url.toString().replace(ETHERSCAN_API_KEY, 'API_KEY'));
-
     const response = await fetch(url.toString());
     const data = await response.json();
-
-    console.log('📥 Etherscan response:', data);
-    console.log('📊 Response details:', {
-      status: data.status,
-      message: data.message,
-      resultLength: Array.isArray(data.result) ? data.result.length : 'not array',
-      firstResult: Array.isArray(data.result) && data.result.length > 0 ? data.result[0] : null
-    });
 
     if (data.status === '1' && Array.isArray(data.result) && data.result.length > 0) {
       const event = parseCampaignSubmittedLog(data.result[0]);
       if (event?.metadataCID) {
-        console.log(`✅ Found CID from Etherscan: ${event.metadataCID}`);
         return event.metadataCID;
-      } else {
-        console.warn('⚠️ Event parsed but no CID:', event);
       }
     }
 
-    console.warn('⚠️ No CID found in Etherscan response for campaign:', campaignId.slice(0, 10));
     return null;
   } catch (error) {
     console.error('❌ Error fetching campaign CID from Etherscan:', error);

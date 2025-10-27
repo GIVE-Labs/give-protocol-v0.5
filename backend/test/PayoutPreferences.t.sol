@@ -64,7 +64,10 @@ contract PayoutPreferencesTest is Test {
         vm.prank(makeAddr("user"));
         router.setVaultPreference(vault, beneficiary, 75);
 
-        GiveTypes.CampaignPreference memory pref = router.getVaultPreference(makeAddr("user"), vault);
+        GiveTypes.CampaignPreference memory pref = router.getVaultPreference(
+            makeAddr("user"),
+            vault
+        );
         assertEq(pref.beneficiary, beneficiary);
         assertEq(pref.allocationPercentage, 75);
         assertEq(pref.campaignId, campaignId);
@@ -84,12 +87,16 @@ contract PayoutPreferencesTest is Test {
         vm.prank(vault);
         router.distributeToAllUsers(address(token), 1_000 ether);
 
-        uint256 protocolFee = (1_000 ether * router.PROTOCOL_FEE_BPS()) / 10_000;
+        uint256 protocolFee = (1_000 ether * router.PROTOCOL_FEE_BPS()) /
+            10_000;
         uint256 netYield = 1_000 ether - protocolFee;
 
         assertEq(token.balanceOf(protocolTreasury), protocolFee);
         assertEq(token.balanceOf(campaignRecipient), (netYield * 75) / 100);
-        assertEq(token.balanceOf(beneficiary), netYield - ((netYield * 75) / 100));
+        assertEq(
+            token.balanceOf(beneficiary),
+            netYield - ((netYield * 75) / 100)
+        );
     }
 
     function _seedStrategyAndCampaign() internal {
@@ -107,8 +114,9 @@ contract PayoutPreferencesTest is Test {
             })
         );
 
+        vm.deal(admin, 1 ether);
         vm.prank(admin);
-        campaignRegistry.submitCampaign(
+        campaignRegistry.submitCampaign{value: 0.005 ether}(
             CampaignRegistry.CampaignInput({
                 id: campaignId,
                 payoutRecipient: campaignRecipient,
@@ -126,26 +134,39 @@ contract PayoutPreferencesTest is Test {
         campaignRegistry.approveCampaign(campaignId, admin);
 
         vm.prank(admin);
-        campaignRegistry.setCampaignVault(campaignId, vault, keccak256("lock.default"));
+        campaignRegistry.setCampaignVault(
+            campaignId,
+            vault,
+            keccak256("lock.default")
+        );
     }
 
     function _deployACL() internal returns (ACLManager) {
         ACLManager impl = new ACLManager();
-        ERC1967Proxy proxy = new ERC1967Proxy(address(impl), abi.encodeCall(ACLManager.initialize, (admin, admin)));
+        ERC1967Proxy proxy = new ERC1967Proxy(
+            address(impl),
+            abi.encodeCall(ACLManager.initialize, (admin, admin))
+        );
         return ACLManager(address(proxy));
     }
 
     function _deployStrategyRegistry() internal returns (StrategyRegistry) {
         StrategyRegistry impl = new StrategyRegistry();
-        ERC1967Proxy proxy =
-            new ERC1967Proxy(address(impl), abi.encodeCall(StrategyRegistry.initialize, (address(acl))));
+        ERC1967Proxy proxy = new ERC1967Proxy(
+            address(impl),
+            abi.encodeCall(StrategyRegistry.initialize, (address(acl)))
+        );
         return StrategyRegistry(address(proxy));
     }
 
     function _deployCampaignRegistry() internal returns (CampaignRegistry) {
         CampaignRegistry impl = new CampaignRegistry();
         ERC1967Proxy proxy = new ERC1967Proxy(
-            address(impl), abi.encodeCall(CampaignRegistry.initialize, (address(acl), address(strategyRegistry)))
+            address(impl),
+            abi.encodeCall(
+                CampaignRegistry.initialize,
+                (address(acl), address(strategyRegistry))
+            )
         );
         return CampaignRegistry(address(proxy));
     }
@@ -155,7 +176,14 @@ contract PayoutPreferencesTest is Test {
         ERC1967Proxy proxy = new ERC1967Proxy(
             address(impl),
             abi.encodeCall(
-                PayoutRouter.initialize, (address(acl), address(campaignRegistry), admin, protocolTreasury, 250)
+                PayoutRouter.initialize,
+                (
+                    address(acl),
+                    address(campaignRegistry),
+                    admin,
+                    protocolTreasury,
+                    250
+                )
             )
         );
         return PayoutRouter(payable(address(proxy)));
