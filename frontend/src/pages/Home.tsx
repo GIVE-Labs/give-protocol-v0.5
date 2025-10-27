@@ -3,8 +3,11 @@ import { DotLottieReact } from '@lottiefiles/dotlottie-react'
 import { ArrowRight, Heart, Sparkles } from 'lucide-react'
 import { motion } from 'framer-motion'
 import FeaturedCampaign from '../components/campaign/FeaturedCampaign'
+import { useProtocolMetrics } from '../hooks/useProtocolMetrics'
 
 export default function Home() {
+  const { tvlUSD, activeCampaignsCount, totalSupporters, isLoading } = useProtocolMetrics()
+  
   const containerVariants = {
     hidden: { opacity: 0 },
     visible: {
@@ -188,15 +191,15 @@ export default function Home() {
             {/* Stats */}
             <div className="grid grid-cols-3 gap-8 pt-10 border-t border-emerald-200/50">
               {[
-                { value: "0.1 WETH", label: "TVL on Base Sepolia", color: "text-emerald-600" },
-                { value: "Testnet", label: "Public Testing", color: "text-cyan-600" },
-                { value: "100%", label: "Principal Safe", color: "text-teal-600" }
+                { value: tvlUSD, label: "Total Value Locked", color: "text-emerald-600" },
+                { value: activeCampaignsCount.toString(), label: "Active Campaigns", color: "text-cyan-600" },
+                { value: totalSupporters.toString(), label: "Total Supporters", color: "text-teal-600" }
               ].map((stat) => (
                 <div 
                   key={stat.label}
                   className="text-center group"
                 >
-                  <div className={`text-3xl lg:text-4xl font-bold ${stat.color} mb-2`}>
+                  <div className={`text-3xl lg:text-4xl font-bold ${stat.color} mb-2 ${isLoading ? 'animate-pulse' : ''}`}>
                     {stat.value}
                   </div>
                   <div className="text-sm font-medium text-gray-600 group-hover:text-gray-800 transition-colors">
