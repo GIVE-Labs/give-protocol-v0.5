@@ -104,6 +104,7 @@ export default function CreateCampaign() {
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
   const [showFailureModal, setShowFailureModal] = useState(false);
+  const [submissionStep, setSubmissionStep] = useState<'uploading' | 'approving' | 'confirming' | 'done'>('uploading');
 
   // Handle transaction confirmation
   useEffect(() => {
@@ -332,9 +333,14 @@ export default function CreateCampaign() {
     
     try {
       // Step 1: Upload to IPFS (images + metadata)
-      console.log('Creating campaign metadata...');
+      setSubmissionStep('uploading');
+      console.log('📤 Step 1/3: Uploading campaign data to IPFS...');
       const metadataCid = await uploadToIPFS();
-      console.log('Metadata CID from IPFS:', metadataCid);
+      console.log('✅ IPFS CID:', metadataCid);
+      
+      if (!metadataCid || metadataCid.trim() === '') {
+        throw new Error('IPFS upload returned empty CID');
+      }
       
       // Step 2: Generate unique campaign ID (hash of name + timestamp + creator address)
       // This prevents collisions from campaigns with the same name
@@ -347,8 +353,9 @@ export default function CreateCampaign() {
       // The full CID is emitted in the CampaignSubmitted event logs
       const metadataHashBytes = cidToBytes32(metadataCid);
       
-      console.log('Full IPFS CID:', metadataCid);
-      console.log('Hashed for contract (bytes32):', metadataHashBytes);
+      console.log('📋 Campaign ID:', campaignId);
+      console.log('📋 Full IPFS CID:', metadataCid);
+      console.log('📋 Hashed for contract (bytes32):', metadataHashBytes);
 
       // Step 4: Prepare amounts and timestamps
       const targetStake = parseEther(formData.targetAmount || '10');
@@ -372,29 +379,44 @@ export default function CreateCampaign() {
         fundraisingEnd,
       };
 
-      console.log('=== Campaign Submission Details ===');
-      console.log('Campaign ID:', campaignId);
-      console.log('IPFS CID:', metadataCid);
+      console.log('=== Campaign Submission Input ===');
+      console.log(JSON.stringify({
+        ...input,
+        targetStake: targetStake.toString(),
+        minStake: minStake.toString(),
+        fundraisingStart: fundraisingStart.toString(),
+        fundraisingEnd: fundraisingEnd.toString(),
+      }, null, 2));
       
       // Store CID mapping in localStorage for retrieval (bytes32 can't hold full CID)
       saveCampaignCID(campaignId, metadataCid);
+      console.log('💾 Saved CID mapping to localStorage');
       
+      // Step 2: Request wallet approval
+      setSubmissionStep('approving');
+      console.log('🔐 Step 2/3: Requesting wallet approval for 0.005 ETH deposit...');
       await submitCampaign(input);
       
+      // Step 3: Wait for confirmation (handled by useWaitForTransactionReceipt)
+      setSubmissionStep('confirming');
+      console.log('⏳ Step 3/3: Waiting for blockchain confirmation...');
+      
     } catch (error) {
-      console.error('Error creating campaign:', error);
+      console.error('❌ Error creating campaign:', error);
       
       let errorMessage = 'Failed to create campaign';
       const fullError = error instanceof Error ? error.message : '';
       
       if (fullError.includes('User rejected') || fullError.includes('User denied')) {
-        errorMessage = 'Transaction was rejected by user';
+        errorMessage = 'You rejected the transaction in your wallet';
       } else if (fullError.includes('insufficient funds')) {
-        errorMessage = 'Insufficient funds for transaction';
+        errorMessage = 'Insufficient funds. You need 0.005 ETH + gas fees';
       } else if (fullError.includes('network')) {
-        errorMessage = 'Network connection error';
+        errorMessage = 'Network connection error. Please check your internet';
       } else if (fullError.includes('IPFS')) {
-        errorMessage = 'Failed to upload campaign data';
+        errorMessage = 'Failed to upload campaign data to IPFS';
+      } else if (fullError.includes('empty CID')) {
+        errorMessage = 'IPFS upload failed - no CID returned';
       }
       
       setSubmitError(errorMessage);
@@ -1072,25 +1094,25 @@ export default function CreateCampaign() {
               )}
             </AnimatePresence>
 
-            {/* Loading Overlay */}
+            {/* Loading Overlay with Step-by-Step Progress */}
             <AnimatePresence>
-              {(isSubmitting || isPending) && (
+              {(isSubmitting || isPending || isConfirming) && (
                 <motion.div
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                   exit={{ opacity: 0 }}
-                  className="fixed inset-0 bg-white/20 backdrop-blur-md flex items-center justify-center z-50 rounded-lg"
+                  className="fixed inset-0 bg-black/40 backdrop-blur-md flex items-center justify-center z-50"
                 >
                   <motion.div
-                    initial={{ scale: 0.8, opacity: 0, y: 20 }}
+                    initial={{ scale: 0.9, opacity: 0, y: 20 }}
                     animate={{ scale: 1, opacity: 1, y: 0 }}
-                    exit={{ scale: 0.8, opacity: 0, y: 20 }}
+                    exit={{ scale: 0.9, opacity: 0, y: 20 }}
                     transition={{ type: "spring", damping: 25, stiffness: 300 }}
-                    className="bg-white/95 backdrop-blur-xl rounded-[2rem] p-8 shadow-lg border border-gray-100/50 max-w-md w-full mx-4"
+                    className="bg-white rounded-3xl p-10 shadow-2xl border border-gray-100 max-w-lg w-full mx-4"
                   >
                     <div className="text-center">
                       {/* Lottie Animation */}
-                      <div className="w-32 h-32 mx-auto mb-6">
+                      <div className="w-40 h-40 mx-auto mb-6">
                         <DotLottieReact
                           src="https://lottie.host/9cacabce-843f-4d62-8100-336adcb35bfa/un9I86wPIp.lottie"
                           loop
@@ -1099,35 +1121,108 @@ export default function CreateCampaign() {
                         />
                       </div>
                       
-                      {/* Loading Text */}
-                      <h3 className="text-xl font-bold text-gray-900 mb-2 font-unbounded">
-                        {isPending ? 'Sign Transaction in Wallet...' : 
-                         isConfirming ? 'Confirming on Blockchain...' : 
-                         'Preparing Submission...'}
-                      </h3>
-                      <p className="text-sm text-gray-600">
-                        {isPending ? 'Please check your wallet and approve the transaction' :
-                         isConfirming ? 'Waiting for block confirmation...' :
-                         'Processing campaign data'}
+                      {/* Main Title */}
+                      <h2 className="text-2xl font-bold text-gray-900 mb-3 font-unbounded">
+                        Creating Your Campaign
+                      </h2>
+                      <p className="text-gray-600 mb-8 font-medium">
+                        Please follow the steps below to complete submission
                       </p>
                       
-                      {/* Progress Dots */}
-                      <div className="flex justify-center mt-6 space-x-1">
-                        {[0, 1, 2].map((dot) => (
-                          <motion.div
-                            key={dot}
-                            className="w-2 h-2 bg-emerald-500 rounded-full"
-                            animate={{
-                              scale: [1, 1.2, 1],
-                              opacity: [0.5, 1, 0.5]
-                            }}
-                            transition={{
-                              duration: 1.5,
-                              repeat: Infinity,
-                              delay: dot * 0.2
-                            }}
-                          />
-                        ))}
+                      {/* Progress Steps */}
+                      <div className="space-y-4 text-left">
+                        {/* Step 1: IPFS Upload */}
+                        <div className={`flex items-start p-4 rounded-xl transition-all ${
+                          submissionStep === 'uploading' 
+                            ? 'bg-blue-50 border-2 border-blue-500' 
+                            : submissionStep === 'approving' || submissionStep === 'confirming'
+                            ? 'bg-green-50 border-2 border-green-500'
+                            : 'bg-gray-50 border-2 border-gray-200'
+                        }`}>
+                          <div className={`w-8 h-8 rounded-full flex items-center justify-center mr-4 flex-shrink-0 ${
+                            submissionStep === 'uploading'
+                              ? 'bg-blue-500'
+                              : submissionStep === 'approving' || submissionStep === 'confirming'
+                              ? 'bg-green-500'
+                              : 'bg-gray-300'
+                          }`}>
+                            {submissionStep === 'uploading' ? (
+                              <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white" />
+                            ) : submissionStep === 'approving' || submissionStep === 'confirming' ? (
+                              <Check className="w-5 h-5 text-white" />
+                            ) : (
+                              <span className="text-white font-bold">1</span>
+                            )}
+                          </div>
+                          <div>
+                            <h3 className="font-bold text-gray-900 font-unbounded">Upload to IPFS</h3>
+                            <p className="text-sm text-gray-600">Storing campaign data permanently on decentralized storage</p>
+                          </div>
+                        </div>
+
+                        {/* Step 2: Wallet Approval */}
+                        <div className={`flex items-start p-4 rounded-xl transition-all ${
+                          submissionStep === 'approving'
+                            ? 'bg-blue-50 border-2 border-blue-500'
+                            : submissionStep === 'confirming'
+                            ? 'bg-green-50 border-2 border-green-500'
+                            : 'bg-gray-50 border-2 border-gray-200'
+                        }`}>
+                          <div className={`w-8 h-8 rounded-full flex items-center justify-center mr-4 flex-shrink-0 ${
+                            submissionStep === 'approving'
+                              ? 'bg-blue-500'
+                              : submissionStep === 'confirming'
+                              ? 'bg-green-500'
+                              : 'bg-gray-300'
+                          }`}>
+                            {submissionStep === 'approving' ? (
+                              <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white" />
+                            ) : submissionStep === 'confirming' ? (
+                              <Check className="w-5 h-5 text-white" />
+                            ) : (
+                              <span className="text-white font-bold">2</span>
+                            )}
+                          </div>
+                          <div>
+                            <h3 className="font-bold text-gray-900 font-unbounded">Approve Transaction</h3>
+                            <p className="text-sm text-gray-600">
+                              {submissionStep === 'approving' 
+                                ? 'Check your wallet to approve 0.005 ETH deposit + gas fees'
+                                : 'Sign the transaction in your wallet when prompted'
+                              }
+                            </p>
+                          </div>
+                        </div>
+
+                        {/* Step 3: Blockchain Confirmation */}
+                        <div className={`flex items-start p-4 rounded-xl transition-all ${
+                          submissionStep === 'confirming'
+                            ? 'bg-blue-50 border-2 border-blue-500'
+                            : 'bg-gray-50 border-2 border-gray-200'
+                        }`}>
+                          <div className={`w-8 h-8 rounded-full flex items-center justify-center mr-4 flex-shrink-0 ${
+                            submissionStep === 'confirming'
+                              ? 'bg-blue-500'
+                              : 'bg-gray-300'
+                          }`}>
+                            {submissionStep === 'confirming' ? (
+                              <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white" />
+                            ) : (
+                              <span className="text-white font-bold">3</span>
+                            )}
+                          </div>
+                          <div>
+                            <h3 className="font-bold text-gray-900 font-unbounded">Blockchain Confirmation</h3>
+                            <p className="text-sm text-gray-600">Waiting for transaction to be confirmed on Base Sepolia</p>
+                          </div>
+                        </div>
+                      </div>
+                      
+                      {/* Info Box */}
+                      <div className="mt-6 p-4 bg-gradient-to-r from-blue-50 to-cyan-50 rounded-xl border border-blue-200">
+                        <p className="text-sm text-blue-800 font-medium">
+                          💡 <strong>Deposit Required:</strong> You'll be sending <span className="font-mono font-bold">0.005 ETH</span> as an anti-spam deposit. This becomes part of your campaign's initial funds.
+                        </p>
                       </div>
                     </div>
                   </motion.div>

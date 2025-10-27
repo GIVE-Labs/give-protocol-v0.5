@@ -15,7 +15,8 @@ import { CONTRACT_ADDRESSES } from '../../config/contracts'
 const CAMPAIGN_REGISTRY_ADDRESS = (CONTRACT_ADDRESSES as any).CAMPAIGN_REGISTRY
 
 // 🎯 FEATURED CAMPAIGN ID - Change this to switch the featured campaign on the home page
-const FEATURED_CAMPAIGN_ID = '0xc747890dcb3918a38b49bb0121ebabc8e7697b365c098bbb3d2f5ca279a247c6'
+// Updated to new campaign submitted with v3 upgrade (includes depositAmount in event)
+const FEATURED_CAMPAIGN_ID = '0x50fb6b175639347dc05cb8398175eb1e1f3a01b4c3cf90b2cada866148678b74'
 
 interface FeaturedCampaignProps {
   campaignId?: string
