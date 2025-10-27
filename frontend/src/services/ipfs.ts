@@ -356,25 +356,53 @@ function isValidCID(cid: string): boolean {
 
 /**
  * Get campaign CID from localStorage, event logs, or try to decode from hex
+ * 
+ * Fallback chain:
+ * 1. Hardcoded mapping (instant lookup for known campaigns)
+ * 2. localStorage cache (1-hour TTL from Etherscan indexing)
+ * 3. Etherscan API v2 query (on-demand fetch for new campaigns)
+ * 4. null (campaign not found)
  */
 export async function hexToCid(_hexString: string, campaignId?: string): Promise<string | null> {
-  // Try hardcoded campaign CID mapping first (production workaround)
-  if (campaignId) {
-    const { getCampaignCID: getHardcodedCID } = await import('../config/campaignCIDs');
-    const hardcodedCid = getHardcodedCID(campaignId);
-    if (hardcodedCid) {
-      return hardcodedCid;
+  if (!campaignId) {
+    console.warn('⚠️ hexToCid called without campaignId');
+    return null;
+  }
+
+  console.log(`🔎 Looking up CID for campaign: ${campaignId.slice(0, 10)}...`);
+
+  // 1. Try hardcoded mapping first (fastest, always works)
+  const { getCampaignCID: getHardcodedCID } = await import('../config/campaignCIDs');
+  const hardcodedCid = getHardcodedCID(campaignId);
+  if (hardcodedCid) {
+    console.log(`✅ Found CID in hardcoded mapping: ${hardcodedCid}`);
+    return hardcodedCid;
+  }
+  console.log('⏭️ Not in hardcoded mapping, checking localStorage...');
+
+  // 2. Try localStorage cache
+  const storedCid = getCampaignCID(campaignId);
+  if (storedCid) {
+    console.log(`✅ Found CID in localStorage cache: ${storedCid}`);
+    return storedCid;
+  }
+  console.log('⏭️ Not in localStorage, querying Etherscan API v2...');
+
+  // 3. Try Etherscan API v2 (automatic indexing, unified multichain API)
+  try {
+    const { getCampaignCID: getEtherscanCID } = await import('./etherscanIndexer');
+    const etherscanCid = await getEtherscanCID(campaignId);
+    if (etherscanCid) {
+      console.log(`✅ Found CID from Etherscan, caching: ${etherscanCid}`);
+      // Cache for next time
+      saveCampaignCID(campaignId, etherscanCid);
+      return etherscanCid;
     }
+  } catch (error) {
+    console.error('❌ Etherscan API v2 fetch failed:', error);
   }
   
-  // Fallback: Try localStorage
-  if (campaignId) {
-    const storedCid = getCampaignCID(campaignId);
-    if (storedCid) {
-      return storedCid;
-    }
-  }
-  
+  console.error('❌ CID not found anywhere for campaign:', campaignId.slice(0, 10));
   return null;
 }
 
